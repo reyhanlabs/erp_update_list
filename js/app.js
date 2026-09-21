@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.5.1 — Fixed issue list block rendering
+   v4.5.2 — Redmine project picker + bordered issue list
    ============================================================ */
 
 /* ============================================================
@@ -843,7 +843,7 @@ async function deletePlan(id){
 }
 
 /* ============================================================
-   RENDER PLANS — with bordered issue block
+   RENDER PLANS
    ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
@@ -893,7 +893,7 @@ function renderPlanCard(d){
     ? `<div class="plan-details-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>`
     : '';
 
-  // NEW: bordered issues block
+  // Bordered issue block
   const issuesSection = totalIssue > 0
     ? `<div class="plan-details-issues">
         <div class="issues-block">
