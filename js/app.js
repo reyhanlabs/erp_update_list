@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.5.0 — Redmine project picker
+   v4.5.1 — Fixed issue list block rendering
    ============================================================ */
 
 /* ============================================================
@@ -843,7 +843,7 @@ async function deletePlan(id){
 }
 
 /* ============================================================
-   RENDER PLANS
+   RENDER PLANS — with bordered issue block
    ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
@@ -893,13 +893,16 @@ function renderPlanCard(d){
     ? `<div class="plan-details-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>`
     : '';
 
+  // NEW: bordered issues block
   const issuesSection = totalIssue > 0
     ? `<div class="plan-details-issues">
-        <div class="plan-issues-label">
-          <span>Issue List</span>
-          <span class="issue-count">${totalIssue}</span>
+        <div class="issues-block">
+          <div class="issues-block-head">
+            <span>Issue List</span>
+            <span class="count-pill">${totalIssue}</span>
+          </div>
+          <div class="plan-issue-list">${issueRows}</div>
         </div>
-        <div class="plan-issue-list">${issueRows}</div>
       </div>`
     : '';
 
@@ -1315,7 +1318,7 @@ async function loadRedmineProjects(){
     console.error('Failed to load projects:', err);
     sel.innerHTML = '<option value="">⚠ Failed to load projects</option>';
     sel.disabled = false;
-    showSyncResult('error', `<b>Could not load projects:</b> ${escapeHtml(err.message)}<br><span style="color:var(--text-secondary);font-size:12px">Make sure <code>api/redmine-projects.js</code> exists and REDMINE_API_KEY is set.</span>`);
+    showSyncResult('error', `<b>Could not load projects:</b> ${escapeHtml(err.message)}`);
   }
 }
 
