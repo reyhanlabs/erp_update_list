@@ -1,5 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
+   v4.2.0 — Fixed copy dropdown toggle
    ============================================================ */
 
 /* ============================================================
@@ -612,10 +613,15 @@ async function copyPlan(id, format){
   closeAllCopyMenus();
 }
 
+/**
+ * Toggle copy dropdown open/close.
+ * - Uses a global flag to prevent document click from closing it immediately.
+ * - No rAF, no delays — open state is set synchronously.
+ */
 function toggleCopyMenu(btn, event){
   if(event){
     event.stopPropagation();
-    event.preventDefault();
+    if(event.preventDefault) event.preventDefault();
   }
 
   const wrapper = btn.closest('.copy-menu-wrap');
@@ -625,22 +631,16 @@ function toggleCopyMenu(btn, event){
   const listItem = btn.closest('.list-item');
   const isOpen = menu.classList.contains('open');
 
+  // Close other menus first
   closeAllCopyMenus();
 
   if(!isOpen){
-    requestAnimationFrame(() => {
-      menu.classList.add('open');
-      btn.classList.add('active');
-      if(listItem) listItem.classList.add('menu-open');
+    menu.classList.add('open');
+    btn.classList.add('active');
+    if(listItem) listItem.classList.add('menu-open');
 
-      setTimeout(() => {
-        const rect = menu.getBoundingClientRect();
-        const viewportH = window.innerHeight;
-        if(rect.bottom > viewportH - 20){
-          menu.scrollIntoView({block: 'nearest', behavior: 'smooth'});
-        }
-      }, 30);
-    });
+    // Mark that a menu was just opened — the document click handler will ignore this tick
+    window.__copyMenuJustOpened = Date.now();
   }
 }
 
@@ -650,28 +650,40 @@ function closeAllCopyMenus(){
   document.querySelectorAll('.list-item.menu-open').forEach(li => li.classList.remove('menu-open'));
 }
 
-// Close menus on scroll (dropdown would be misaligned)
-let _scrollTimeout;
-window.addEventListener('scroll', ()=>{
-  clearTimeout(_scrollTimeout);
-  _scrollTimeout = setTimeout(() => {
-    if(document.querySelector('.copy-menu.open')){
-      closeAllCopyMenus();
-    }
-  }, 100);
-}, { passive: true });
+/* ============================================================
+   GLOBAL EVENT LISTENERS (copy dropdown close behavior)
+   ============================================================ */
 
-// Close menus on window resize
-window.addEventListener('resize', ()=>{
-  if(document.querySelector('.copy-menu.open')){
+// Close on click outside
+document.addEventListener('click', (e) => {
+  // If a menu was just opened in the last 100ms, skip closing (prevents race)
+  if(window.__copyMenuJustOpened && Date.now() - window.__copyMenuJustOpened < 100){
+    return;
+  }
+  // If click is inside a copy menu or its toggle button, don't close
+  if(e.target.closest('.copy-menu-wrap')) return;
+  if(e.target.closest('.copy-menu')) return;
+  closeAllCopyMenus();
+});
+
+// Close on ESC
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){
     closeAllCopyMenus();
   }
 });
 
-// Close on any click outside
-document.addEventListener('click', ()=>{
+// Close on scroll (only if scrolled more than 30px)
+let _scrollY = window.scrollY;
+window.addEventListener('scroll', () => {
+  const dy = Math.abs(window.scrollY - _scrollY);
+  if(dy < 30) return;
+  _scrollY = window.scrollY;
   closeAllCopyMenus();
-});
+}, { passive: true });
+
+// Close on resize
+window.addEventListener('resize', closeAllCopyMenus);
 
 /* ============================================================
    ISSUE EDITOR
@@ -912,12 +924,12 @@ function renderPlans(){
         ${issuesHtml}
         <div class="list-item-actions">
           <div class="copy-menu-wrap">
-            <button class="btn btn-secondary btn-sm" onclick="toggleCopyMenu(this, event)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCopyMenu(this, event)">
               ${ICON.clipboard}Copy for Telegram
               ${ICON.chevronDown}
             </button>
             <div class="copy-menu" onclick="event.stopPropagation()">
-              <button class="copy-menu-item" onclick="copyPlan('${d.id}', 'telegram')">
+              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram')">
                 <span class="mi-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21.5 3.5L2.5 10.5l6.5 2.5L11 20l3.5-4.5 6.5 3z"/>
@@ -928,7 +940,7 @@ function renderPlans(){
                   <span class="mi-desc">Markdown link + emoji headers</span>
                 </span>
               </button>
-              <button class="copy-menu-item" onclick="copyPlan('${d.id}', 'markdown')">
+              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'markdown')">
                 <span class="mi-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -940,7 +952,7 @@ function renderPlans(){
                   <span class="mi-desc">Clickable [#issue](url) format</span>
                 </span>
               </button>
-              <button class="copy-menu-item" onclick="copyPlan('${d.id}', 'numbered')">
+              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'numbered')">
                 <span class="mi-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="8" y1="6" x2="21" y2="6"/>
@@ -956,7 +968,7 @@ function renderPlans(){
                   <span class="mi-desc">Title + date + numbered [#issue] url</span>
                 </span>
               </button>
-              <button class="copy-menu-item" onclick="copyPlan('${d.id}', 'plain')">
+              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'plain')">
                 <span class="mi-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
@@ -970,9 +982,9 @@ function renderPlans(){
               </button>
             </div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="quickSummary('${d.id}')">${ICON.plus}Create Summary</button>
-          <button class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="quickSummary('${d.id}')">${ICON.plus}Create Summary</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
         </div>
       </div>
     `;
@@ -1163,9 +1175,9 @@ function renderSummaries(){
         </div>
         <div class="preview-block">${escapeHtml(d.text)}</div>
         <div class="list-item-actions">
-          <button class="btn btn-success btn-sm" onclick="copySummary('${d.id}')">${ICON.clipboard}Copy for WhatsApp</button>
-          <button class="btn btn-secondary btn-sm" onclick="editSummary('${d.id}')">${ICON.edit}Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteSummary('${d.id}')">${ICON.trash}Delete</button>
+          <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${d.id}')">${ICON.clipboard}Copy for WhatsApp</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="editSummary('${d.id}')">${ICON.edit}Edit</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteSummary('${d.id}')">${ICON.trash}Delete</button>
         </div>
       </div>
     `;
@@ -1214,7 +1226,7 @@ function refreshCounts(){
         </div>
         <div class="preview-block">${escapeHtml(latest.text)}</div>
         <div class="list-item-actions">
-          <button class="btn btn-success btn-sm" onclick="copySummary('${latest.id}')">${ICON.clipboard}Copy for WhatsApp</button>
+          <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${latest.id}')">${ICON.clipboard}Copy for WhatsApp</button>
         </div>
       </div>`;
   }
@@ -1399,7 +1411,7 @@ async function syncFromRedmine(event){
       Added <b>${newIssues.length} new issues</b> as plan: "<b>${escapeHtml(title)}</b>"
       ${skipped ? `<br><span style="color:var(--text-secondary);font-size:12px">${skipped} issues skipped (already in your plans).</span>` : ''}
       <br><br>
-      <button class="btn btn-primary btn-sm" onclick="switchView('plans')">View in Update Plans →</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="switchView('plans')">View in Update Plans →</button>
     `);
   } catch(err){
     setRedmineStatus('error', 'Sync failed');
@@ -1508,7 +1520,6 @@ function renderAll(){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  // Confirm modal bindings
   const okBtn = $('confirmOkBtn');
   const cancelBtn = $('confirmCancelBtn');
   const confirmOverlay = $('confirmModal');
@@ -1518,7 +1529,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(e.target === confirmOverlay) _closeConfirm(false);
   });
 
-  // Global ESC — closes confirm modal, copy menus, and any open modal
   document.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape'){
       if(confirmOverlay && confirmOverlay.classList.contains('show')){
@@ -1529,7 +1539,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   });
 
-  // Escape modal when clicking outside
   document.querySelectorAll('.modal-overlay').forEach(ov => {
     ov.addEventListener('click', e => { if(e.target === ov) closeModal(ov.id); });
   });
