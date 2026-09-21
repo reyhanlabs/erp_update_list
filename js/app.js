@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.10.1';
+const APP_VERSION = '4.10.3';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Plan card contrast + elevation + left accent';
+const APP_VERSION_NOTE = 'Pastel plan cards inspired by Class Cash Book';
 
 /* ============================================================
    FIREBASE INIT
@@ -1042,8 +1042,15 @@ function renderPlanCard(d){
     </div>
   `;
 
+  const cardClasses = [
+    'plan-card',
+    isExpanded ? 'expanded' : '',
+    isRedmineSynced ? 'from-redmine' : '',
+    linkedSummaries > 0 ? 'has-summary' : ''
+  ].filter(Boolean).join(' ');
+
   return `
-    <div class="plan-card ${isExpanded ? 'expanded' : ''}">
+    <div class="${cardClasses}">
       <div class="plan-card-main" onclick="togglePlanCard('${d.id}', event)">
         <div class="plan-card-left">
           <div class="plan-card-title">${escapeHtml(d.title)}</div>

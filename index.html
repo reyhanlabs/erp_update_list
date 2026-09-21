@@ -201,42 +201,38 @@
 
     <!-- UPDATE PLANS -->
     <section class="view" id="view-plans">
-      <div class="card">
-        <div class="toolbar">
-          <div class="search-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input type="text" id="planSearch" placeholder="Search title, issue, or date..." oninput="renderPlans()"/>
-          </div>
-          <select class="select" id="planSort" onchange="renderPlans()">
-            <option value="desc">Newest first</option>
-            <option value="asc">Oldest first</option>
-          </select>
+      <div class="toolbar toolbar-float">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="planSearch" placeholder="Search title, issue, or date..." oninput="renderPlans()"/>
         </div>
-        <div id="planList"></div>
+        <select class="select" id="planSort" onchange="renderPlans()">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
       </div>
+      <div id="planList"></div>
     </section>
 
     <!-- UPDATE SUMMARIES -->
     <section class="view" id="view-summaries">
-      <div class="card">
-        <div class="toolbar">
-          <div class="search-wrap">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input type="text" id="summarySearch" placeholder="Search version or content..." oninput="renderSummaries()"/>
-          </div>
-          <select class="select" id="summarySort" onchange="renderSummaries()">
-            <option value="desc">Newest first</option>
-            <option value="asc">Oldest first</option>
-          </select>
+      <div class="toolbar toolbar-float">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="summarySearch" placeholder="Search version or content..." oninput="renderSummaries()"/>
         </div>
-        <div id="summaryList"></div>
+        <select class="select" id="summarySort" onchange="renderSummaries()">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
       </div>
+      <div id="summaryList"></div>
     </section>
 
     <!-- REDMINE SYNC -->
