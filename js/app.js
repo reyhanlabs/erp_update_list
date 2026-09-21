@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.7.0 — Fixed dropdown persistence + Redmine issue descriptions
+   v4.9.0 — V3 version optional + Redmine descriptions
    ============================================================ */
 
 /* ============================================================
@@ -77,12 +77,6 @@ function extractIssueNumber(url){
   return m ? m[1] : '';
 }
 
-/**
- * Parse a plan line into { url, description }
- * Supports two formats:
- *   1. "https://.../issues/32685"                 (URL only, legacy)
- *   2. "https://.../issues/32685 | Deskripsi..."  (URL + description)
- */
 function parseIssueLine(line){
   if(!line) return { url:'', description:'' };
   const trimmed = String(line).trim();
@@ -95,22 +89,11 @@ function parseIssueLine(line){
   return { url: trimmed, description: '' };
 }
 
-/**
- * Split plan.issues text into array of { url, description, number }
- */
 function parseIssueLines(text){
   return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line => {
     const { url, description } = parseIssueLine(line);
     return { url, description, number: extractIssueNumber(url) };
   });
-}
-
-/* ============================================================
-   COLOR CYCLE
-   ============================================================ */
-const CARD_COLORS = ['c-blue', 'c-violet', 'c-pink', 'c-green', 'c-amber', 'c-cyan'];
-function getCardColorClass(index){
-  return CARD_COLORS[index % CARD_COLORS.length];
 }
 
 /* ============================================================
@@ -591,7 +574,7 @@ function togglePlanCard(planId, event){
 }
 
 /* ============================================================
-   COPY DROPDOWN — persistent across re-render
+   COPY DROPDOWN
    ============================================================ */
 function buildCopyText(plan, format){
   const parsed = parseIssueLines(plan.issues);
@@ -599,7 +582,6 @@ function buildCopyText(plan, format){
   const dateStr = formatDate(plan.date);
 
   if(format === 'plain') {
-    // Plain URLs one per line
     return parsed.map(p => p.url).join('\n');
   }
 
@@ -693,29 +675,27 @@ function toggleCopyMenu(btn, event){
   const card = btn.closest('.plan-card');
   const isOpen = menu.classList.contains('open');
 
-  // If this exact menu is open → close it
   if(isOpen && window.__openCopyMenuId === planId){
     closeAllCopyMenus();
     return;
   }
 
-  // Otherwise close all, then open this one
   closeAllCopyMenus();
   menu.classList.add('open');
   btn.classList.add('active');
+  wrapper.classList.add('is-open');
   if(card) card.classList.add('menu-open');
   window.__openCopyMenuId = planId;
-  window.__copyMenuJustOpened = Date.now();
 }
 
 function closeAllCopyMenus(){
   document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
   document.querySelectorAll('.copy-menu-wrap .btn.active').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.copy-menu-wrap.is-open').forEach(w => w.classList.remove('is-open'));
   document.querySelectorAll('.plan-card.menu-open').forEach(c => c.classList.remove('menu-open'));
   window.__openCopyMenuId = null;
 }
 
-/* Restore open dropdown after re-render */
 function restoreOpenCopyMenu(){
   const openId = window.__openCopyMenuId;
   if(!openId) return;
@@ -729,16 +709,13 @@ function restoreOpenCopyMenu(){
   if(menu){
     menu.classList.add('open');
     btn.classList.add('active');
+    wrapper.classList.add('is-open');
     if(card) card.classList.add('menu-open');
   }
 }
 
 document.addEventListener('click', (e) => {
-  if(window.__copyMenuJustOpened && Date.now() - window.__copyMenuJustOpened < 100){
-    return;
-  }
   if(e.target.closest('.copy-menu-wrap')) return;
-  if(e.target.closest('.copy-menu')) return;
   closeAllCopyMenus();
 });
 
@@ -750,8 +727,6 @@ document.addEventListener('keydown', (e) => {
 
 /* ============================================================
    ISSUE EDITOR
-   Editor stores URL only. When editing, if there was a description,
-   we keep it appended: "url | description"
    ============================================================ */
 function addIssueRow(fullLine){
   const body = $('issueEditorBody');
@@ -771,7 +746,7 @@ function addIssueRow(fullLine){
         <line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </button>
-    <input type="text" class="row-desc" placeholder="Deskripsi issue (opsional, dari Redmine)" value="${escapeHtml(descVal)}" data-desc="true" style="grid-column:1 / -1; margin-top:2px"/>
+    <input type="text" class="row-desc" placeholder="Description (optional, from Redmine)" value="${escapeHtml(descVal)}" data-desc="true" style="grid-column:1 / -1; margin-top:2px"/>
   `;
   body.appendChild(row);
   if(urlVal) onIssueInput(row.querySelector('input[data-url]'));
@@ -957,22 +932,17 @@ function renderPlans(){
     return;
   }
 
-  el.innerHTML = `<div class="plan-list">` + list.map((d, i) => renderPlanCard(d, i)).join('') + `</div>`;
-
-  // Restore any open dropdown after re-render
+  el.innerHTML = `<div class="plan-list">` + list.map(d => renderPlanCard(d)).join('') + `</div>`;
   restoreOpenCopyMenu();
 }
 
-function renderPlanCard(d, index){
+function renderPlanCard(d){
   const parsed = parseIssueLines(d.issues);
   const totalIssue = parsed.length;
   const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
   const isRedmineSynced = (d.note || '').toLowerCase().includes('synced from redmine');
   const isExpanded = window.__expandedPlans.has(d.id);
 
-  const colorClass = getCardColorClass(index);
-
-  // Render rows — click on number opens the URL, description is plain text
   const issueRows = parsed.map(p=>{
     const num = p.number || '—';
     const desc = p.description || '';
@@ -1072,7 +1042,7 @@ function renderPlanCard(d, index){
   `;
 
   return `
-    <div class="plan-card ${colorClass} ${isExpanded ? 'expanded' : ''}">
+    <div class="plan-card ${isExpanded ? 'expanded' : ''}">
       <div class="plan-card-main" onclick="togglePlanCard('${d.id}', event)">
         <div class="plan-card-left">
           <div class="plan-card-title">${escapeHtml(d.title)}</div>
@@ -1119,12 +1089,14 @@ function autoGenerate(){
   const p = State.plans.get(planId);
   const fe = $('summaryFe').value.trim() || 'V?.??.??.??????';
   const v2 = $('summaryV2').value.trim() || 'V?.??.??.??????';
+  const v3 = $('summaryV3').value.trim();
   const tgl = $('summaryDate').value ? formatDate($('summaryDate').value) : formatDate(p.date || todayISO());
   const parsed = parseIssueLines(p.issues);
 
   let text = `🚀 Zahir ERP Update\n\n`;
   text += `FE Version : ${fe}\n`;
   text += `V2 Version : ${v2}\n`;
+  if(v3) text += `V3 Version : ${v3}\n`;
   text += `Date : ${tgl}\n\n`;
   text += `⚡ Improvements\n`;
   if(parsed.length){
@@ -1160,6 +1132,7 @@ async function saveSummary(e){
     planId: $('summaryPlanRef').value,
     fe: $('summaryFe').value.trim(),
     v2: $('summaryV2').value.trim(),
+    v3: $('summaryV3').value.trim(),
     date: $('summaryDate').value,
     text: $('summaryText').value.trim()
   };
@@ -1197,6 +1170,7 @@ function editSummary(id){
   $('summaryEditId').value = d.id;
   $('summaryFe').value = d.fe;
   $('summaryV2').value = d.v2;
+  $('summaryV3').value = d.v3 || '';
   $('summaryDate').value = d.date;
   $('summaryText').value = d.text;
   $('summaryModalTitle').textContent = 'Edit Summary';
@@ -1245,6 +1219,7 @@ function renderSummaries(){
     list = list.filter(x =>
       (x.fe||'').toLowerCase().includes(q) ||
       (x.v2||'').toLowerCase().includes(q) ||
+      (x.v3||'').toLowerCase().includes(q) ||
       (x.date||'').includes(q) ||
       (x.text||'').toLowerCase().includes(q)
     );
@@ -1263,6 +1238,7 @@ function renderSummaries(){
 
   el.innerHTML = `<div class="summary-list">` + list.map(d=>{
     const plan = d.planId ? State.plans.get(d.planId) : null;
+    const v3Html = d.v3 ? `<span class="arrow">→</span><span>${escapeHtml(d.v3)}</span>` : '';
     return `
       <div class="summary-card">
         <div class="summary-card-head">
@@ -1270,6 +1246,7 @@ function renderSummaries(){
             <span>${escapeHtml(d.fe)}</span>
             <span class="arrow">→</span>
             <span>${escapeHtml(d.v2)}</span>
+            ${v3Html}
           </div>
           <div class="summary-card-meta">
             <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
@@ -1320,6 +1297,7 @@ function refreshCounts(){
     el.innerHTML = emptyState(ICON.inbox, 'No summaries yet', 'Create a plan first, then generate a summary from it.');
   } else {
     const plan = latest.planId ? State.plans.get(latest.planId) : null;
+    const v3Html = latest.v3 ? `<span class="arrow">→</span><span>${escapeHtml(latest.v3)}</span>` : '';
     el.innerHTML = `
       <div class="summary-card" style="margin:0">
         <div class="summary-card-head">
@@ -1327,6 +1305,7 @@ function refreshCounts(){
             <span>${escapeHtml(latest.fe)}</span>
             <span class="arrow">→</span>
             <span>${escapeHtml(latest.v2)}</span>
+            ${v3Html}
           </div>
           <div class="summary-card-meta">
             <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(latest.date))}</span>
@@ -1632,7 +1611,6 @@ async function syncFromRedmine(event){
     const statusLabel = statusLabels[statusId] || statusId;
     const title = `${projName} — Update ${formatDate(today)} (${statusLabel})`;
 
-    // Build lines with URL + description
     const issueLines = newIssues.map(i => {
       const url = `https://pjm.zahironline.com/issues/${i.id}`;
       const desc = (i.subject || '').replace(/\s+/g, ' ').trim();

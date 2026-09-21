@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — STYLESHEET
-   v4.8.0 — Fixed copy dropdown with display:none/block
+   v4.8.0 — Clean neutral cards (removed color accents)
    ============================================================ */
 
 /* ============================================================
@@ -385,7 +385,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ============================================================
-   PLAN LIST
+   PLAN LIST — clean neutral cards
    ============================================================ */
 .plan-list{
   display:flex;
@@ -393,7 +393,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
   gap:20px;
 }
 
-/* === COLORED PLAN CARD — rounded 20px === */
+/* === NEUTRAL PLAN CARD === */
 .plan-card{
   background:var(--surface);
   border:1px solid var(--line);
@@ -405,28 +405,6 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
              transform var(--dur) var(--ease),
              border-color var(--dur) var(--ease);
 }
-.plan-card::before{
-  content:'';
-  position:absolute;
-  left:0;
-  top:0;
-  bottom:0;
-  width:6px;
-  border-radius:20px 0 0 20px;
-  background:linear-gradient(180deg, var(--accent-1, #3b82f6), var(--accent-2, #6366f1));
-  z-index:1;
-}
-.plan-card::after{
-  content:'';
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  height:5px;
-  border-radius:20px 20px 0 0;
-  background:linear-gradient(90deg, var(--accent-1, #3b82f6), var(--accent-2, #6366f1));
-  z-index:1;
-}
 .plan-card:hover{
   box-shadow:var(--shadow-md);
   border-color:var(--line-strong);
@@ -434,43 +412,8 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 }
 .plan-card.menu-open{ z-index:10000 !important; }
 
-/* --- Color variants --- */
-.plan-card.c-blue  { --accent-1:#3b82f6; --accent-2:#6366f1; }
-.plan-card.c-violet{ --accent-1:#8b5cf6; --accent-2:#d946ef; }
-.plan-card.c-pink  { --accent-1:#ec4899; --accent-2:#f43f5e; }
-.plan-card.c-green { --accent-1:#10b981; --accent-2:#14b8a6; }
-.plan-card.c-amber { --accent-1:#f59e0b; --accent-2:#ef4444; }
-.plan-card.c-cyan  { --accent-1:#06b6d4; --accent-2:#3b82f6; }
-
-.plan-card.c-blue   .plan-card-title{color:#1e40af}
-.plan-card.c-violet .plan-card-title{color:#6d28d9}
-.plan-card.c-pink   .plan-card-title{color:#be185d}
-.plan-card.c-green  .plan-card-title{color:#047857}
-.plan-card.c-amber  .plan-card-title{color:#b45309}
-.plan-card.c-cyan   .plan-card-title{color:#0e7490}
-[data-theme="dark"] .plan-card.c-blue   .plan-card-title{color:#93c5fd}
-[data-theme="dark"] .plan-card.c-violet .plan-card-title{color:#c4b5fd}
-[data-theme="dark"] .plan-card.c-pink   .plan-card-title{color:#f9a8d4}
-[data-theme="dark"] .plan-card.c-green  .plan-card-title{color:#6ee7b7}
-[data-theme="dark"] .plan-card.c-amber  .plan-card-title{color:#fcd34d}
-[data-theme="dark"] .plan-card.c-cyan   .plan-card-title{color:#67e8f9}
-
-.plan-card.c-blue   .plan-card-chevron{border-color:rgba(59,130,246,.3)}
-.plan-card.c-violet .plan-card-chevron{border-color:rgba(139,92,246,.3)}
-.plan-card.c-pink   .plan-card-chevron{border-color:rgba(236,72,153,.3)}
-.plan-card.c-green  .plan-card-chevron{border-color:rgba(16,185,129,.3)}
-.plan-card.c-amber  .plan-card-chevron{border-color:rgba(245,158,11,.3)}
-.plan-card.c-cyan   .plan-card-chevron{border-color:rgba(6,182,212,.3)}
-
-.plan-card.expanded.c-blue   .plan-card-chevron{background:rgba(59,130,246,.12);color:#3b82f6}
-.plan-card.expanded.c-violet .plan-card-chevron{background:rgba(139,92,246,.12);color:#8b5cf6}
-.plan-card.expanded.c-pink   .plan-card-chevron{background:rgba(236,72,153,.12);color:#ec4899}
-.plan-card.expanded.c-green  .plan-card-chevron{background:rgba(16,185,129,.12);color:#10b981}
-.plan-card.expanded.c-amber  .plan-card-chevron{background:rgba(245,158,11,.12);color:#f59e0b}
-.plan-card.expanded.c-cyan   .plan-card-chevron{background:rgba(6,182,212,.12);color:#06b6d4}
-
 .plan-card-main{
-  padding:20px 22px 16px 24px;
+  padding:20px 22px;
   cursor:pointer;
   display:flex;
   justify-content:space-between;
@@ -479,9 +422,12 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
   user-select:none;
   transition:background var(--dur-fast) var(--ease);
   position:relative;
-  border-radius:20px 20px 0 0;
+  border-radius:20px;
 }
 .plan-card-main:hover{background:var(--list-hover-bg)}
+.plan-card.expanded .plan-card-main{
+  border-radius:20px 20px 0 0;
+}
 
 .plan-card-left{min-width:0;flex:1}
 
@@ -520,6 +466,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 .plan-card.expanded .plan-card-chevron{
   background:var(--brand-soft);
   color:var(--brand);
+  border-color:var(--brand-ring);
 }
 .plan-card.expanded .plan-card-chevron svg{
   transform:rotate(180deg);
@@ -539,7 +486,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 }
 
 .plan-details-note{
-  padding:12px 20px 12px 24px;
+  padding:12px 20px;
   border-bottom:1px solid var(--line);
   background:var(--note-bg);
   font-size:12.5px;
@@ -552,7 +499,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 .plan-details-note svg{margin-top:2px;flex-shrink:0}
 
 .plan-details-issues{
-  padding:14px 20px 14px 24px;
+  padding:14px 20px;
   border-bottom:1px solid var(--line);
 }
 
@@ -583,7 +530,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
   color:var(--text-secondary);
 }
 .issues-block-head .count-pill{
-  background:linear-gradient(135deg, var(--accent-1, #3b82f6), var(--accent-2, #6366f1));
+  background:linear-gradient(135deg,#3b82f6,#6366f1);
   color:#fff;
   padding:2px 9px;
   border-radius:10px;
@@ -624,20 +571,6 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
   background:rgba(59,130,246,.12);
   box-shadow:0 2px 6px rgba(0,0,0,.3);
 }
-
-.plan-card.c-blue   .issues-block .plan-issue-row{border-color:rgba(59,130,246,.22);background:rgba(59,130,246,.04)}
-.plan-card.c-violet .issues-block .plan-issue-row{border-color:rgba(139,92,246,.22);background:rgba(139,92,246,.04)}
-.plan-card.c-pink   .issues-block .plan-issue-row{border-color:rgba(236,72,153,.22);background:rgba(236,72,153,.04)}
-.plan-card.c-green  .issues-block .plan-issue-row{border-color:rgba(16,185,129,.22);background:rgba(16,185,129,.04)}
-.plan-card.c-amber  .issues-block .plan-issue-row{border-color:rgba(245,158,11,.22);background:rgba(245,158,11,.04)}
-.plan-card.c-cyan   .issues-block .plan-issue-row{border-color:rgba(6,182,212,.22);background:rgba(6,182,212,.04)}
-
-[data-theme="dark"] .plan-card.c-blue   .issues-block .plan-issue-row{border-color:rgba(96,165,250,.28);background:rgba(59,130,246,.06)}
-[data-theme="dark"] .plan-card.c-violet .issues-block .plan-issue-row{border-color:rgba(167,139,250,.28);background:rgba(139,92,246,.06)}
-[data-theme="dark"] .plan-card.c-pink   .issues-block .plan-issue-row{border-color:rgba(244,114,182,.28);background:rgba(236,72,153,.06)}
-[data-theme="dark"] .plan-card.c-green  .issues-block .plan-issue-row{border-color:rgba(52,211,153,.28);background:rgba(16,185,129,.06)}
-[data-theme="dark"] .plan-card.c-amber  .issues-block .plan-issue-row{border-color:rgba(251,191,36,.28);background:rgba(245,158,11,.06)}
-[data-theme="dark"] .plan-card.c-cyan   .issues-block .plan-issue-row{border-color:rgba(34,211,238,.28);background:rgba(6,182,212,.06)}
 
 .plan-issue-row{
   display:grid;
@@ -702,7 +635,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 }
 
 .plan-details-foot{
-  padding:14px 20px 14px 24px;
+  padding:14px 20px;
   display:flex;
   gap:6px;
   flex-wrap:wrap;
@@ -711,7 +644,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 }
 
 /* ============================================================
-   COPY DROPDOWN — display:none/block based (foolproof)
+   COPY DROPDOWN
    ============================================================ */
 .copy-menu-wrap{
   position:relative;
@@ -1383,11 +1316,10 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
   .theme-switch button{width:26px;height:24px}
   .plan-list{gap:14px}
   .plan-card{border-radius:16px}
-  .plan-card-main{padding:16px 16px 14px 20px}
+  .plan-card-main{padding:16px;border-radius:16px}
+  .plan-card.expanded .plan-card-main{border-radius:16px 16px 0 0}
   .plan-card-title{font-size:14px}
-  .plan-details-foot{padding:12px 16px 12px 20px}
-  .plan-details-issues{padding:12px 16px 12px 20px}
-  .plan-details-note{padding:10px 16px 10px 20px}
-  .plan-card::before{border-radius:16px 0 0 16px}
-  .plan-card::after{border-radius:16px 16px 0 0}
+  .plan-details-foot{padding:12px 16px;border-radius:0 0 16px 16px}
+  .plan-details-issues{padding:12px 16px}
+  .plan-details-note{padding:10px 16px}
 }

@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 
-<!-- Prevent FOUC — apply theme before paint -->
 <script>
   (function(){
     const saved = localStorage.getItem('zahir-theme') || 'auto';
@@ -22,13 +21,11 @@
 </head>
 <body>
 
-<!-- LOADING OVERLAY -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <p id="loadingText">Connecting to Firebase...</p>
 </div>
 
-<!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
     <div class="mark">Z</div>
@@ -92,13 +89,12 @@
 
   <div class="sidebar-footer">
     <span class="dot-status syncing" id="statusDot">Connecting</span>
-    <span>v4.1.0</span>
+    <span>v4.9.0</span>
   </div>
 </aside>
 
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
-<!-- MAIN -->
 <div class="main">
   <header class="topbar">
     <div class="topbar-left">
@@ -122,18 +118,18 @@
       </div>
 
       <div class="theme-switch" role="group" aria-label="Theme switcher">
-        <button data-theme-set="light" title="Light mode">
+        <button data-theme-set="light" title="Light mode" aria-label="Light mode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4"/>
             <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
           </svg>
         </button>
-        <button data-theme-set="dark" title="Dark mode">
+        <button data-theme-set="dark" title="Dark mode" aria-label="Dark mode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
           </svg>
         </button>
-        <button data-theme-set="auto" title="Auto (system)">
+        <button data-theme-set="auto" title="Auto (system)" aria-label="Auto theme">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
             <line x1="8" y1="21" x2="16" y2="21"/>
@@ -203,7 +199,7 @@
       </div>
     </section>
 
-    <!-- PLANS -->
+    <!-- UPDATE PLANS -->
     <section class="view" id="view-plans">
       <div class="card">
         <div class="toolbar">
@@ -223,7 +219,7 @@
       </div>
     </section>
 
-    <!-- SUMMARIES -->
+    <!-- UPDATE SUMMARIES -->
     <section class="view" id="view-summaries">
       <div class="card">
         <div class="toolbar">
@@ -245,113 +241,113 @@
 
     <!-- REDMINE SYNC -->
     <section class="view" id="view-sync">
-  <div class="card">
-    <div class="card-head">
-      <h3><span class="mark redmine"></span> Redmine Integration</h3>
-      <span class="status-pill" id="redmineStatusPill">
-        <span class="sp-dot"></span>
-        <span id="redmineStatusText">Ready</span>
-      </span>
-    </div>
-    <div class="card-body">
-      <div class="redmine-hero">
-        <div class="logo-redmine">R</div>
-        <div class="hero-text">
-          <h4>pjm.zahironline.com</h4>
-          <p>Pull resolved issues from Redmine and turn them into an Update Plan automatically.</p>
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--redmine);border:1px solid var(--redmine-border);font-size:11px;font-weight:600">
-              <span style="width:6px;height:6px;border-radius:50%;background:var(--redmine)"></span>
-              Project: <span id="redmineProjectLabel">—</span>
-            </span>
-            <span id="redmineProjectIdLabel" style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;background:var(--bg-subtle);color:var(--text-tertiary);border:1px solid var(--line);font-size:11px;font-family:'JetBrains Mono',monospace">
-              —
-            </span>
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark redmine"></span> Redmine Integration</h3>
+          <span class="status-pill" id="redmineStatusPill">
+            <span class="sp-dot"></span>
+            <span id="redmineStatusText">Ready</span>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="redmine-hero">
+            <div class="logo-redmine">R</div>
+            <div class="hero-text">
+              <h4>pjm.zahironline.com</h4>
+              <p>Pull resolved issues from Redmine and turn them into an Update Plan automatically.</p>
+              <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--redmine);border:1px solid var(--redmine-border);font-size:11px;font-weight:600">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--redmine)"></span>
+                  Project: <span id="redmineProjectLabel">—</span>
+                </span>
+                <span id="redmineProjectIdLabel" style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;background:var(--bg-subtle);color:var(--text-tertiary);border:1px solid var(--line);font-size:11px;font-family:'JetBrains Mono',monospace">
+                  —
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field" style="margin-bottom:0">
+              <label>Project <span class="req">*</span></label>
+              <select class="input select" id="syncProject" onchange="onRedmineProjectChange()" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
+                <option value="">Loading projects…</option>
+              </select>
+              <div class="field-hint">Select Redmine project to sync issues from.</div>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Status Filter</label>
+              <select class="input select" id="syncStatus" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
+                <option value="3">Resolved</option>
+                <option value="5">Closed</option>
+                <option value="1">New</option>
+                <option value="2">In Progress</option>
+                <option value="4">Feedback</option>
+                <option value="*">All statuses</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:14px;margin-bottom:0">
+            <label>Only updated since</label>
+            <input class="input" type="date" id="syncSince"/>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="testRedmineConnection(event)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              Test Connection
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="previewRedmineSync(event)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              Preview
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="syncFromRedmine(event)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                <path d="M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+              Sync Now
+            </button>
+          </div>
+
+          <div id="syncResult"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark redmine"></span> How it works</h3>
+        </div>
+        <div class="card-body">
+          <ol style="font-size:13px;color:var(--text-secondary);line-height:1.8;padding-left:20px">
+            <li>App loads the project list from <code style="background:var(--bg-subtle);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11.5px">/api/redmine-projects</code> — a Vercel proxy that fetches Redmine projects with your API key.</li>
+            <li>Select a project from the dropdown (auto-saved, defaults to Zahir ERP if available).</li>
+            <li>Preview to see which issues will be synced.</li>
+            <li>Click Sync Now — new issues become a <b>new Update Plan</b> named after the project.</li>
+          </ol>
+
+          <div class="danger-tile" style="margin-top:16px;background:linear-gradient(135deg, var(--brand-soft), rgba(139,92,246,.04));border-color:var(--brand-ring)">
+            <div class="danger-tile-icon" style="background:rgba(59,130,246,.15);color:var(--brand)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </div>
+            <div class="danger-tile-text">
+              <b>Setup required.</b> Make sure <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:11px">REDMINE_API_KEY</code> is set in Vercel, and files <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:11px">api/redmine.js</code> + <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:11px">api/redmine-projects.js</code> exist in your repo.
+            </div>
           </div>
         </div>
       </div>
-
-      <div class="form-row">
-        <div class="field" style="margin-bottom:0">
-          <label>Project <span class="req">*</span></label>
-          <select class="input select" id="syncProject" onchange="onRedmineProjectChange()" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
-            <option value="">Loading projects…</option>
-          </select>
-          <div class="field-hint">Select Redmine project to sync issues from.</div>
-        </div>
-        <div class="field" style="margin-bottom:0">
-          <label>Status Filter</label>
-          <select class="input select" id="syncStatus" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
-            <option value="3">Resolved</option>
-            <option value="5">Closed</option>
-            <option value="1">New</option>
-            <option value="2">In Progress</option>
-            <option value="4">Feedback</option>
-            <option value="*">All statuses</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="field" style="margin-top:14px;margin-bottom:0">
-        <label>Only updated since</label>
-        <input class="input" type="date" id="syncSince"/>
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="testRedmineConnection(event)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-            <polyline points="22 4 12 14.01 9 11.01"/>
-          </svg>
-          Test Connection
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="previewRedmineSync(event)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-          </svg>
-          Preview
-        </button>
-        <button type="button" class="btn btn-primary btn-sm" onclick="syncFromRedmine(event)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
-            <path d="M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-          </svg>
-          Sync Now
-        </button>
-      </div>
-
-      <div id="syncResult"></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">
-      <h3><span class="mark redmine"></span> How it works</h3>
-    </div>
-    <div class="card-body">
-      <ol style="font-size:13px;color:var(--text-secondary);line-height:1.8;padding-left:20px">
-        <li>App loads the project list from <code style="background:var(--bg-subtle);padding:1px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:11.5px">/api/redmine-projects</code> — a Vercel proxy that fetches Redmine projects with your API key.</li>
-        <li>Select a project from the dropdown (auto-saved, defaults to Zahir ERP if available).</li>
-        <li>Preview to see which issues will be synced.</li>
-        <li>Click Sync Now — new issues become a <b>new Update Plan</b> named after the project.</li>
-      </ol>
-
-      <div class="danger-tile" style="margin-top:16px;background:linear-gradient(135deg, var(--brand-soft), rgba(139,92,246,.04));border-color:var(--brand-ring)">
-        <div class="danger-tile-icon" style="background:rgba(59,130,246,.15);color:var(--brand)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="16" x2="12" y2="12"/>
-            <line x1="12" y1="8" x2="12.01" y2="8"/>
-          </svg>
-        </div>
-        <div class="danger-tile-text">
-          <b>Setup required.</b> Make sure <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:11px">REDMINE_API_KEY</code> is set in Vercel, and files <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:11px">api/redmine.js</code> + <code style="background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;font-size:11px">api/redmine-projects.js</code> exist in your repo.
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
     <!-- SETTINGS -->
     <section class="view" id="view-settings">
@@ -522,7 +518,7 @@
       </div>
 
       <div class="settings-footer">
-        <div>Zahir ERP Update Manager · v4.1.0</div>
+        <div>Zahir ERP Update Manager · v4.9.0</div>
         <div style="display:flex;gap:10px;align-items:center">
           <span class="badge-soft">Firebase v10</span>
           <span class="badge-soft" id="footerDataCount">0 items</span>
@@ -586,7 +582,7 @@
               </button>
             </div>
           </div>
-          <div class="field-hint">Paste one issue URL per row. Issue number is auto-detected.</div>
+          <div class="field-hint">Paste one issue URL per row. Issue number is auto-detected. Description is optional.</div>
         </div>
 
         <div class="field">
@@ -632,7 +628,8 @@
             <option value="">— Select a Plan —</option>
           </select>
         </div>
-        <div class="form-row-3">
+
+        <div class="form-row">
           <div class="field">
             <label>FE Version <span class="req">*</span></label>
             <input class="input" type="text" id="summaryFe" placeholder="V2.26.09.171600" required/>
@@ -641,11 +638,19 @@
             <label>V2 Version <span class="req">*</span></label>
             <input class="input" type="text" id="summaryV2" placeholder="V2.26.09.171619" required/>
           </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label>V3 Version</label>
+            <input class="input" type="text" id="summaryV3" placeholder="V3.26.09.171630 (optional)"/>
+          </div>
           <div class="field">
             <label>Release Date <span class="req">*</span></label>
             <input class="input" type="date" id="summaryDate" required/>
           </div>
         </div>
+
         <div class="field">
           <label>Update Summary <span class="req">*</span></label>
           <textarea class="textarea mono" id="summaryText" style="min-height:220px" placeholder="🚀 Zahir ERP Update&#10;&#10;FE Version : ..." required></textarea>
@@ -686,12 +691,10 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-<!-- App -->
 <script src="js/app.js"></script>
 </body>
 </html>
