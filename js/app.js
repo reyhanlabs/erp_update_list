@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.2.0 — Fixed copy dropdown toggle
+   v4.2.1 — Dropdown stays open on scroll
    ============================================================ */
 
 /* ============================================================
@@ -613,11 +613,6 @@ async function copyPlan(id, format){
   closeAllCopyMenus();
 }
 
-/**
- * Toggle copy dropdown open/close.
- * - Uses a global flag to prevent document click from closing it immediately.
- * - No rAF, no delays — open state is set synchronously.
- */
 function toggleCopyMenu(btn, event){
   if(event){
     event.stopPropagation();
@@ -639,7 +634,7 @@ function toggleCopyMenu(btn, event){
     btn.classList.add('active');
     if(listItem) listItem.classList.add('menu-open');
 
-    // Mark that a menu was just opened — the document click handler will ignore this tick
+    // Mark time so document click handler doesn't immediately close
     window.__copyMenuJustOpened = Date.now();
   }
 }
@@ -651,39 +646,26 @@ function closeAllCopyMenus(){
 }
 
 /* ============================================================
-   GLOBAL EVENT LISTENERS (copy dropdown close behavior)
+   GLOBAL EVENT LISTENERS
+   Only close on click outside + ESC. No scroll/resize auto-close.
    ============================================================ */
 
-// Close on click outside
 document.addEventListener('click', (e) => {
-  // If a menu was just opened in the last 100ms, skip closing (prevents race)
+  // Skip if a menu was just opened (race protection)
   if(window.__copyMenuJustOpened && Date.now() - window.__copyMenuJustOpened < 100){
     return;
   }
-  // If click is inside a copy menu or its toggle button, don't close
+  // Skip if click is inside a copy menu wrap or menu
   if(e.target.closest('.copy-menu-wrap')) return;
   if(e.target.closest('.copy-menu')) return;
   closeAllCopyMenus();
 });
 
-// Close on ESC
 document.addEventListener('keydown', (e) => {
   if(e.key === 'Escape'){
     closeAllCopyMenus();
   }
 });
-
-// Close on scroll (only if scrolled more than 30px)
-let _scrollY = window.scrollY;
-window.addEventListener('scroll', () => {
-  const dy = Math.abs(window.scrollY - _scrollY);
-  if(dy < 30) return;
-  _scrollY = window.scrollY;
-  closeAllCopyMenus();
-}, { passive: true });
-
-// Close on resize
-window.addEventListener('resize', closeAllCopyMenus);
 
 /* ============================================================
    ISSUE EDITOR
