@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.2.1 — Dropdown stays open on scroll
+   v4.3.0 — Plan cards layout + collapsible issue list
    ============================================================ */
 
 /* ============================================================
@@ -535,6 +535,24 @@ function openAddModal(event){
 }
 
 /* ============================================================
+   EXPAND/COLLAPSE ISSUE LIST
+   ============================================================ */
+window.__expandedPlans = window.__expandedPlans || new Set();
+
+function toggleIssueList(planId, event){
+  if(event){
+    event.stopPropagation();
+    if(event.preventDefault) event.preventDefault();
+  }
+  if(window.__expandedPlans.has(planId)){
+    window.__expandedPlans.delete(planId);
+  } else {
+    window.__expandedPlans.add(planId);
+  }
+  renderPlans();
+}
+
+/* ============================================================
    COPY DROPDOWN
    ============================================================ */
 function buildCopyText(plan, format){
@@ -623,18 +641,16 @@ function toggleCopyMenu(btn, event){
   if(!wrapper) return;
 
   const menu = wrapper.querySelector('.copy-menu');
-  const listItem = btn.closest('.list-item');
+  const card = btn.closest('.plan-card');
   const isOpen = menu.classList.contains('open');
 
-  // Close other menus first
   closeAllCopyMenus();
 
   if(!isOpen){
     menu.classList.add('open');
     btn.classList.add('active');
-    if(listItem) listItem.classList.add('menu-open');
+    if(card) card.classList.add('menu-open');
 
-    // Mark time so document click handler doesn't immediately close
     window.__copyMenuJustOpened = Date.now();
   }
 }
@@ -642,20 +658,13 @@ function toggleCopyMenu(btn, event){
 function closeAllCopyMenus(){
   document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
   document.querySelectorAll('.copy-menu-wrap .btn.active').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.list-item.menu-open').forEach(li => li.classList.remove('menu-open'));
+  document.querySelectorAll('.plan-card.menu-open').forEach(c => c.classList.remove('menu-open'));
 }
 
-/* ============================================================
-   GLOBAL EVENT LISTENERS
-   Only close on click outside + ESC. No scroll/resize auto-close.
-   ============================================================ */
-
 document.addEventListener('click', (e) => {
-  // Skip if a menu was just opened (race protection)
   if(window.__copyMenuJustOpened && Date.now() - window.__copyMenuJustOpened < 100){
     return;
   }
-  // Skip if click is inside a copy menu wrap or menu
   if(e.target.closest('.copy-menu-wrap')) return;
   if(e.target.closest('.copy-menu')) return;
   closeAllCopyMenus();
@@ -834,6 +843,9 @@ async function deletePlan(id){
   }
 }
 
+/* ============================================================
+   RENDER PLANS — new card layout
+   ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
   const sort = $('planSort').value;
@@ -859,118 +871,139 @@ function renderPlans(){
     return;
   }
 
-  el.innerHTML = list.map(d=>{
-    const issueLines = (d.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
-    const totalIssue = issueLines.length;
-    const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
-    const isRedmineSynced = (d.note || '').toLowerCase().includes('synced from redmine');
+  el.innerHTML = `<div class="plan-list">` + list.map(d => renderPlanCard(d)).join('') + `</div>`;
+}
 
-    let issuesHtml = '';
-    if(issueLines.length){
-      const rows = issueLines.map(u=>{
-        const num = extractIssueNumber(u) || '—';
-        return `<a class="issue-row" href="${escapeHtml(u)}" target="_blank" rel="noopener">
-          <span class="num-badge">#${escapeHtml(num)}</span>
-          <span class="url-text">${escapeHtml(u)}</span>
-          <span class="open-icon">${ICON.externalLink}</span>
-        </a>`;
-      }).join('');
-      issuesHtml = `
-        <div class="issues-block">
-          <div class="issues-block-head">
-            <span>Issue List</span>
-            <span class="count-pill">${totalIssue}</span>
-          </div>
-          <div class="issue-rows">${rows}</div>
-        </div>
-      `;
-    }
+function renderPlanCard(d){
+  const issueLines = (d.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const totalIssue = issueLines.length;
+  const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
+  const isRedmineSynced = (d.note || '').toLowerCase().includes('synced from redmine');
 
-    return `
-      <div class="list-item">
-        <div class="list-item-head">
-          <div style="min-width:0;flex:1">
-            <div class="list-item-title">${escapeHtml(d.title)}</div>
-            <div class="list-item-meta">
-              <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
-              <span class="meta-divider"></span>
-              <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
-              ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine Sync</span>` : ''}
-              ${linkedSummaries
-                ? `<span class="badge badge-violet">${ICON.fileText}${linkedSummaries} summaries</span>`
-                : `<span class="badge badge-neutral">No summary yet</span>`}
-            </div>
-            ${d.note ? `<div class="list-item-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>` : ''}
-          </div>
+  // Collapsible: show 4 issues default, all when expanded
+  const PREVIEW_COUNT = 4;
+  const isExpanded = window.__expandedPlans.has(d.id);
+  const visibleIssues = isExpanded ? issueLines : issueLines.slice(0, PREVIEW_COUNT);
+  const hiddenCount = issueLines.length - PREVIEW_COUNT;
+
+  const issueRows = visibleIssues.map(u=>{
+    const num = extractIssueNumber(u) || '—';
+    return `<a class="plan-issue-row" href="${escapeHtml(u)}" target="_blank" rel="noopener">
+      <span class="pi-num">#${escapeHtml(num)}</span>
+      <span class="pi-url">${escapeHtml(u)}</span>
+      <span class="pi-open">${ICON.externalLink}</span>
+    </a>`;
+  }).join('');
+
+  let issuesSection = '';
+  if(totalIssue > 0){
+    const toggleHtml = (hiddenCount > 0) ? `
+      <button type="button" class="plan-issues-toggle ${isExpanded ? 'expanded' : ''}" onclick="toggleIssueList('${d.id}', event)">
+        ${ICON.chevronDown}
+        ${isExpanded ? 'Show less' : `Show all ${totalIssue} issues`}
+      </button>
+    ` : '';
+
+    issuesSection = `
+      <div class="plan-issues">
+        <div class="plan-issues-head">
+          <span>Issue List</span>
+          <span class="issue-count">${totalIssue}</span>
         </div>
-        ${issuesHtml}
-        <div class="list-item-actions">
-          <div class="copy-menu-wrap">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCopyMenu(this, event)">
-              ${ICON.clipboard}Copy for Telegram
-              ${ICON.chevronDown}
-            </button>
-            <div class="copy-menu" onclick="event.stopPropagation()">
-              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram')">
-                <span class="mi-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21.5 3.5L2.5 10.5l6.5 2.5L11 20l3.5-4.5 6.5 3z"/>
-                  </svg>
-                </span>
-                <span class="mi-body">
-                  <span class="mi-title">Telegram format</span>
-                  <span class="mi-desc">Markdown link + emoji headers</span>
-                </span>
-              </button>
-              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'markdown')">
-                <span class="mi-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                  </svg>
-                </span>
-                <span class="mi-body">
-                  <span class="mi-title">Markdown links</span>
-                  <span class="mi-desc">Clickable [#issue](url) format</span>
-                </span>
-              </button>
-              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'numbered')">
-                <span class="mi-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="8" y1="6" x2="21" y2="6"/>
-                    <line x1="8" y1="12" x2="21" y2="12"/>
-                    <line x1="8" y1="18" x2="21" y2="18"/>
-                    <line x1="3" y1="6" x2="3.01" y2="6"/>
-                    <line x1="3" y1="12" x2="3.01" y2="12"/>
-                    <line x1="3" y1="18" x2="3.01" y2="18"/>
-                  </svg>
-                </span>
-                <span class="mi-body">
-                  <span class="mi-title">Numbered list</span>
-                  <span class="mi-desc">Title + date + numbered [#issue] url</span>
-                </span>
-              </button>
-              <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'plain')">
-                <span class="mi-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                    <rect x="8" y="2" width="8" height="4" rx="1"/>
-                  </svg>
-                </span>
-                <span class="mi-body">
-                  <span class="mi-title">Plain URLs</span>
-                  <span class="mi-desc">Just the URLs, one per line</span>
-                </span>
-              </button>
-            </div>
-          </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="quickSummary('${d.id}')">${ICON.plus}Create Summary</button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
-          <button type="button" class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
-        </div>
+        <div class="plan-issue-list">${issueRows}</div>
+        ${toggleHtml}
       </div>
     `;
-  }).join('');
+  }
+
+  const noteHtml = d.note
+    ? `<div class="plan-card-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>`
+    : '';
+
+  return `
+    <div class="plan-card">
+      <div class="plan-card-head">
+        <div style="min-width:0;flex:1">
+          <div class="plan-card-title">${escapeHtml(d.title)}</div>
+          <div class="plan-card-meta">
+            <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
+            <span class="meta-divider"></span>
+            <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
+            ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine Sync</span>` : ''}
+            ${linkedSummaries
+              ? `<span class="badge badge-violet">${ICON.fileText}${linkedSummaries} summaries</span>`
+              : `<span class="badge badge-neutral">No summary yet</span>`}
+          </div>
+          ${noteHtml}
+        </div>
+      </div>
+      ${issuesSection}
+      <div class="plan-card-foot">
+        <div class="copy-menu-wrap">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCopyMenu(this, event)">
+            ${ICON.clipboard}Copy for Telegram
+            ${ICON.chevronDown}
+          </button>
+          <div class="copy-menu" onclick="event.stopPropagation()">
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram')">
+              <span class="mi-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 3.5L2.5 10.5l6.5 2.5L11 20l3.5-4.5 6.5 3z"/>
+                </svg>
+              </span>
+              <span class="mi-body">
+                <span class="mi-title">Telegram format</span>
+                <span class="mi-desc">Markdown link + emoji headers</span>
+              </span>
+            </button>
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'markdown')">
+              <span class="mi-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+              </span>
+              <span class="mi-body">
+                <span class="mi-title">Markdown links</span>
+                <span class="mi-desc">Clickable [#issue](url) format</span>
+              </span>
+            </button>
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'numbered')">
+              <span class="mi-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/>
+                  <line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
+                </svg>
+              </span>
+              <span class="mi-body">
+                <span class="mi-title">Numbered list</span>
+                <span class="mi-desc">Title + date + numbered [#issue] url</span>
+              </span>
+            </button>
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'plain')">
+              <span class="mi-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                </svg>
+              </span>
+              <span class="mi-body">
+                <span class="mi-title">Plain URLs</span>
+                <span class="mi-desc">Just the URLs, one per line</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="quickSummary('${d.id}')">${ICON.plus}Create Summary</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
+      </div>
+    </div>
+  `;
 }
 
 /* ============================================================
@@ -1140,30 +1173,34 @@ function renderSummaries(){
     return;
   }
 
-  el.innerHTML = list.map(d=>{
+  el.innerHTML = `<div class="summary-list">` + list.map(d=>{
     const plan = d.planId ? State.plans.get(d.planId) : null;
     return `
-      <div class="list-item">
-        <div class="list-item-head">
-          <div style="min-width:0;flex:1">
-            <div class="list-item-title">${escapeHtml(d.fe)} <span style="color:var(--text-tertiary);font-weight:400">→</span> ${escapeHtml(d.v2)}</div>
-            <div class="list-item-meta">
-              <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
-              ${plan
-                ? `<span class="meta-divider"></span><span class="badge badge-brand">${ICON.fileText}${escapeHtml(plan.title)}</span>`
-                : `<span class="meta-divider"></span><span class="badge badge-neutral">No plan</span>`}
-            </div>
+      <div class="summary-card">
+        <div class="summary-card-head">
+          <div class="summary-card-title">
+            <span>${escapeHtml(d.fe)}</span>
+            <span class="arrow">→</span>
+            <span>${escapeHtml(d.v2)}</span>
+          </div>
+          <div class="summary-card-meta">
+            <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
+            ${plan
+              ? `<span class="meta-divider"></span><span class="badge badge-brand">${ICON.fileText}${escapeHtml(plan.title)}</span>`
+              : `<span class="meta-divider"></span><span class="badge badge-neutral">No plan</span>`}
           </div>
         </div>
-        <div class="preview-block">${escapeHtml(d.text)}</div>
-        <div class="list-item-actions">
+        <div class="summary-card-body">
+          <div class="preview-block">${escapeHtml(d.text)}</div>
+        </div>
+        <div class="summary-card-foot">
           <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${d.id}')">${ICON.clipboard}Copy for WhatsApp</button>
           <button type="button" class="btn btn-secondary btn-sm" onclick="editSummary('${d.id}')">${ICON.edit}Edit</button>
           <button type="button" class="btn btn-danger btn-sm" onclick="deleteSummary('${d.id}')">${ICON.trash}Delete</button>
         </div>
       </div>
     `;
-  }).join('');
+  }).join('') + `</div>`;
 }
 
 /* ============================================================
@@ -1196,18 +1233,22 @@ function refreshCounts(){
   } else {
     const plan = latest.planId ? State.plans.get(latest.planId) : null;
     el.innerHTML = `
-      <div class="list-item" style="border-bottom:none">
-        <div class="list-item-head">
-          <div style="min-width:0;flex:1">
-            <div class="list-item-title">${escapeHtml(latest.fe)} <span style="color:var(--text-tertiary);font-weight:400">→</span> ${escapeHtml(latest.v2)}</div>
-            <div class="list-item-meta">
-              <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(latest.date))}</span>
-              ${plan ? `<span class="meta-divider"></span><span class="badge badge-violet">${escapeHtml(plan.title)}</span>` : ''}
-            </div>
+      <div class="summary-card">
+        <div class="summary-card-head">
+          <div class="summary-card-title">
+            <span>${escapeHtml(latest.fe)}</span>
+            <span class="arrow">→</span>
+            <span>${escapeHtml(latest.v2)}</span>
+          </div>
+          <div class="summary-card-meta">
+            <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(latest.date))}</span>
+            ${plan ? `<span class="meta-divider"></span><span class="badge badge-violet">${escapeHtml(plan.title)}</span>` : ''}
           </div>
         </div>
-        <div class="preview-block">${escapeHtml(latest.text)}</div>
-        <div class="list-item-actions">
+        <div class="summary-card-body">
+          <div class="preview-block">${escapeHtml(latest.text)}</div>
+        </div>
+        <div class="summary-card-foot">
           <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${latest.id}')">${ICON.clipboard}Copy for WhatsApp</button>
         </div>
       </div>`;
