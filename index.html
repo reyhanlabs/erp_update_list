@@ -312,6 +312,13 @@
   .btn-ghost:hover{background:var(--bg-subtle);color:var(--text)}
   .btn-danger{background:var(--surface);color:var(--danger);border-color:var(--danger-ring)}
   .btn-danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+  .btn-danger-solid{
+    background:linear-gradient(135deg,#ef4444 0%,#dc2626 60%,#b91c1c 100%);
+    color:#fff;border-color:transparent;
+    box-shadow:0 2px 8px rgba(220,38,38,.35), inset 0 1px 0 rgba(255,255,255,.2);
+    background-size:150% 150%;background-position:0% 50%;
+  }
+  .btn-danger-solid:hover{background-position:100% 50%;box-shadow:0 6px 20px rgba(220,38,38,.4);transform:translateY(-1px)}
   .btn-success{
     background:linear-gradient(135deg,#10b981 0%,#059669 60%,#0d9488 100%);
     color:#fff;box-shadow:0 2px 8px rgba(5,150,105,.3), inset 0 1px 0 rgba(255,255,255,.2);
@@ -573,6 +580,116 @@
   }
   .modal-foot-right{display:flex;gap:8px;margin-left:auto}
 
+  /* ============================================================
+     CONFIRM MODAL
+     ============================================================ */
+  .confirm-overlay{
+    display:none;position:fixed;inset:0;
+    background:var(--overlay-bg);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    z-index:250;padding:24px;
+    align-items:center;justify-content:center;
+  }
+  .confirm-overlay.show{display:flex;animation:overlayIn var(--dur) var(--ease)}
+
+  .confirm-box{
+    background:var(--surface);
+    border-radius:var(--r-xl);
+    width:100%;max-width:440px;
+    box-shadow:var(--shadow-xl), 0 0 0 1px var(--line);
+    animation:confirmIn .24s cubic-bezier(.16,1,.3,1);
+    overflow:hidden;
+    position:relative;
+  }
+  @keyframes confirmIn{
+    from{opacity:0;transform:translateY(16px) scale(.96)}
+    to{opacity:1;transform:none}
+  }
+  .confirm-box::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899);
+  }
+  .confirm-box.danger::before{
+    background:linear-gradient(90deg,#f59e0b,#ef4444,#dc2626);
+  }
+
+  .confirm-body{
+    padding:28px 26px 22px;
+    text-align:center;
+  }
+  .confirm-icon{
+    width:64px;height:64px;margin:0 auto 18px;
+    border-radius:18px;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+    background:linear-gradient(135deg,#eff6ff,#e0e7ff);
+    border:1px solid var(--brand-ring);
+    color:var(--brand);
+    box-shadow:0 8px 24px rgba(99,102,241,.15), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  .confirm-box.danger .confirm-icon{
+    background:linear-gradient(135deg,#fef3c7,#fee2e2);
+    border-color:rgba(239,68,68,.2);
+    color:var(--danger);
+    box-shadow:0 8px 24px rgba(239,68,68,.15), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  [data-theme="dark"] .confirm-icon{
+    background:linear-gradient(135deg, rgba(59,130,246,.2), rgba(139,92,246,.15));
+    border-color:rgba(96,165,250,.3);
+    color:#93c5fd;
+    box-shadow:0 8px 24px rgba(59,130,246,.25), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  [data-theme="dark"] .confirm-box.danger .confirm-icon{
+    background:linear-gradient(135deg, rgba(245,158,11,.15), rgba(239,68,68,.15));
+    border-color:rgba(239,68,68,.3);
+    color:#fca5a5;
+    box-shadow:0 8px 24px rgba(239,68,68,.25), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .confirm-icon svg{width:30px;height:30px}
+
+  .confirm-title{
+    font-size:17px;font-weight:600;
+    letter-spacing:-.01em;
+    color:var(--text);
+    margin-bottom:8px;
+    line-height:1.3;
+  }
+  .confirm-message{
+    font-size:13.5px;
+    color:var(--text-secondary);
+    line-height:1.6;
+    max-width:340px;
+    margin:0 auto;
+  }
+  .confirm-message b{
+    color:var(--text);
+    font-weight:600;
+  }
+
+  .confirm-actions{
+    padding:0 22px 22px;
+    display:flex;
+    gap:10px;
+    justify-content:center;
+  }
+  .confirm-actions .btn{
+    flex:1;
+    height:40px;
+    font-size:13.5px;
+    min-width:0;
+  }
+
+  @media(max-width:480px){
+    .confirm-overlay{padding:16px}
+    .confirm-box{max-width:100%}
+    .confirm-body{padding:24px 20px 20px}
+    .confirm-icon{width:56px;height:56px}
+    .confirm-icon svg{width:26px;height:26px}
+    .confirm-title{font-size:16px}
+    .confirm-message{font-size:13px}
+    .confirm-actions{padding:0 18px 18px}
+  }
+
   .toast{
     position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(24px);
     background:linear-gradient(135deg,#0b1220 0%,#1e1b4b 100%);color:#fff;
@@ -737,7 +854,7 @@
 
   <div class="sidebar-footer">
     <span class="dot-status syncing" id="statusDot">Connecting</span>
-    <span>v2.1.0</span>
+    <span>v2.2.0</span>
   </div>
 </aside>
 
@@ -1155,6 +1272,26 @@
   </div>
 </div>
 
+<div class="confirm-overlay" id="confirmModal">
+  <div class="confirm-box" id="confirmBox">
+    <div class="confirm-body">
+      <div class="confirm-icon" id="confirmIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="confirm-title" id="confirmTitle">Are you sure?</div>
+      <div class="confirm-message" id="confirmMessage">This action cannot be undone.</div>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -1162,9 +1299,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ============================================================
-   FIREBASE INIT
-   ============================================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyA9EXEDl79MzQkO4k181BH4SQPE6lOArGg",
   authDomain: "erpupdate-f0b18.firebaseapp.com",
@@ -1179,7 +1313,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Offline persistence (safe fallback)
 try {
   db.enablePersistence({ synchronizeTabs: true }).catch(err => {
     if (err.code === 'failed-precondition') {
@@ -1193,8 +1326,7 @@ try {
 }
 
 /* ============================================================
-   STATE (in-memory cache)
-   Use _plans/_summaries to avoid key collision
+   STATE
    ============================================================ */
 const State = {
   _plans: [],
@@ -1213,7 +1345,7 @@ const State = {
 };
 
 /* ============================================================
-   CLOUD SYNC (Firestore)
+   CLOUD SYNC
    ============================================================ */
 const CloudSync = {
   uid: null,
@@ -1478,7 +1610,9 @@ const ICON = {
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
   messageSquare:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
   inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
-  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+  warning:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  danger:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>'
 };
 
 /* ============================================================
@@ -1516,6 +1650,48 @@ function escapeHtml(s){
 
 function countIssues(text){
   return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).length;
+}
+
+/* ============================================================
+   CONFIRM DIALOG (replaces window.confirm)
+   ============================================================ */
+let _confirmResolve = null;
+
+function confirmDialog(opts){
+  return new Promise(resolve => {
+    const overlay = $('confirmModal');
+    const box = $('confirmBox');
+    const icon = $('confirmIcon');
+    const titleEl = $('confirmTitle');
+    const msgEl = $('confirmMessage');
+    const okBtn = $('confirmOkBtn');
+    const cancelBtn = $('confirmCancelBtn');
+
+    const type = opts.type || 'warning';
+    box.classList.toggle('danger', type === 'danger');
+    icon.innerHTML = type === 'danger' ? ICON.danger : ICON.warning;
+    titleEl.textContent = opts.title || 'Are you sure?';
+    msgEl.innerHTML = opts.message || 'This action cannot be undone.';
+    okBtn.textContent = opts.okText || 'Confirm';
+    cancelBtn.textContent = opts.cancelText || 'Cancel';
+
+    okBtn.className = 'btn ' + (type === 'danger' ? 'btn-danger-solid' : 'btn-primary');
+
+    _confirmResolve = resolve;
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    setTimeout(()=> okBtn.focus(), 50);
+  });
+}
+
+function _closeConfirm(result){
+  const overlay = $('confirmModal');
+  overlay.classList.remove('show');
+  document.body.style.overflow = '';
+  if(_confirmResolve){
+    _confirmResolve(result);
+    _confirmResolve = null;
+  }
 }
 
 /* ============================================================
@@ -1591,7 +1767,7 @@ function openAddModal(){
 }
 
 /* ============================================================
-   PLANS — CRUD
+   PLANS CRUD
    ============================================================ */
 async function savePlan(e){
   e.preventDefault();
@@ -1644,9 +1820,22 @@ function editPlan(id){
 }
 
 async function deletePlan(id){
+  const plan = State.plans.get(id);
   const linked = State.summaries.all().filter(s=>s.planId===id).length;
-  const msg = linked ? `This plan has ${linked} linked summary(ies). Delete all?` : 'Delete this plan?';
-  if(!confirm(msg)) return;
+
+  const message = linked
+    ? `Plan <b>"${escapeHtml(plan?.title || 'this plan')}"</b> has <b>${linked} linked summary(ies)</b>. They will also be deleted.<br><br>This action cannot be undone.`
+    : `Delete <b>"${escapeHtml(plan?.title || 'this plan')}"</b>?<br><br>This action cannot be undone.`;
+
+  const ok = await confirmDialog({
+    title: 'Delete this plan?',
+    message: message,
+    okText: 'Delete Plan',
+    cancelText: 'Cancel',
+    type: 'danger'
+  });
+  if(!ok) return;
+
   try {
     await CloudSync.deletePlan(id);
     toast('Plan deleted');
@@ -1722,7 +1911,7 @@ function renderPlans(){
 }
 
 /* ============================================================
-   SUMMARIES — CRUD
+   SUMMARIES CRUD
    ============================================================ */
 function populatePlanDropdown(selected){
   const sel = $('summaryPlanRef');
@@ -1832,7 +2021,16 @@ function editSummary(id){
 }
 
 async function deleteSummary(id){
-  if(!confirm('Delete this summary?')) return;
+  const summary = State.summaries.get(id);
+  const ok = await confirmDialog({
+    title: 'Delete this summary?',
+    message: `Delete summary <b>${escapeHtml(summary?.fe || '')} → ${escapeHtml(summary?.v2 || '')}</b>?<br><br>This action cannot be undone.`,
+    okText: 'Delete Summary',
+    cancelText: 'Cancel',
+    type: 'danger'
+  });
+  if(!ok) return;
+
   try {
     await CloudSync.deleteSummary(id);
     toast('Summary deleted');
@@ -1987,7 +2185,16 @@ function importAll(ev){
     try {
       const data = JSON.parse(e.target.result);
       if(!data.plans || !data.summaries) throw new Error('Invalid format');
-      if(!confirm('Importing will overwrite your current data. Continue?')) return;
+
+      const ok = await confirmDialog({
+        title: 'Import backup data?',
+        message: `This will import <b>${data.plans.length} plans</b> and <b>${data.summaries.length} summaries</b>.<br><br>Your current data will be <b>overwritten</b>. Continue?`,
+        okText: 'Import Data',
+        cancelText: 'Cancel',
+        type: 'warning'
+      });
+      if(!ok){ ev.target.value = ''; return; }
+
       await CloudSync.bulkImport(data.plans, data.summaries);
       toast('Import successful');
     } catch(err){
@@ -2000,8 +2207,18 @@ function importAll(ev){
 }
 
 async function wipeAll(){
-  if(!confirm('Delete ALL plan & summary data? This cannot be undone.')) return;
-  if(!confirm('Are you sure? Data will be permanently lost.')) return;
+  const plansCount = State.plans.all().length;
+  const sumsCount = State.summaries.all().length;
+
+  const ok = await confirmDialog({
+    title: 'Delete ALL data?',
+    message: `You are about to permanently delete <b>${plansCount} plan(s)</b> and <b>${sumsCount} summary(ies)</b> from the cloud.<br><br>This action <b>cannot be undone</b>.`,
+    okText: 'Delete Everything',
+    cancelText: 'Cancel',
+    type: 'danger'
+  });
+  if(!ok) return;
+
   try {
     await CloudSync.wipeAll();
     toast('All data deleted');
@@ -2021,6 +2238,21 @@ function renderAll(){
 }
 
 document.addEventListener('DOMContentLoaded', ()=>{
+  // Confirm modal bindings
+  const okBtn = $('confirmOkBtn');
+  const cancelBtn = $('confirmCancelBtn');
+  const confirmOverlay = $('confirmModal');
+  if(okBtn) okBtn.addEventListener('click', ()=> _closeConfirm(true));
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=> _closeConfirm(false));
+  if(confirmOverlay) confirmOverlay.addEventListener('click', (e)=> {
+    if(e.target === confirmOverlay) _closeConfirm(false);
+  });
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && confirmOverlay && confirmOverlay.classList.contains('show')){
+      _closeConfirm(false);
+    }
+  });
+
   ThemeManager.init();
   $('planDate').value = todayISO();
   $('summaryDate').value = todayISO();
