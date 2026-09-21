@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.10.3';
+const APP_VERSION = '4.10.4';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Pastel plan cards inspired by Class Cash Book';
+const APP_VERSION_NOTE = 'Tighter card spacing + favicon/icon.png';
 
 /* ============================================================
    FIREBASE INIT
