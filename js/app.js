@@ -1490,9 +1490,9 @@ function onDatePresetChange(){
   if (warn)      warn.style.display      = preset === 'all'    ? '' : 'none';
 
   if (preset === 'custom') {
-  if ($('syncFrom') && !$('syncFrom').value) $('syncFrom').value = todayISO();
-  if ($('syncTo')   && !$('syncTo').value)   $('syncTo').value   = todayISO();
-}
+    if ($('syncFrom') && !$('syncFrom').value) $('syncFrom').value = todayISO();
+    if ($('syncTo')   && !$('syncTo').value)   $('syncTo').value   = todayISO();
+  }
 }
 
 /* ============================================================
