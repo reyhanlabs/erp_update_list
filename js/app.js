@@ -7,9 +7,13 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.10.4';
+const APP_VERSION = '4.11.1';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tighter card spacing + favicon/icon.png';
+const APP_VERSION_NOTE = 'Tester reminder — Ready for Testing issues on dashboard';
+
+/* Plan list filter state */
+window.__planFilter = window.__planFilter || 'all';
+window.__expandedPlans = window.__expandedPlans || new Set();
 
 /* ============================================================
    FIREBASE INIT
@@ -57,7 +61,26 @@ function toast(msg, type){
   t.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(msg)}</span>`;
   t.classList.add('show');
   clearTimeout(t._t);
-  t._t = setTimeout(()=>t.classList.remove('show'), 2400);
+  // Errors stay longer so user can read them
+  const ms = type === 'error' ? 5200 : 2600;
+  t._t = setTimeout(()=>t.classList.remove('show'), ms);
+}
+
+/** Disable button + show loading label while async work runs */
+async function withBusy(btn, label, fn){
+  if(!btn) return fn();
+  const prev = btn.innerHTML;
+  const wasDisabled = btn.disabled;
+  btn.disabled = true;
+  btn.classList.add('is-busy');
+  if(label) btn.innerHTML = `<span class="spinner-sm"></span> ${escapeHtml(label)}`;
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = wasDisabled;
+    btn.classList.remove('is-busy');
+    btn.innerHTML = prev;
+  }
 }
 
 function formatDate(iso){
@@ -525,6 +548,7 @@ function switchView(view){
   refreshCounts();
   if(view === 'settings') updateLastSync();
   if(view === 'sync') loadRedmineProjects();
+  if(view === 'dashboard') loadTesterReminder();
 }
 
 function toggleSidebar(force){
@@ -908,9 +932,26 @@ async function deletePlan(id){
 /* ============================================================
    RENDER PLANS
    ============================================================ */
+function setPlanFilter(filter){
+  window.__planFilter = filter || 'all';
+  document.querySelectorAll('#planFilters .filter-chip').forEach(chip=>{
+    chip.classList.toggle('active', chip.dataset.filter === window.__planFilter);
+  });
+  renderPlans();
+}
+
+function planHasSummary(planId){
+  return State.summaries.all().some(s => s.planId === planId);
+}
+
+function planIsRedmine(plan){
+  return (plan.note || '').toLowerCase().includes('synced from redmine');
+}
+
 function renderPlans(){
-  const q = ($('planSearch').value || '').toLowerCase().trim();
-  const sort = $('planSort').value;
+  const q = ($('planSearch')?.value || '').toLowerCase().trim();
+  const sort = $('planSort')?.value || 'desc';
+  const filter = window.__planFilter || 'all';
   let list = [...State.plans.all()];
 
   if(q){
@@ -921,6 +962,11 @@ function renderPlans(){
       (x.note||'').toLowerCase().includes(q)
     );
   }
+
+  if(filter === 'no-summary') list = list.filter(p => !planHasSummary(p.id));
+  else if(filter === 'has-summary') list = list.filter(p => planHasSummary(p.id));
+  else if(filter === 'redmine') list = list.filter(p => planIsRedmine(p));
+
   list.sort((a,b)=>{
     const ta = new Date(a.date || (a.createdAt?.seconds*1000) || 0).getTime();
     const tb = new Date(b.date || (b.createdAt?.seconds*1000) || 0).getTime();
@@ -928,8 +974,20 @@ function renderPlans(){
   });
 
   const el = $('planList');
+  if(!el) return;
+
   if(!list.length){
-    el.innerHTML = emptyState(ICON.inbox, 'No Update Plans yet', 'Create your first plan to start tracking SDET issues and generating summaries.');
+    const total = State.plans.all().length;
+    if(!total){
+      el.innerHTML = emptyState(ICON.inbox, 'No Update Plans yet', 'Create your first plan or sync from Redmine.', [
+        { label: 'Add Plan', action: "openAddModal()", primary: true },
+        { label: 'Sync Redmine', action: "switchView('sync')" }
+      ]);
+    } else {
+      el.innerHTML = emptyState(ICON.inbox, 'No matching plans', 'Coba ubah filter atau kata kunci pencarian.', [
+        { label: 'Reset filter', action: "setPlanFilter('all')" }
+      ]);
+    }
     return;
   }
 
@@ -1060,8 +1118,8 @@ function renderPlanCard(d){
             <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
             ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine</span>` : ''}
             ${linkedSummaries
-              ? `<span class="badge badge-violet">${ICON.fileText}${linkedSummaries} summaries</span>`
-              : `<span class="badge badge-neutral">No summary</span>`}
+              ? `<span class="badge badge-violet badge-click" onclick="event.stopPropagation(); viewPlanSummaries('${d.id}')" title="Lihat summaries">${ICON.fileText}${linkedSummaries} summaries</span>`
+              : `<span class="badge badge-neutral badge-click" onclick="event.stopPropagation(); quickSummary('${d.id}')" title="Buat summary">No summary</span>`}
           </div>
         </div>
         <div class="plan-card-chevron">${ICON.chevronDown}</div>
@@ -1093,32 +1151,59 @@ function onPlanRefChange(){
 
 function autoGenerate(){
   const planId = $('summaryPlanRef').value;
-  if(!planId){ toast('Please select an Update Plan first'); return; }
+  if(!planId){ toast('Please select an Update Plan first', 'error'); return; }
   const p = State.plans.get(planId);
+  if(!p){ toast('Plan not found', 'error'); return; }
   const fe = $('summaryFe').value.trim() || 'V?.??.??.??????';
   const v2 = $('summaryV2').value.trim() || 'V?.??.??.??????';
   const v3 = $('summaryV3').value.trim();
   const tgl = $('summaryDate').value ? formatDate($('summaryDate').value) : formatDate(p.date || todayISO());
   const parsed = parseIssueLines(p.issues);
+  const tpl = $('summaryTemplate')?.value || 'wa';
 
-  let text = `🚀 Zahir ERP Update\n\n`;
-  text += `FE Version : ${fe}\n`;
-  text += `V2 Version : ${v2}\n`;
-  if(v3) text += `V3 Version : ${v3}\n`;
-  text += `Date : ${tgl}\n\n`;
-  text += `⚡ Improvements\n`;
-  if(parsed.length){
-    parsed.forEach((it)=>{
-      const num = it.number || it.url;
-      const desc = it.description || '';
-      text += `• [#${num}] ${desc}\n`;
+  const issueLines = parsed.length
+    ? parsed.map(it => {
+        const num = it.number || '—';
+        const desc = it.description || '';
+        return { num, desc, url: it.url };
+      })
+    : [{ num: 'xxxxx', desc: '', url: '' }];
+
+  let text = '';
+
+  if(tpl === 'wa-short'){
+    text = `🚀 *Zahir ERP Update* — ${tgl}\n`;
+    text += `FE ${fe} · V2 ${v2}${v3 ? ' · V3 '+v3 : ''}\n\n`;
+    issueLines.forEach(it => {
+      text += `• #${it.num}${it.desc ? ' — '+it.desc : ''}\n`;
     });
+  } else if(tpl === 'telegram'){
+    text = `🚀 *Zahir ERP Update*\n\n`;
+    text += `FE: \`${fe}\`\nV2: \`${v2}\`\n`;
+    if(v3) text += `V3: \`${v3}\`\n`;
+    text += `📅 ${tgl}\n\n`;
+    text += `*Improvements*\n`;
+    issueLines.forEach(it => {
+      const link = it.url ? `[#${it.num}](${it.url})` : `#${it.num}`;
+      text += `• ${link}${it.desc ? ' — '+it.desc : ''}\n`;
+    });
+    text += `\n*Bug Fixes*\n• `;
   } else {
-    text += `• \n`;
+    // WA formal (default)
+    text = `🚀 Zahir ERP Update\n\n`;
+    text += `FE Version : ${fe}\n`;
+    text += `V2 Version : ${v2}\n`;
+    if(v3) text += `V3 Version : ${v3}\n`;
+    text += `Date : ${tgl}\n\n`;
+    text += `⚡ Improvements\n`;
+    issueLines.forEach(it => {
+      text += `• [#${it.num}] ${it.desc}\n`;
+    });
+    text += `\n🛠️ Bug Fixes\n• [#xxxxx] \n`;
   }
-  text += `\n🛠️ Bug Fixes\n• [#xxxxx] \n`;
+
   $('summaryText').value = text;
-  toast('Template generated');
+  toast('Template generated (' + (tpl === 'wa-short' ? 'WA singkat' : tpl === 'telegram' ? 'Telegram' : 'WA formal') + ')');
 }
 
 function quickSummary(planId){
@@ -1128,6 +1213,15 @@ function quickSummary(planId){
   if(p && p.date) $('summaryDate').value = p.date;
   $('summaryModalTitle').textContent = 'Add Summary';
   openModal('summaryModal');
+}
+
+function viewPlanSummaries(planId){
+  switchView('summaries');
+  const plan = State.plans.get(planId);
+  if(plan && $('summarySearch')){
+    $('summarySearch').value = plan.title || '';
+    renderSummaries();
+  }
 }
 
 async function saveSummary(e){
@@ -1283,31 +1377,70 @@ function refreshCounts(){
   const plans = State.plans.all();
   const sums = State.summaries.all();
 
-  $('countPlans').textContent = plans.length;
-  $('countSummaries').textContent = sums.length;
-  $('statPlans').textContent = plans.length;
-  $('statSummaries').textContent = sums.length;
+  if($('countPlans')) $('countPlans').textContent = plans.length;
+  if($('countSummaries')) $('countSummaries').textContent = sums.length;
+  if($('statPlans')) $('statPlans').textContent = plans.length;
+  if($('statSummaries')) $('statSummaries').textContent = sums.length;
 
   const totalIssues = plans.reduce((acc,p)=> acc + countIssues(p.issues), 0);
-  $('statIssues').textContent = totalIssues;
+  if($('statIssues')) $('statIssues').textContent = totalIssues;
+
+  const needsSummary = plans.filter(p => !planHasSummary(p.id)).length;
+  if($('statNeedsSummary')) $('statNeedsSummary').textContent = needsSummary;
 
   const footerCount = $('footerDataCount');
   if(footerCount){
     footerCount.textContent = `${plans.length + sums.length} items`;
   }
 
+  // Recent plans (dashboard)
+  const recentEl = $('recentPlans');
+  if(recentEl){
+    const recent = [...plans].sort((a,b)=>
+      new Date(b.date || (b.createdAt?.seconds*1000) || 0) - new Date(a.date || (a.createdAt?.seconds*1000) || 0)
+    ).slice(0, 5);
+    if(!recent.length){
+      recentEl.innerHTML = emptyState(ICON.inbox, 'No plans yet', 'Mulai dengan sync Redmine atau buat plan manual.', [
+        { label: 'Add Plan', action: "switchView('plans'); openAddModal()", primary: true },
+        { label: 'Sync Redmine', action: "switchView('sync')" }
+      ]);
+    } else {
+      recentEl.innerHTML = `<div class="recent-list">` + recent.map(p => {
+        const n = countIssues(p.issues);
+        const hasSum = planHasSummary(p.id);
+        const redmine = planIsRedmine(p);
+        return `<div class="recent-row" onclick="switchView('plans')">
+          <div class="recent-row-main">
+            <div class="recent-title">${escapeHtml(p.title || 'Untitled')}</div>
+            <div class="recent-meta">
+              <span>${escapeHtml(formatDate(p.date))}</span>
+              <span>·</span>
+              <span>${n} issues</span>
+              ${redmine ? '<span class="badge badge-redmine" style="margin-left:4px">Redmine</span>' : ''}
+              ${hasSum ? '<span class="badge badge-violet" style="margin-left:4px">Summary</span>' : '<span class="badge badge-neutral" style="margin-left:4px">No summary</span>'}
+            </div>
+          </div>
+          ${!hasSum ? `<button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); quickSummary('${p.id}')">Summary</button>` : ''}
+        </div>`;
+      }).join('') + `</div>`;
+    }
+  }
+
+  // Latest summary
   const latest = [...sums].sort((a,b)=>
     new Date(b.date || (b.createdAt?.seconds*1000) || 0) - new Date(a.date || (a.createdAt?.seconds*1000) || 0)
   )[0];
   const el = $('latestSummary');
   if(!el) return;
   if(!latest){
-    el.innerHTML = emptyState(ICON.inbox, 'No summaries yet', 'Create a plan first, then generate a summary from it.');
+    el.innerHTML = emptyState(ICON.inbox, 'No summaries yet', 'Create a plan first, then generate a summary from it.', [
+      { label: 'Go to Plans', action: "switchView('plans')" }
+    ]);
   } else {
     const plan = latest.planId ? State.plans.get(latest.planId) : null;
     const v3Html = latest.v3 ? `<span class="arrow">→</span><span>${escapeHtml(latest.v3)}</span>` : '';
     el.innerHTML = `
-      <div class="summary-card" style="margin:0">
+      <div class="summary-card" style="margin:0;border:none;box-shadow:none;background:transparent">
         <div class="summary-card-head">
           <div class="summary-card-title">
             <span>${escapeHtml(latest.fe)}</span>
@@ -1333,12 +1466,117 @@ function refreshCounts(){
 /* ============================================================
    EMPTY STATE
    ============================================================ */
-function emptyState(iconSvg, title, desc){
+function emptyState(iconSvg, title, desc, actions){
+  const btns = (actions || []).map(a =>
+    `<button type="button" class="btn ${a.primary ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="${a.action}">${escapeHtml(a.label)}</button>`
+  ).join('');
   return `<div class="empty">
     <div class="empty-icon">${iconSvg}</div>
     <h4>${escapeHtml(title)}</h4>
     <p>${escapeHtml(desc)}</p>
+    ${btns ? `<div class="empty-actions">${btns}</div>` : ''}
   </div>`;
+}
+
+/* ============================================================
+   REDMINE HELPERS
+   ============================================================ */
+function applyStatusParam(params, statusVal){
+  if(!statusVal || statusVal === '*') return;
+  if(String(statusVal).startsWith('name:')){
+    params.set('status_name', String(statusVal).slice(5));
+  } else {
+    params.set('status_id', statusVal);
+  }
+}
+
+/* ============================================================
+   TESTER REMINDER — Ready for Testing
+   ============================================================ */
+async function loadTesterReminder(force){
+  const el = $('testerReminder');
+  const badge = $('testerCountBadge');
+  const statusLabel = $('testerStatusLabel');
+  const btn = $('btnRefreshTester');
+  if(!el) return;
+
+  // Need a project — load projects first if needed
+  try {
+    if(!RedmineState.loaded){
+      await loadRedmineProjects();
+    }
+  } catch(_){ /* ignore */ }
+
+  const pid = getSelectedProjectId();
+  if(!pid){
+    el.innerHTML = emptyState(ICON.inbox, 'Pilih project dulu', 'Buka Sync from Redmine, pilih project, lalu refresh di sini.', [
+      { label: 'Buka Sync', action: "switchView('sync')" }
+    ]);
+    if(badge) badge.textContent = '—';
+    return;
+  }
+
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+  }
+  el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p></div>`;
+
+  try {
+    const params = new URLSearchParams();
+    params.set('status_name', 'Ready for Testing');
+    params.set('project_id', pid);
+    params.set('limit', '50');
+    params.set('sort', 'updated_on:desc');
+
+    const r = await fetch(`/api/redmine?${params.toString()}`);
+    const data = await r.json();
+
+    if(!r.ok){
+      throw new Error(data.detail || data.error || 'Gagal memuat issue');
+    }
+
+    const issues = data.issues || [];
+    const resolvedName = data.resolved_status?.name || 'Ready for Testing';
+    if(statusLabel) statusLabel.textContent = resolvedName;
+    if(badge) badge.textContent = String(issues.length);
+
+    if(!issues.length){
+      el.innerHTML = emptyState(ICON.check, 'Tidak ada antrian testing', `Tidak ada issue berstatus "${resolvedName}" di project ini.`);
+      return;
+    }
+
+    el.innerHTML = `<div class="tester-list">` + issues.map(issue => {
+      const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+      const assignee = issue.assigned_to?.name || 'Unassigned';
+      const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
+      const priority = issue.priority?.name || '';
+      return `<a class="tester-row" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+        <span class="tester-num">#${issue.id}</span>
+        <span class="tester-body">
+          <span class="tester-subject">${escapeHtml(issue.subject || '')}</span>
+          <span class="tester-meta">
+            <span>${escapeHtml(assignee)}</span>
+            <span>·</span>
+            <span>${escapeHtml(updated)}</span>
+            ${priority ? `<span>·</span><span>${escapeHtml(priority)}</span>` : ''}
+          </span>
+        </span>
+        <span class="tester-open">${ICON.externalLink}</span>
+      </a>`;
+    }).join('') + `</div>`;
+  } catch(err){
+    console.error('Tester reminder failed:', err);
+    if(badge) badge.textContent = '!';
+    el.innerHTML = emptyState(ICON.alert, 'Gagal memuat', err.message || 'Cek koneksi Redmine / API key.', [
+      { label: 'Coba lagi', action: 'loadTesterReminder(true)', primary: true }
+    ]);
+  } finally {
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = 'Refresh';
+    }
+  }
 }
 
 /* ============================================================
@@ -1416,6 +1654,8 @@ function onRedmineProjectChange(){
   RedmineState.selectedProjectId = val;
   try { localStorage.setItem(REDMINE_STORAGE_KEY, val); } catch(e){}
   updateRedmineProjectBadge();
+  // Refresh tester queue for the newly selected project
+  if(currentView === 'dashboard') loadTesterReminder(true);
 }
 
 function updateRedmineProjectBadge(){
@@ -1586,11 +1826,11 @@ async function previewRedmineSync(event){
   setRedmineStatus('loading', 'Fetching...');
 
   try {
-    const statusId = $('syncStatus').value;
+    const statusVal = $('syncStatus').value;
     const dateField = $('syncDateField').value;
 
     const params = new URLSearchParams();
-    if (statusId !== '*') params.set('status_id', statusId);
+    applyStatusParam(params, statusVal);
     params.set('project_id', pid);
     params.set('limit', '100');
     params.set('date_field', dateField);
@@ -1686,11 +1926,11 @@ async function syncFromRedmine(event){
   setRedmineStatus('loading', 'Syncing...');
 
   try {
-    const statusId = $('syncStatus').value;
+    const statusVal = $('syncStatus').value;
     const dateField = $('syncDateField').value;
 
     const params = new URLSearchParams();
-    if (statusId !== '*') params.set('status_id', statusId);
+    applyStatusParam(params, statusVal);
     params.set('project_id', pid);
     params.set('limit', '100');
     params.set('date_field', dateField);
@@ -1728,7 +1968,9 @@ async function syncFromRedmine(event){
     const today = todayISO();
 
     const statusLabels = {'1':'New','2':'In Progress','3':'Resolved','4':'Feedback','5':'Closed','*':'All'};
-    const statusLabel = statusLabels[statusId] || statusId;
+    const statusLabel = statusVal.startsWith('name:')
+      ? statusVal.slice(5)
+      : (statusLabels[statusVal] || statusVal);
 
     // Label range di title
     let rangeLabel;
@@ -1904,12 +2146,41 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 
   document.addEventListener('keydown', (e)=>{
+    const tag = (e.target && e.target.tagName) || '';
+    const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable;
+
     if(e.key === 'Escape'){
       if(confirmOverlay && confirmOverlay.classList.contains('show')){
         _closeConfirm(false);
       }
       closeAllCopyMenus();
       document.querySelectorAll('.modal-overlay.show').forEach(m => closeModal(m.id));
+      return;
+    }
+
+    // Don't trigger shortcuts while typing
+    if(typing || e.metaKey || e.ctrlKey || e.altKey) return;
+
+    // / → focus search on current list view
+    if(e.key === '/'){
+      e.preventDefault();
+      const input = currentView === 'summaries' ? $('summarySearch') : $('planSearch');
+      if(currentView !== 'plans' && currentView !== 'summaries'){
+        switchView('plans');
+      }
+      setTimeout(()=> (currentView === 'summaries' ? $('summarySearch') : $('planSearch'))?.focus(), 50);
+      return;
+    }
+
+    // N → new item
+    if(e.key === 'n' || e.key === 'N'){
+      e.preventDefault();
+      if(currentView === 'summaries'){
+        openAddModal();
+      } else if(currentView === 'plans' || currentView === 'dashboard'){
+        if(currentView !== 'plans') switchView('plans');
+        openAddModal();
+      }
     }
   });
 
@@ -1939,6 +2210,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       $('loadingText').textContent = 'Loading your data...';
       await CloudSync.init(userUID);
       $('loadingOverlay').classList.add('hidden');
+      // Load tester queue once data is ready
+      loadTesterReminder();
     })
     .catch(err => {
       console.error('❌ Auth failed:', err);

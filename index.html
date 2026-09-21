@@ -156,7 +156,7 @@
 
     <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
-      <div class="stats-grid">
+      <div class="stats-grid stats-grid-4">
         <div class="stat blue">
           <div class="stat-label">
             <span class="icon">
@@ -193,30 +193,96 @@
           </div>
           <div class="stat-value" id="statIssues">0</div>
         </div>
+        <div class="stat rose">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+            Needs Summary
+          </div>
+          <div class="stat-value" id="statNeedsSummary">0</div>
+        </div>
       </div>
 
-      <div class="card">
+      <div class="dash-actions">
+        <button type="button" class="dash-action-btn" onclick="switchView('plans'); openAddModal()">
+          <span class="da-icon blue">+</span>
+          <span class="da-text"><strong>New Plan</strong><small>Tambah update plan manual</small></span>
+        </button>
+        <button type="button" class="dash-action-btn" onclick="switchView('sync')">
+          <span class="da-icon red">R</span>
+          <span class="da-text"><strong>Sync Redmine</strong><small>Tarik issue Resolved</small></span>
+        </button>
+        <button type="button" class="dash-action-btn" onclick="switchView('summaries'); openAddModal()">
+          <span class="da-icon violet">S</span>
+          <span class="da-text"><strong>New Summary</strong><small>Buat ringkasan WA/Telegram</small></span>
+        </button>
+      </div>
+
+      <!-- Tester reminder: Ready for Testing -->
+      <div class="card tester-card">
         <div class="card-head">
-          <h3><span class="mark"></span> Latest Summary</h3>
+          <h3>
+            <span class="mark tester-mark"></span>
+            Tester Reminder
+            <span class="badge badge-amber" id="testerCountBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="meta-chip" id="testerStatusLabel" style="font-size:11.5px">Ready for Testing</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshTester" onclick="loadTesterReminder(true)">
+              Refresh
+            </button>
+          </div>
         </div>
-        <div class="card-body tight" id="latestSummary"></div>
+        <div class="card-body tight" id="testerReminder">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-two-col">
+        <div class="card">
+          <div class="card-head">
+            <h3><span class="mark"></span> Recent Plans</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('plans')">Lihat semua</button>
+          </div>
+          <div class="card-body tight" id="recentPlans"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3><span class="mark"></span> Latest Summary</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('summaries')">Lihat semua</button>
+          </div>
+          <div class="card-body tight" id="latestSummary"></div>
+        </div>
       </div>
     </section>
 
     <!-- UPDATE PLANS -->
     <section class="view" id="view-plans">
-      <div class="toolbar toolbar-float">
+      <div class="toolbar toolbar-float toolbar-sticky">
         <div class="search-wrap">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="text" id="planSearch" placeholder="Search title, issue, or date..." oninput="renderPlans()"/>
+          <input type="text" id="planSearch" placeholder="Search title, issue, or date... (press /)" oninput="renderPlans()"/>
         </div>
         <select class="select" id="planSort" onchange="renderPlans()">
           <option value="desc">Newest first</option>
           <option value="asc">Oldest first</option>
         </select>
+      </div>
+      <div class="filter-chips" id="planFilters">
+        <button type="button" class="filter-chip active" data-filter="all" onclick="setPlanFilter('all')">All</button>
+        <button type="button" class="filter-chip" data-filter="no-summary" onclick="setPlanFilter('no-summary')">No summary</button>
+        <button type="button" class="filter-chip" data-filter="has-summary" onclick="setPlanFilter('has-summary')">Has summary</button>
+        <button type="button" class="filter-chip" data-filter="redmine" onclick="setPlanFilter('redmine')">Redmine</button>
       </div>
       <div id="planList"></div>
     </section>
@@ -279,6 +345,7 @@
               <label>Status Filter</label>
               <select class="input select" id="syncStatus" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
                 <option value="3">Resolved</option>
+                <option value="name:Ready for Testing">Ready for Testing</option>
                 <option value="5">Closed</option>
                 <option value="1">New</option>
                 <option value="2">In Progress</option>
@@ -559,6 +626,42 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark"></span> What's New</h3>
+        </div>
+        <div class="card-body">
+          <div class="changelog" id="changelogList">
+            <div class="changelog-item">
+              <span class="cl-ver">v4.11.1</span>
+              <span class="cl-note">Tester reminder — Ready for Testing di Dashboard</span>
+            </div>
+            <div class="changelog-item">
+              <span class="cl-ver">v4.11.0</span>
+              <span class="cl-note">Dashboard, filters, shortcuts, templates, loading states</span>
+            </div>
+            <div class="changelog-item">
+              <span class="cl-ver">v4.10.4</span>
+              <span class="cl-note">Tighter card spacing + favicon</span>
+            </div>
+            <div class="changelog-item">
+              <span class="cl-ver">v4.10.3</span>
+              <span class="cl-note">Pastel plan cards</span>
+            </div>
+            <div class="changelog-item">
+              <span class="cl-ver">v4.10.2</span>
+              <span class="cl-note">Floating plan cards</span>
+            </div>
+          </div>
+          <p class="kbd-hint" style="margin-top:14px;font-size:12px;color:var(--text-tertiary);line-height:1.7">
+            <strong>Shortcuts:</strong>
+            <kbd>/</kbd> Search ·
+            <kbd>N</kbd> New item ·
+            <kbd>Esc</kbd> Close modal
+          </p>
+        </div>
+      </div>
+
       <div class="settings-footer">
         <div>Zahir ERP Update Manager · <span id="appVersionLabelSettings">v—</span></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -702,9 +805,14 @@
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-ghost" onclick="closeModal('summaryModal')">Cancel</button>
-        <div class="modal-foot-right">
+        <div class="modal-foot-right" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select class="select" id="summaryTemplate" style="height:34px;font-size:12.5px" title="Template style">
+            <option value="wa">WA formal</option>
+            <option value="wa-short">WA singkat</option>
+            <option value="telegram">Telegram</option>
+          </select>
           <button type="button" class="btn btn-secondary" onclick="autoGenerate()">✨ Auto-generate</button>
-          <button type="submit" class="btn btn-primary">💾 Save Summary</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveSummary">💾 Save Summary</button>
         </div>
       </div>
     </form>

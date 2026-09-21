@@ -3,6 +3,44 @@
    Endpoint: /api/redmine
    ============================================================ */
 
+const REDMINE_BASE = 'https://pjm.zahironline.com';
+
+async function resolveStatusId(apiKey, statusName) {
+  if (!statusName) return null;
+  const needle = String(statusName).toLowerCase().trim();
+
+  const response = await fetch(`${REDMINE_BASE}/issue_statuses.json`, {
+    method: 'GET',
+    headers: {
+      'X-Redmine-API-Key': apiKey,
+      'Accept': 'application/json',
+      'User-Agent': 'Zahir-ERP-Update-Manager/1.0'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load issue statuses (${response.status})`);
+  }
+
+  const data = await response.json();
+  const statuses = data.issue_statuses || [];
+
+  // Exact match first, then partial (contains)
+  let found = statuses.find(s => (s.name || '').toLowerCase() === needle);
+  if (!found) {
+    found = statuses.find(s => (s.name || '').toLowerCase().includes(needle));
+  }
+  // Prefer names that look like "ready for testing"
+  if (!found && needle.includes('ready')) {
+    found = statuses.find(s => {
+      const n = (s.name || '').toLowerCase();
+      return n.includes('ready') && (n.includes('test') || n.includes('testing'));
+    });
+  }
+
+  return found ? { id: found.id, name: found.name } : null;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -27,6 +65,7 @@ export default async function handler(req, res) {
   try {
     const {
       status_id,
+      status_name,
       updated_on,
       created_on,
       from,
@@ -39,9 +78,26 @@ export default async function handler(req, res) {
       assigned_to_id
     } = req.query;
 
-    const url = new URL('https://pjm.zahironline.com/issues.json');
+    let resolvedStatusId = status_id || null;
+    let resolvedStatusMeta = null;
 
-    if (status_id)      url.searchParams.set('status_id', status_id);
+    // Resolve custom status by name (e.g. "Ready for Testing")
+    if (!resolvedStatusId && status_name) {
+      resolvedStatusMeta = await resolveStatusId(apiKey, status_name);
+      if (!resolvedStatusMeta) {
+        return res.status(404).json({
+          error: 'Status not found',
+          detail: `No Redmine status matching "${status_name}". Check Administration → Issue statuses.`,
+          issues: [],
+          total_count: 0
+        });
+      }
+      resolvedStatusId = String(resolvedStatusMeta.id);
+    }
+
+    const url = new URL(`${REDMINE_BASE}/issues.json`);
+
+    if (resolvedStatusId) url.searchParams.set('status_id', resolvedStatusId);
     if (updated_on)     url.searchParams.set('updated_on', updated_on);
     if (created_on)     url.searchParams.set('created_on', created_on);
     if (offset)         url.searchParams.set('offset', offset);
@@ -50,7 +106,6 @@ export default async function handler(req, res) {
     if (sort)           url.searchParams.set('sort', sort);
 
     // Range builder — Redmine pakai sintaks "><from|to" (eksklusif)
-    // Kalau cuma satu sisi: ">=YYYY-MM-DD" atau "<YYYY-MM-DD"
     if (from || to) {
       const field = date_field === 'created' ? 'created_on' : 'updated_on';
       const pad = n => String(n).padStart(2, '0');
@@ -61,12 +116,10 @@ export default async function handler(req, res) {
       };
 
       if (from && to) {
-        // dua sisi → "><from|to+1"
         url.searchParams.set(field, `><${from}|${nextDay(to)}`);
       } else if (from) {
         url.searchParams.set(field, `>=${from}`);
       } else {
-        // hanya "to" → inklusif sampai akhir hari
         url.searchParams.set(field, `<${nextDay(to)}`);
       }
     }
@@ -108,6 +161,10 @@ export default async function handler(req, res) {
         created_on: issue.created_on,
         updated_on: issue.updated_on
       }));
+    }
+
+    if (resolvedStatusMeta) {
+      data.resolved_status = resolvedStatusMeta;
     }
 
     return res.status(200).json(data);
