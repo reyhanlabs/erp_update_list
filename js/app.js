@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.11.2';
+const APP_VERSION = '4.12.0';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tester Queue moved to its own sidebar menu';
+const APP_VERSION_NOTE = 'Tester Queue: search, group by assignee, copy list, badge highlight';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -1492,16 +1492,210 @@ function applyStatusParam(params, statusVal){
 }
 
 /* ============================================================
-   TESTER REMINDER — Ready for Testing
+   TESTER QUEUE — Ready for Testing
    ============================================================ */
+window.__testerIssues = window.__testerIssues || [];
+window.__testerAssigneeFilter = window.__testerAssigneeFilter || 'all';
+
+function setTesterBadgeCount(n){
+  const badge = $('testerCountBadge');
+  const navCount = $('countTester');
+  const navItem = document.querySelector('.nav-item[data-view="tester"]');
+  const label = (n === null || n === undefined) ? '—' : String(n);
+
+  if(badge) badge.textContent = label;
+  if(navCount) navCount.textContent = label;
+
+  // Highlight sidebar when ada antrian
+  if(navItem){
+    navItem.classList.toggle('has-queue', typeof n === 'number' && n > 0);
+  }
+  if(badge){
+    badge.classList.toggle('badge-pulse', typeof n === 'number' && n > 0);
+  }
+}
+
+function getFilteredTesterIssues(){
+  const q = ($('testerSearch')?.value || '').toLowerCase().trim();
+  const assigneeFilter = window.__testerAssigneeFilter || 'all';
+  let list = [...(window.__testerIssues || [])];
+
+  if(assigneeFilter !== 'all'){
+    list = list.filter(i => (i.assigned_to?.name || 'Unassigned') === assigneeFilter);
+  }
+
+  if(q){
+    list = list.filter(i => {
+      const hay = [
+        String(i.id),
+        i.subject || '',
+        i.assigned_to?.name || 'Unassigned',
+        i.priority?.name || '',
+        i.tracker?.name || ''
+      ].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  return list;
+}
+
+function setTesterAssigneeFilter(name){
+  window.__testerAssigneeFilter = name || 'all';
+  renderTesterAssigneeChips();
+  renderTesterList();
+}
+
+function renderTesterAssigneeChips(){
+  const wrap = $('testerAssigneeFilters');
+  if(!wrap) return;
+  const issues = window.__testerIssues || [];
+  if(!issues.length){
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const counts = {};
+  issues.forEach(i => {
+    const a = i.assigned_to?.name || 'Unassigned';
+    counts[a] = (counts[a] || 0) + 1;
+  });
+  const names = Object.keys(counts).sort((a,b) => counts[b] - counts[a] || a.localeCompare(b));
+  const active = window.__testerAssigneeFilter || 'all';
+
+  wrap.innerHTML = [
+    `<button type="button" class="filter-chip ${active==='all'?'active':''}" onclick="setTesterAssigneeFilter('all')">All (${issues.length})</button>`,
+    ...names.map(n =>
+      `<button type="button" class="filter-chip ${active===n?'active':''}" onclick="setTesterAssigneeFilter('${escapeHtml(n).replace(/'/g, "\\'")}')">${escapeHtml(n)} (${counts[n]})</button>`
+    )
+  ].join('');
+}
+
+function renderTesterRow(issue){
+  const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+  const assignee = issue.assigned_to?.name || 'Unassigned';
+  const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
+  const priority = issue.priority?.name || '';
+  return `<a class="tester-row" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+    <span class="tester-num">#${issue.id}</span>
+    <span class="tester-body">
+      <span class="tester-subject">${escapeHtml(issue.subject || '')}</span>
+      <span class="tester-meta">
+        <span>${escapeHtml(assignee)}</span>
+        <span>·</span>
+        <span>${escapeHtml(updated)}</span>
+        ${priority ? `<span>·</span><span class="tester-priority">${escapeHtml(priority)}</span>` : ''}
+      </span>
+    </span>
+    <span class="tester-open">${ICON.externalLink}</span>
+  </a>`;
+}
+
+function renderTesterList(){
+  const el = $('testerReminder');
+  if(!el) return;
+
+  const all = window.__testerIssues || [];
+  if(!all.length){
+    el.innerHTML = emptyState(ICON.check, 'Tidak ada antrian testing', 'Tidak ada issue berstatus Ready for Testing di project ini.');
+    return;
+  }
+
+  const list = getFilteredTesterIssues();
+  if(!list.length){
+    el.innerHTML = emptyState(ICON.inbox, 'Tidak ada hasil', 'Coba ubah kata kunci atau filter assignee.', [
+      { label: 'Reset filter', action: "setTesterAssigneeFilter('all'); $('testerSearch').value=''; renderTesterList();" }
+    ]);
+    return;
+  }
+
+  const groupBy = $('testerGroupBy')?.value || 'assignee';
+
+  if(groupBy === 'none'){
+    el.innerHTML = `<div class="tester-list">` + list.map(renderTesterRow).join('') + `</div>`;
+    return;
+  }
+
+  const groups = {};
+  list.forEach(i => {
+    const key = groupBy === 'priority'
+      ? (i.priority?.name || 'No priority')
+      : (i.assigned_to?.name || 'Unassigned');
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(i);
+  });
+
+  const keys = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length || a.localeCompare(b));
+
+  el.innerHTML = keys.map(key => `
+    <div class="tester-group">
+      <div class="tester-group-head">
+        <span class="tester-group-title">${escapeHtml(key)}</span>
+        <span class="badge badge-amber">${groups[key].length}</span>
+      </div>
+      <div class="tester-list">
+        ${groups[key].map(renderTesterRow).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function copyTesterList(){
+  const list = getFilteredTesterIssues();
+  if(!list.length){
+    toast('Tidak ada issue untuk di-copy', 'error');
+    return;
+  }
+
+  const groupBy = $('testerGroupBy')?.value || 'assignee';
+  let text = `🧪 Ready for Testing — ${list.length} issue(s)\n`;
+  text += `📅 ${new Date().toLocaleString()}\n\n`;
+
+  if(groupBy === 'none'){
+    list.forEach((i, idx) => {
+      text += `${idx+1}. #${i.id} — ${i.subject || ''}\n`;
+      text += `   ${i.assigned_to?.name || 'Unassigned'}${i.priority?.name ? ' · '+i.priority.name : ''}\n`;
+      text += `   https://pjm.zahironline.com/issues/${i.id}\n\n`;
+    });
+  } else {
+    const groups = {};
+    list.forEach(i => {
+      const key = groupBy === 'priority'
+        ? (i.priority?.name || 'No priority')
+        : (i.assigned_to?.name || 'Unassigned');
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(i);
+    });
+    Object.keys(groups).sort().forEach(key => {
+      text += `👤 ${key} (${groups[key].length})\n`;
+      groups[key].forEach(i => {
+        text += `• #${i.id} — ${i.subject || ''}\n`;
+        text += `  https://pjm.zahironline.com/issues/${i.id}\n`;
+      });
+      text += `\n`;
+    });
+  }
+
+  try {
+    await navigator.clipboard.writeText(text.trim());
+    toast(`Copied ${list.length} issue(s)`);
+  } catch(_){
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text.trim();
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(`Copied ${list.length} issue(s)`);
+  }
+}
+
 async function loadTesterReminder(force){
   const el = $('testerReminder');
-  const badge = $('testerCountBadge');
   const statusLabel = $('testerStatusLabel');
   const btn = $('btnRefreshTester');
   if(!el) return;
 
-  // Need a project — load projects first if needed
   try {
     if(!RedmineState.loaded){
       await loadRedmineProjects();
@@ -1513,7 +1707,7 @@ async function loadTesterReminder(force){
     el.innerHTML = emptyState(ICON.inbox, 'Pilih project dulu', 'Buka Sync from Redmine, pilih project, lalu refresh di sini.', [
       { label: 'Buka Sync', action: "switchView('sync')" }
     ]);
-    if(badge) badge.textContent = '—';
+    setTesterBadgeCount(null);
     return;
   }
 
@@ -1521,13 +1715,15 @@ async function loadTesterReminder(force){
     btn.disabled = true;
     btn.textContent = 'Loading…';
   }
-  el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p></div>`;
+  if(!window.__testerIssues.length || force){
+    el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p></div>`;
+  }
 
   try {
     const params = new URLSearchParams();
     params.set('status_name', 'Ready for Testing');
     params.set('project_id', pid);
-    params.set('limit', '50');
+    params.set('limit', '100');
     params.set('sort', 'updated_on:desc');
 
     const r = await fetch(`/api/redmine?${params.toString()}`);
@@ -1538,38 +1734,20 @@ async function loadTesterReminder(force){
     }
 
     const issues = data.issues || [];
+    window.__testerIssues = issues;
+    window.__testerAssigneeFilter = 'all';
+
     const resolvedName = data.resolved_status?.name || 'Ready for Testing';
     if(statusLabel) statusLabel.textContent = resolvedName;
-    if(badge) badge.textContent = String(issues.length);
-    const navCount = $('countTester');
-    if(navCount) navCount.textContent = String(issues.length);
+    setTesterBadgeCount(issues.length);
 
-    if(!issues.length){
-      el.innerHTML = emptyState(ICON.check, 'Tidak ada antrian testing', `Tidak ada issue berstatus "${resolvedName}" di project ini.`);
-      return;
-    }
-
-    el.innerHTML = `<div class="tester-list">` + issues.map(issue => {
-      const url = `https://pjm.zahironline.com/issues/${issue.id}`;
-      const assignee = issue.assigned_to?.name || 'Unassigned';
-      const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
-      const priority = issue.priority?.name || '';
-      return `<a class="tester-row" href="${escapeHtml(url)}" target="_blank" rel="noopener">
-        <span class="tester-num">#${issue.id}</span>
-        <span class="tester-body">
-          <span class="tester-subject">${escapeHtml(issue.subject || '')}</span>
-          <span class="tester-meta">
-            <span>${escapeHtml(assignee)}</span>
-            <span>·</span>
-            <span>${escapeHtml(updated)}</span>
-            ${priority ? `<span>·</span><span>${escapeHtml(priority)}</span>` : ''}
-          </span>
-        </span>
-        <span class="tester-open">${ICON.externalLink}</span>
-      </a>`;
-    }).join('') + `</div>`;
+    if($('testerSearch')) $('testerSearch').value = '';
+    renderTesterAssigneeChips();
+    renderTesterList();
   } catch(err){
     console.error('Tester reminder failed:', err);
+    setTesterBadgeCount(null);
+    const badge = $('testerCountBadge');
     if(badge) badge.textContent = '!';
     el.innerHTML = emptyState(ICON.alert, 'Gagal memuat', err.message || 'Cek koneksi Redmine / API key.', [
       { label: 'Coba lagi', action: 'loadTesterReminder(true)', primary: true }

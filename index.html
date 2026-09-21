@@ -306,16 +306,29 @@
           </h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span class="meta-chip" id="testerStatusLabel" style="font-size:11.5px">Ready for Testing</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyTesterList()" title="Copy list untuk briefing">
+              Copy list
+            </button>
             <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshTester" onclick="loadTesterReminder(true)">
               Refresh
             </button>
           </div>
         </div>
-        <div class="card-body" style="padding:12px 16px 4px;border-bottom:1px solid var(--line)">
-          <p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.55">
-            Antrian issue untuk tester. Data diambil dari Redmine (project yang dipilih di Sync).
-          </p>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="testerSearch" placeholder="Cari subject, assignee, #id, priority..." oninput="renderTesterList()"/>
+          </div>
+          <select class="select" id="testerGroupBy" onchange="renderTesterList()">
+            <option value="assignee">Group: Assignee</option>
+            <option value="none">Tanpa group</option>
+            <option value="priority">Group: Priority</option>
+          </select>
         </div>
+        <div class="filter-chips" id="testerAssigneeFilters" style="padding:10px 12px 0"></div>
         <div class="card-body tight" id="testerReminder">
           <div class="empty" style="padding:28px 16px">
             <p style="margin:0;color:var(--text-tertiary);font-size:13px">Buka menu ini untuk memuat issue…</p>
@@ -651,6 +664,10 @@
         </div>
         <div class="card-body">
           <div class="changelog" id="changelogList">
+            <div class="changelog-item">
+              <span class="cl-ver">v4.12.0</span>
+              <span class="cl-note">Tester Queue: search, group assignee, copy list</span>
+            </div>
             <div class="changelog-item">
               <span class="cl-ver">v4.11.2</span>
               <span class="cl-note">Tester Queue pindah ke menu sidebar sendiri</span>
