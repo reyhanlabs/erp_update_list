@@ -1,8 +1,6 @@
 /* ============================================================
    REDMINE API PROXY — Vercel Serverless Function
    Endpoint: /api/redmine
-   Forwards requests to Redmine with X-Redmine-API-Key header.
-   Supports: status_id, project_id, date range (from/to), date_field
    ============================================================ */
 
 export default async function handler(req, res) {
@@ -51,14 +49,26 @@ export default async function handler(req, res) {
     if (assigned_to_id) url.searchParams.set('assigned_to_id', assigned_to_id);
     if (sort)           url.searchParams.set('sort', sort);
 
-    // Range builder — pakai dari/to → format ">=YYYY-MM-DD <=YYYY-MM-DD"
-    // Kolom: updated_on (default) atau created_on
+    // Range builder — Redmine pakai sintaks "><from|to" (eksklusif)
+    // Kalau cuma satu sisi: ">=YYYY-MM-DD" atau "<YYYY-MM-DD"
     if (from || to) {
       const field = date_field === 'created' ? 'created_on' : 'updated_on';
-      const parts = [];
-      if (from) parts.push(`>=${from}`);
-      if (to)   parts.push(`<=${to}`);
-      url.searchParams.set(field, parts.join(' '));
+      const pad = n => String(n).padStart(2, '0');
+      const nextDay = (dateStr) => {
+        const d = new Date(dateStr);
+        d.setDate(d.getDate() + 1);
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      };
+
+      if (from && to) {
+        // dua sisi → "><from|to+1"
+        url.searchParams.set(field, `><${from}|${nextDay(to)}`);
+      } else if (from) {
+        url.searchParams.set(field, `>=${from}`);
+      } else {
+        // hanya "to" → inklusif sampai akhir hari
+        url.searchParams.set(field, `<${nextDay(to)}`);
+      }
     }
 
     url.searchParams.set('limit', limit || '100');
