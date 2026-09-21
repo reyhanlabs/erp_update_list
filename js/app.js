@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.5.2 — Redmine project picker + bordered issue list
+   v4.6.0 — Colored plan cards (6-color cycle) + bordered issue rows
    ============================================================ */
 
 /* ============================================================
@@ -72,6 +72,15 @@ function extractIssueNumber(url){
   if(!url) return '';
   const m = String(url).match(/issues\/(\d+)/);
   return m ? m[1] : '';
+}
+
+/* ============================================================
+   COLOR CYCLE — 6 colors for plan cards
+   ============================================================ */
+const CARD_COLORS = ['c-blue', 'c-violet', 'c-pink', 'c-green', 'c-amber', 'c-cyan'];
+
+function getCardColorClass(index){
+  return CARD_COLORS[index % CARD_COLORS.length];
 }
 
 /* ============================================================
@@ -843,7 +852,7 @@ async function deletePlan(id){
 }
 
 /* ============================================================
-   RENDER PLANS
+   RENDER PLANS — with color per card
    ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
@@ -870,15 +879,19 @@ function renderPlans(){
     return;
   }
 
-  el.innerHTML = `<div class="plan-list">` + list.map(d => renderPlanCard(d)).join('') + `</div>`;
+  // Assign color per card based on index
+  el.innerHTML = `<div class="plan-list">` + list.map((d, i) => renderPlanCard(d, i)).join('') + `</div>`;
 }
 
-function renderPlanCard(d){
+function renderPlanCard(d, index){
   const issueLines = (d.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const totalIssue = issueLines.length;
   const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
   const isRedmineSynced = (d.note || '').toLowerCase().includes('synced from redmine');
   const isExpanded = window.__expandedPlans.has(d.id);
+
+  // Color cycle
+  const colorClass = getCardColorClass(index);
 
   const issueRows = issueLines.map(u=>{
     const num = extractIssueNumber(u) || '—';
@@ -893,7 +906,6 @@ function renderPlanCard(d){
     ? `<div class="plan-details-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>`
     : '';
 
-  // Bordered issue block
   const issuesSection = totalIssue > 0
     ? `<div class="plan-details-issues">
         <div class="issues-block">
@@ -978,7 +990,7 @@ function renderPlanCard(d){
   `;
 
   return `
-    <div class="plan-card ${isExpanded ? 'expanded' : ''}">
+    <div class="plan-card ${colorClass} ${isExpanded ? 'expanded' : ''}">
       <div class="plan-card-main" onclick="togglePlanCard('${d.id}', event)">
         <div class="plan-card-left">
           <div class="plan-card-title">${escapeHtml(d.title)}</div>
