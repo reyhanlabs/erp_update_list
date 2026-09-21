@@ -1,0 +1,26 @@
+{
+  "name": "Zahir ERP · Update Manager",
+  "short_name": "ERP Updates",
+  "description": "Kelola update plan Zahir ERP, sync Redmine, dan antrian tester",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1220",
+  "theme_color": "#2563eb",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.12.0';
+const APP_VERSION = '4.13.0';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tester Queue: search, group by assignee, copy list, badge highlight';
+const APP_VERSION_NOTE = 'Tester table layout, PWA, Redmine cache, better errors';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -1492,10 +1492,133 @@ function applyStatusParam(params, statusVal){
 }
 
 /* ============================================================
+   REDMINE CACHE + ERROR HANDLING
+   ============================================================ */
+const RedmineCache = {
+  TTL_MS: 2 * 60 * 1000, // 2 minutes
+  _mem: new Map(),
+
+  key(url){ return String(url); },
+
+  get(url){
+    const k = this.key(url);
+    const hit = this._mem.get(k);
+    if(hit && Date.now() - hit.ts < this.TTL_MS) return hit.data;
+    try {
+      const raw = sessionStorage.getItem('rm-cache:' + k);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      if(Date.now() - parsed.ts < this.TTL_MS){
+        this._mem.set(k, parsed);
+        return parsed.data;
+      }
+    } catch(_){}
+    return null;
+  },
+
+  set(url, data){
+    const entry = { ts: Date.now(), data };
+    this._mem.set(this.key(url), entry);
+    try {
+      sessionStorage.setItem('rm-cache:' + this.key(url), JSON.stringify(entry));
+    } catch(_){}
+  },
+
+  clear(){
+    this._mem.clear();
+    try {
+      Object.keys(sessionStorage)
+        .filter(k => k.startsWith('rm-cache:'))
+        .forEach(k => sessionStorage.removeItem(k));
+    } catch(_){}
+  }
+};
+
+function friendlyRedmineError(status, data){
+  const detail = (data && (data.detail || data.error || data.hint)) || '';
+  if(status === 401){
+    return {
+      title: 'API key tidak valid (401)',
+      message: 'Redmine menolak API key. Generate ulang di My Account → API access key, lalu update REDMINE_API_KEY di Vercel dan redeploy.'
+    };
+  }
+  if(status === 403){
+    return {
+      title: 'Akses ditolak (403)',
+      message: 'User API key tidak punya permission ke project/issue ini. Cek role di Redmine.'
+    };
+  }
+  if(status === 404){
+    return {
+      title: 'Tidak ditemukan (404)',
+      message: detail || 'Status atau resource tidak ditemukan di Redmine. Pastikan nama status "Ready for Testing" ada di Issue statuses.'
+    };
+  }
+  if(status === 500 && /REDMINE_API_KEY not configured/i.test(detail + (data?.error||''))){
+    return {
+      title: 'API key belum dikonfigurasi',
+      message: 'Set environment variable REDMINE_API_KEY di Vercel Project Settings, lalu redeploy.'
+    };
+  }
+  if(status >= 500){
+    return {
+      title: 'Server error',
+      message: detail || 'Redmine/proxy sedang bermasalah. Coba lagi sebentar.'
+    };
+  }
+  if(!navigator.onLine){
+    return {
+      title: 'Offline',
+      message: 'Tidak ada koneksi internet.'
+    };
+  }
+  return {
+    title: 'Gagal memuat dari Redmine',
+    message: detail || ('HTTP ' + status)
+  };
+}
+
+async function fetchRedmine(pathAndQuery, { force = false } = {}){
+  const url = pathAndQuery.startsWith('/') ? pathAndQuery : '/' + pathAndQuery;
+
+  if(!force){
+    const cached = RedmineCache.get(url);
+    if(cached) return { data: cached, fromCache: true, status: 200 };
+  }
+
+  let r;
+  try {
+    r = await fetch(url);
+  } catch(err){
+    const friendly = friendlyRedmineError(0, { detail: err.message });
+    const e = new Error(friendly.message);
+    e.friendly = friendly;
+    e.status = 0;
+    throw e;
+  }
+
+  let data = {};
+  try { data = await r.json(); } catch(_){ data = {}; }
+
+  if(!r.ok){
+    const friendly = friendlyRedmineError(r.status, data);
+    const e = new Error(friendly.message);
+    e.friendly = friendly;
+    e.status = r.status;
+    e.data = data;
+    throw e;
+  }
+
+  RedmineCache.set(url, data);
+  return { data, fromCache: false, status: r.status };
+}
+
+/* ============================================================
    TESTER QUEUE — Ready for Testing
    ============================================================ */
 window.__testerIssues = window.__testerIssues || [];
 window.__testerAssigneeFilter = window.__testerAssigneeFilter || 'all';
+window.__testerMeta = window.__testerMeta || { fromCache: false, statusName: 'Ready for Testing' };
 
 function setTesterBadgeCount(n){
   const badge = $('testerCountBadge');
@@ -1506,7 +1629,6 @@ function setTesterBadgeCount(n){
   if(badge) badge.textContent = label;
   if(navCount) navCount.textContent = label;
 
-  // Highlight sidebar when ada antrian
   if(navItem){
     navItem.classList.toggle('has-queue', typeof n === 'number' && n > 0);
   }
@@ -1531,7 +1653,8 @@ function getFilteredTesterIssues(){
         i.subject || '',
         i.assigned_to?.name || 'Unassigned',
         i.priority?.name || '',
-        i.tracker?.name || ''
+        i.tracker?.name || '',
+        i.status?.name || ''
       ].join(' ').toLowerCase();
       return hay.includes(q);
     });
@@ -1570,24 +1693,44 @@ function renderTesterAssigneeChips(){
   ].join('');
 }
 
-function renderTesterRow(issue){
-  const url = `https://pjm.zahironline.com/issues/${issue.id}`;
-  const assignee = issue.assigned_to?.name || 'Unassigned';
-  const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
-  const priority = issue.priority?.name || '';
-  return `<a class="tester-row" href="${escapeHtml(url)}" target="_blank" rel="noopener">
-    <span class="tester-num">#${issue.id}</span>
-    <span class="tester-body">
-      <span class="tester-subject">${escapeHtml(issue.subject || '')}</span>
-      <span class="tester-meta">
-        <span>${escapeHtml(assignee)}</span>
-        <span>·</span>
-        <span>${escapeHtml(updated)}</span>
-        ${priority ? `<span>·</span><span class="tester-priority">${escapeHtml(priority)}</span>` : ''}
-      </span>
-    </span>
-    <span class="tester-open">${ICON.externalLink}</span>
-  </a>`;
+function renderTesterTableRows(list){
+  return list.map(issue => {
+    const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+    const assignee = issue.assigned_to?.name || 'Unassigned';
+    const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
+    const priority = issue.priority?.name || '—';
+    const tracker = issue.tracker?.name || '—';
+    return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
+      <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${escapeHtml(issue.subject || '—')}</td>
+      <td class="col-assignee">${escapeHtml(assignee)}</td>
+      <td class="col-priority">${escapeHtml(priority)}</td>
+      <td class="col-tracker">${escapeHtml(tracker)}</td>
+      <td class="col-updated">${escapeHtml(updated)}</td>
+      <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open in Redmine">${ICON.externalLink}</a></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTesterTable(list){
+  return `<div class="tester-table-wrap">
+    <table class="tester-table">
+      <thead>
+        <tr>
+          <th class="col-id">Issue</th>
+          <th class="col-subject">Description</th>
+          <th class="col-assignee">Assignee</th>
+          <th class="col-priority">Priority</th>
+          <th class="col-tracker">Tracker</th>
+          <th class="col-updated">Updated</th>
+          <th class="col-open"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${renderTesterTableRows(list)}
+      </tbody>
+    </table>
+  </div>`;
 }
 
 function renderTesterList(){
@@ -1609,9 +1752,12 @@ function renderTesterList(){
   }
 
   const groupBy = $('testerGroupBy')?.value || 'assignee';
+  const cacheNote = window.__testerMeta?.fromCache
+    ? `<div class="tester-cache-note">📦 Dari cache · klik Refresh untuk data terbaru</div>`
+    : '';
 
   if(groupBy === 'none'){
-    el.innerHTML = `<div class="tester-list">` + list.map(renderTesterRow).join('') + `</div>`;
+    el.innerHTML = cacheNote + renderTesterTable(list);
     return;
   }
 
@@ -1626,15 +1772,13 @@ function renderTesterList(){
 
   const keys = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length || a.localeCompare(b));
 
-  el.innerHTML = keys.map(key => `
+  el.innerHTML = cacheNote + keys.map(key => `
     <div class="tester-group">
       <div class="tester-group-head">
         <span class="tester-group-title">${escapeHtml(key)}</span>
         <span class="badge badge-amber">${groups[key].length}</span>
       </div>
-      <div class="tester-list">
-        ${groups[key].map(renderTesterRow).join('')}
-      </div>
+      ${renderTesterTable(groups[key])}
     </div>
   `).join('');
 }
@@ -1679,7 +1823,6 @@ async function copyTesterList(){
     await navigator.clipboard.writeText(text.trim());
     toast(`Copied ${list.length} issue(s)`);
   } catch(_){
-    // Fallback
     const ta = document.createElement('textarea');
     ta.value = text.trim();
     document.body.appendChild(ta);
@@ -1713,7 +1856,7 @@ async function loadTesterReminder(force){
 
   if(btn){
     btn.disabled = true;
-    btn.textContent = 'Loading…';
+    btn.textContent = force ? 'Refreshing…' : 'Loading…';
   }
   if(!window.__testerIssues.length || force){
     el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p></div>`;
@@ -1725,38 +1868,67 @@ async function loadTesterReminder(force){
     params.set('project_id', pid);
     params.set('limit', '100');
     params.set('sort', 'updated_on:desc');
+    const path = `/api/redmine?${params.toString()}`;
 
-    const r = await fetch(`/api/redmine?${params.toString()}`);
-    const data = await r.json();
-
-    if(!r.ok){
-      throw new Error(data.detail || data.error || 'Gagal memuat issue');
-    }
+    const { data, fromCache } = await fetchRedmine(path, { force: !!force });
 
     const issues = data.issues || [];
     window.__testerIssues = issues;
     window.__testerAssigneeFilter = 'all';
+    window.__testerMeta = {
+      fromCache: !!fromCache,
+      statusName: data.resolved_status?.name || 'Ready for Testing'
+    };
 
-    const resolvedName = data.resolved_status?.name || 'Ready for Testing';
-    if(statusLabel) statusLabel.textContent = resolvedName;
+    if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName;
     setTesterBadgeCount(issues.length);
 
-    if($('testerSearch')) $('testerSearch').value = '';
+    if(force && $('testerSearch')) $('testerSearch').value = '';
     renderTesterAssigneeChips();
     renderTesterList();
+
+    if(force && !fromCache) toast('Tester queue diperbarui');
   } catch(err){
     console.error('Tester reminder failed:', err);
+    const friendly = err.friendly || { title: 'Gagal memuat', message: err.message };
     setTesterBadgeCount(null);
     const badge = $('testerCountBadge');
     if(badge) badge.textContent = '!';
-    el.innerHTML = emptyState(ICON.alert, 'Gagal memuat', err.message || 'Cek koneksi Redmine / API key.', [
-      { label: 'Coba lagi', action: 'loadTesterReminder(true)', primary: true }
+    el.innerHTML = emptyState(ICON.alert, friendly.title, friendly.message, [
+      { label: 'Coba lagi', action: 'loadTesterReminder(true)', primary: true },
+      { label: 'Buka Sync', action: "switchView('sync')" }
     ]);
   } finally {
     if(btn){
       btn.disabled = false;
       btn.textContent = 'Refresh';
     }
+  }
+}
+
+/** Prefetch badge count in background (uses cache) */
+async function prefetchTesterCount(){
+  try {
+    if(!RedmineState.loaded){
+      await loadRedmineProjects();
+    }
+    const pid = getSelectedProjectId();
+    if(!pid) return;
+    const params = new URLSearchParams();
+    params.set('status_name', 'Ready for Testing');
+    params.set('project_id', pid);
+    params.set('limit', '100');
+    params.set('sort', 'updated_on:desc');
+    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+    const issues = data.issues || [];
+    window.__testerIssues = issues;
+    window.__testerMeta = {
+      fromCache: true,
+      statusName: data.resolved_status?.name || 'Ready for Testing'
+    };
+    setTesterBadgeCount(issues.length);
+  } catch(err){
+    console.warn('Prefetch tester count failed:', err.message);
   }
 }
 
@@ -1947,26 +2119,24 @@ async function testRedmineConnection(event){
     const pid = getSelectedProjectId();
     if(pid) params.set('project_id', pid);
 
-    const r = await fetch(`/api/redmine?${params.toString()}`);
-    const data = await r.json();
-    if (r.ok && data.issues && data.issues.length) {
+    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: true });
+    if (data.issues && data.issues.length) {
       setRedmineStatus('success', 'Connected');
       toast('Redmine API connected');
       const issue = data.issues[0];
       showSyncResult('success', `
         <b>Connection OK.</b> Sample issue: <code style="font-family:'JetBrains Mono',monospace;font-size:11.5px">#${issue.id}</code> — ${escapeHtml(issue.subject || '')}
       `);
-    } else if (r.ok) {
+    } else {
       setRedmineStatus('success', 'Connected');
       toast('Connected, but no issues returned');
       showSyncResult('info', `<b>Connected.</b> API works but this project has no matching issues.`);
-    } else {
-      throw new Error(data.detail || data.error || 'Unknown error');
     }
   } catch(err){
     setRedmineStatus('error', 'Connection failed');
     toast('Connection failed', 'error');
-    showSyncResult('error', `<b>Connection failed:</b> ${escapeHtml(err.message)}`);
+    const msg = err.friendly ? `<b>${escapeHtml(err.friendly.title)}</b><br>${escapeHtml(err.friendly.message)}` : escapeHtml(err.message);
+    showSyncResult('error', msg);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
@@ -2019,9 +2189,7 @@ async function previewRedmineSync(event){
     if (from) params.set('from', from);
     if (to)   params.set('to', to);
 
-    const r = await fetch(`/api/redmine?${params.toString()}`);
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || data.error || 'Fetch failed');
+    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: true });
 
     const issues = data.issues || [];
     if (!issues.length) {
@@ -2119,9 +2287,7 @@ async function syncFromRedmine(event){
     if (from) params.set('from', from);
     if (to)   params.set('to', to);
 
-    const r = await fetch(`/api/redmine?${params.toString()}`);
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || data.error || 'Fetch failed');
+    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: true });
 
     const issues = data.issues || [];
     if (!issues.length) {
@@ -2391,8 +2557,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       $('loadingText').textContent = 'Loading your data...';
       await CloudSync.init(userUID);
       $('loadingOverlay').classList.add('hidden');
-      // Load tester queue once data is ready
-      loadTesterReminder();
+      // Prefetch tester badge in background (cached)
+      prefetchTesterCount();
     })
     .catch(err => {
       console.error('❌ Auth failed:', err);
@@ -2423,4 +2589,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(CloudSync.uid) setSyncStatus('syncing', 'Reconnecting');
   });
   window.addEventListener('offline', ()=> setSyncStatus('offline', 'Offline'));
+
+  // PWA service worker
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js').then((reg)=>{
+      console.log('SW registered', reg.scope);
+    }).catch((err)=>{
+      console.warn('SW registration failed', err);
+    });
+  }
 });
