@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.9.0 — V3 version optional + Redmine descriptions
+   v4.10.0 — Redmine date presets (today/week/month/custom/all)
    ============================================================ */
 
 /* ============================================================
@@ -581,12 +581,10 @@ function buildCopyText(plan, format){
   const title = plan.title || 'Update Plan';
   const dateStr = formatDate(plan.date);
 
-  // Plain URLs — 1 per line
   if(format === 'plain') {
     return parsed.map(p => p.url).join('\n');
   }
 
-  // Numbered list — nomor + URL (without description)
   if(format === 'numbered'){
     let out = `${title}\n`;
     out += `Date: ${dateStr}\n`;
@@ -598,7 +596,6 @@ function buildCopyText(plan, format){
     return out.trim();
   }
 
-  // Markdown links — [#issue](url)
   if(format === 'markdown'){
     let out = `*${title}*\n`;
     out += `_${dateStr} · ${parsed.length} issues_\n\n`;
@@ -609,7 +606,6 @@ function buildCopyText(plan, format){
     return out.trim();
   }
 
-  // Telegram format — clickable link only
   if(format === 'telegram'){
     let out = `📋 *${title}*\n`;
     out += `📅 ${dateStr}\n`;
@@ -1436,6 +1432,70 @@ function getSelectedProjectId(){
 }
 
 /* ============================================================
+   REDMINE DATE RANGE HELPER  (NEW in v4.10.0)
+   ============================================================ */
+function getRedmineDateRange(){
+  const preset = ($('syncDatePreset')?.value) || 'today';
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+  const daysAgo = (n) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() - n);
+    return d;
+  };
+
+  switch (preset) {
+    case 'today':
+      return { from: ymd(now), to: ymd(now) };
+
+    case 'week': {
+      const day = now.getDay(); // 0=Min
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + diffToMonday);
+      return { from: ymd(monday), to: ymd(now) };
+    }
+
+    case 'month': {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: ymd(first), to: ymd(now) };
+    }
+
+    case '7d':
+      return { from: ymd(daysAgo(7)), to: ymd(now) };
+
+    case '30d':
+      return { from: ymd(daysAgo(30)), to: ymd(now) };
+
+    case 'custom':
+      return {
+        from: $('syncFrom')?.value || null,
+        to:   $('syncTo')?.value   || null
+      };
+
+    case 'all':
+    default:
+      return { from: null, to: null };
+  }
+}
+
+function onDatePresetChange(){
+  const preset = $('syncDatePreset').value;
+  const customRow = $('syncCustomRow');
+  const warn = $('syncAllWarning');
+
+  if (customRow) customRow.style.display = preset === 'custom' ? '' : 'none';
+  if (warn)      warn.style.display      = preset === 'all'    ? '' : 'none';
+
+  if (preset === 'custom') {
+  if ($('syncFrom') && !$('syncFrom').value) $('syncFrom').value = todayISO();
+  if ($('syncTo')   && !$('syncTo').value)   $('syncTo').value   = todayISO();
+}
+}
+
+/* ============================================================
    REDMINE SYNC
    ============================================================ */
 async function testRedmineConnection(event){
@@ -1487,19 +1547,41 @@ async function previewRedmineSync(event){
     return;
   }
 
+  const preset = $('syncDatePreset').value;
+  const { from, to } = getRedmineDateRange();
+
+  if (preset === 'all') {
+    const ok = await confirmDialog({
+      title: 'Tarik SEMUA issue?',
+      message: 'Mode ini akan menarik <b>seluruh issue</b> dari project ini tanpa batas tanggal.<br><br>Kalau PJM sudah lama dipakai, ini bisa <b>ribuan issue</b>. Proses bisa lama. Lanjutkan?',
+      okText: 'Ya, Lanjutkan',
+      cancelText: 'Batal',
+      type: 'warning'
+    });
+    if(!ok) return;
+  }
+
+  if (preset === 'custom' && !from && !to) {
+    toast('Isi minimal salah satu tanggal (Dari / Sampai)', 'error');
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner-sm"></div> Loading...';
   setRedmineStatus('loading', 'Fetching...');
 
   try {
     const statusId = $('syncStatus').value;
-    const sinceDate = $('syncSince').value;
+    const dateField = $('syncDateField').value;
 
     const params = new URLSearchParams();
     if (statusId !== '*') params.set('status_id', statusId);
     params.set('project_id', pid);
     params.set('limit', '100');
-    if (sinceDate) params.set('updated_on', `>=${sinceDate}T00:00:00Z`);
+    params.set('date_field', dateField);
+
+    if (from) params.set('from', from);
+    if (to)   params.set('to', to);
 
     const r = await fetch(`/api/redmine?${params.toString()}`);
     const data = await r.json();
@@ -1508,7 +1590,7 @@ async function previewRedmineSync(event){
     const issues = data.issues || [];
     if (!issues.length) {
       setRedmineStatus('success', 'No issues');
-      showSyncResult('info', `No issues match the current filter for this project.`);
+      showSyncResult('info', `Tidak ada issue yang cocok dengan filter tanggal + status ini.`);
       return;
     }
 
@@ -1532,8 +1614,12 @@ async function previewRedmineSync(event){
       </div>
     `).join('');
 
+    const rangeLabel = from || to
+      ? `${from || '…'} → ${to || '…'}`
+      : 'semua tanggal';
+
     showSyncResult('info', `
-      <b>Preview:</b> ${issues.length} issues from Redmine — <b>${newIssues.length} new</b>, ${issues.length - newIssues.length} already in your plans.
+      <b>Preview:</b> ${issues.length} issues (${rangeLabel}) — <b>${newIssues.length} new</b>, ${issues.length - newIssues.length} sudah ada di plans.
       <div class="sync-preview" style="margin-top:12px">
         <div class="sync-preview-head">
           <span>Issues Preview</span>
@@ -1561,19 +1647,41 @@ async function syncFromRedmine(event){
     return;
   }
 
+  const preset = $('syncDatePreset').value;
+  const { from, to } = getRedmineDateRange();
+
+  if (preset === 'all') {
+    const ok = await confirmDialog({
+      title: 'Tarik & sync SEMUA issue?',
+      message: 'Mode ini akan menarik <b>seluruh issue</b> dari project ini. Yang sudah pernah di-sync tetap dilewati, tapi bisa jadi <b>ribuan</b>. Lanjutkan?',
+      okText: 'Ya, Sync Semua',
+      cancelText: 'Batal',
+      type: 'warning'
+    });
+    if(!ok) return;
+  }
+
+  if (preset === 'custom' && !from && !to) {
+    toast('Isi minimal salah satu tanggal', 'error');
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner-sm"></div> Syncing...';
   setRedmineStatus('loading', 'Syncing...');
 
   try {
     const statusId = $('syncStatus').value;
-    const sinceDate = $('syncSince').value;
+    const dateField = $('syncDateField').value;
 
     const params = new URLSearchParams();
     if (statusId !== '*') params.set('status_id', statusId);
     params.set('project_id', pid);
     params.set('limit', '100');
-    if (sinceDate) params.set('updated_on', `>=${sinceDate}T00:00:00Z`);
+    params.set('date_field', dateField);
+
+    if (from) params.set('from', from);
+    if (to)   params.set('to', to);
 
     const r = await fetch(`/api/redmine?${params.toString()}`);
     const data = await r.json();
@@ -1582,7 +1690,7 @@ async function syncFromRedmine(event){
     const issues = data.issues || [];
     if (!issues.length) {
       setRedmineStatus('success', 'No issues');
-      showSyncResult('info', `No issues match the current filter. Try clearing the date or changing status.`);
+      showSyncResult('info', `Tidak ada issue baru untuk rentang tanggal ini.`);
       return;
     }
 
@@ -1596,17 +1704,26 @@ async function syncFromRedmine(event){
 
     if (!newIssues.length) {
       setRedmineStatus('success', 'Nothing new');
-      showSyncResult('info', `✅ All <b>${issues.length}</b> issues already in your plans. Nothing new to sync.`);
+      showSyncResult('info', `✅ Semua <b>${issues.length}</b> issues di rentang ini sudah ada di plans. Tidak ada yang baru.`);
       return;
     }
 
     const proj = RedmineState.projects.find(p => String(p.id) === pid);
     const projName = proj ? proj.name : 'Redmine';
+    const today = todayISO();
 
-    const today = new Date().toISOString().split('T')[0];
     const statusLabels = {'1':'New','2':'In Progress','3':'Resolved','4':'Feedback','5':'Closed','*':'All'};
     const statusLabel = statusLabels[statusId] || statusId;
-    const title = `${projName} — Update ${formatDate(today)} (${statusLabel})`;
+
+    // Label range di title
+    let rangeLabel;
+    if (preset === 'today')      rangeLabel = formatDate(today);
+    else if (preset === 'week')  rangeLabel = `Minggu Ini`;
+    else if (preset === 'month') rangeLabel = `Bulan Ini`;
+    else if (preset === 'all')   rangeLabel = `Semua`;
+    else                         rangeLabel = `${from||'…'} → ${to||'…'}`;
+
+    const title = `${projName} — Update ${rangeLabel} (${statusLabel})`;
 
     const issueLines = newIssues.map(i => {
       const url = `https://pjm.zahironline.com/issues/${i.id}`;
@@ -1618,7 +1735,7 @@ async function syncFromRedmine(event){
       title: title,
       date: today,
       issues: issueLines.join('\n'),
-      note: `Auto-synced from Redmine · Project: ${projName} (${proj?.identifier || pid}) · ${new Date().toLocaleString()}`
+      note: `Auto-synced from Redmine · Project: ${projName} (${proj?.identifier || pid}) · Range: ${from||'…'} → ${to||'…'} · ${new Date().toLocaleString()}`
     });
 
     setRedmineStatus('success', 'Synced');
@@ -1627,10 +1744,10 @@ async function syncFromRedmine(event){
     const skipped = issues.length - newIssues.length;
     showSyncResult('success', `
       <b>✅ Sync complete!</b><br>
-      Added <b>${newIssues.length} new issues</b> from <b>${escapeHtml(projName)}</b> as plan: "<b>${escapeHtml(title)}</b>"
-      ${skipped ? `<br><span style="color:var(--text-secondary);font-size:12px">${skipped} issues skipped (already in your plans).</span>` : ''}
+      Ditambahkan <b>${newIssues.length} issue baru</b> dari <b>${escapeHtml(projName)}</b> sebagai plan: "<b>${escapeHtml(title)}</b>"
+      ${skipped ? `<br><span style="color:var(--text-secondary);font-size:12px">${skipped} issue dilewati (sudah ada di plans).</span>` : ''}
       <br><br>
-      <button type="button" class="btn btn-primary btn-sm" onclick="switchView('plans')">View in Update Plans →</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="switchView('plans')">Lihat di Update Plans →</button>
     `);
   } catch(err){
     setRedmineStatus('error', 'Sync failed');
@@ -1766,12 +1883,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('planDate').value = todayISO();
   $('summaryDate').value = todayISO();
 
-  const sinceInput = $('syncSince');
-  if(sinceInput && !sinceInput.value){
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    sinceInput.value = d.toISOString().split('T')[0];
-  }
+  // Init Redmine date filter — default: Hari Ini
+  if ($('syncDatePreset')) $('syncDatePreset').value = 'today';
+  if ($('syncFrom')) $('syncFrom').value = todayISO();
+  if ($('syncTo'))   $('syncTo').value   = todayISO();
+  onDatePresetChange();
 
   setIssueLines([]);
   renderAll();
