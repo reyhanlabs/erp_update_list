@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.3.0 — Plan cards layout + collapsible issue list
+   v4.4.0 — Compact cards: header-only, expand for details
    ============================================================ */
 
 /* ============================================================
@@ -535,14 +535,14 @@ function openAddModal(event){
 }
 
 /* ============================================================
-   EXPAND/COLLAPSE ISSUE LIST
+   EXPAND/COLLAPSE PLAN CARD
    ============================================================ */
 window.__expandedPlans = window.__expandedPlans || new Set();
 
-function toggleIssueList(planId, event){
+function togglePlanCard(planId, event){
   if(event){
+    // Only stop propagation if triggered from a clickable area (not from buttons)
     event.stopPropagation();
-    if(event.preventDefault) event.preventDefault();
   }
   if(window.__expandedPlans.has(planId)){
     window.__expandedPlans.delete(planId);
@@ -844,7 +844,7 @@ async function deletePlan(id){
 }
 
 /* ============================================================
-   RENDER PLANS — new card layout
+   RENDER PLANS — compact card layout
    ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
@@ -879,14 +879,10 @@ function renderPlanCard(d){
   const totalIssue = issueLines.length;
   const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
   const isRedmineSynced = (d.note || '').toLowerCase().includes('synced from redmine');
-
-  // Collapsible: show 4 issues default, all when expanded
-  const PREVIEW_COUNT = 4;
   const isExpanded = window.__expandedPlans.has(d.id);
-  const visibleIssues = isExpanded ? issueLines : issueLines.slice(0, PREVIEW_COUNT);
-  const hiddenCount = issueLines.length - PREVIEW_COUNT;
 
-  const issueRows = visibleIssues.map(u=>{
+  // Build issue rows (only shown when expanded)
+  const issueRows = issueLines.map(u=>{
     const num = extractIssueNumber(u) || '—';
     return `<a class="plan-issue-row" href="${escapeHtml(u)}" target="_blank" rel="noopener">
       <span class="pi-num">#${escapeHtml(num)}</span>
@@ -895,50 +891,25 @@ function renderPlanCard(d){
     </a>`;
   }).join('');
 
-  let issuesSection = '';
-  if(totalIssue > 0){
-    const toggleHtml = (hiddenCount > 0) ? `
-      <button type="button" class="plan-issues-toggle ${isExpanded ? 'expanded' : ''}" onclick="toggleIssueList('${d.id}', event)">
-        ${ICON.chevronDown}
-        ${isExpanded ? 'Show less' : `Show all ${totalIssue} issues`}
-      </button>
-    ` : '';
+  const noteHtml = d.note
+    ? `<div class="plan-details-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>`
+    : '';
 
-    issuesSection = `
-      <div class="plan-issues">
-        <div class="plan-issues-head">
+  const issuesSection = totalIssue > 0
+    ? `<div class="plan-details-issues">
+        <div class="plan-issues-label">
           <span>Issue List</span>
           <span class="issue-count">${totalIssue}</span>
         </div>
         <div class="plan-issue-list">${issueRows}</div>
-        ${toggleHtml}
-      </div>
-    `;
-  }
-
-  const noteHtml = d.note
-    ? `<div class="plan-card-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>`
+      </div>`
     : '';
 
-  return `
-    <div class="plan-card">
-      <div class="plan-card-head">
-        <div style="min-width:0;flex:1">
-          <div class="plan-card-title">${escapeHtml(d.title)}</div>
-          <div class="plan-card-meta">
-            <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
-            <span class="meta-divider"></span>
-            <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
-            ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine Sync</span>` : ''}
-            ${linkedSummaries
-              ? `<span class="badge badge-violet">${ICON.fileText}${linkedSummaries} summaries</span>`
-              : `<span class="badge badge-neutral">No summary yet</span>`}
-          </div>
-          ${noteHtml}
-        </div>
-      </div>
+  const detailsHtml = `
+    <div class="plan-details">
+      ${noteHtml}
       ${issuesSection}
-      <div class="plan-card-foot">
+      <div class="plan-details-foot">
         <div class="copy-menu-wrap">
           <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCopyMenu(this, event)">
             ${ICON.clipboard}Copy for Telegram
@@ -1002,6 +973,27 @@ function renderPlanCard(d){
         <button type="button" class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
         <button type="button" class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
       </div>
+    </div>
+  `;
+
+  return `
+    <div class="plan-card ${isExpanded ? 'expanded' : ''}">
+      <div class="plan-card-main" onclick="togglePlanCard('${d.id}', event)">
+        <div class="plan-card-left">
+          <div class="plan-card-title">${escapeHtml(d.title)}</div>
+          <div class="plan-card-meta">
+            <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
+            <span class="meta-divider"></span>
+            <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
+            ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine</span>` : ''}
+            ${linkedSummaries
+              ? `<span class="badge badge-violet">${ICON.fileText}${linkedSummaries} summaries</span>`
+              : `<span class="badge badge-neutral">No summary</span>`}
+          </div>
+        </div>
+        <div class="plan-card-chevron">${ICON.chevronDown}</div>
+      </div>
+      ${detailsHtml}
     </div>
   `;
 }
@@ -1233,7 +1225,7 @@ function refreshCounts(){
   } else {
     const plan = latest.planId ? State.plans.get(latest.planId) : null;
     el.innerHTML = `
-      <div class="summary-card">
+      <div class="summary-card" style="margin:0">
         <div class="summary-card-head">
           <div class="summary-card-title">
             <span>${escapeHtml(latest.fe)}</span>

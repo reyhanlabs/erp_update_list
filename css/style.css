@@ -1,5 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — STYLESHEET
+   v4.4.0 — Compact plan cards (header-only by default)
    ============================================================ */
 
 /* ============================================================
@@ -357,60 +358,33 @@ svg{display:block;flex-shrink:0}
 .btn-icon:hover{background:var(--bg-subtle);color:var(--text)}
 
 /* ============================================================
-   CONTENT / CARDS
+   CONTENT
    ============================================================ */
 .content{padding:28px;max-width:920px;width:100%;margin:0 auto}
 .view{display:none;overflow:visible}
 .view.active{display:block;animation:viewIn var(--dur-slow) var(--ease)}
 @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-.card{
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
-  box-shadow:var(--shadow-xs);margin-bottom:16px;overflow:visible;
-  transition:box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color .3s var(--ease);
-  position:relative;
-}
-.card:hover{box-shadow:var(--shadow-md);border-color:var(--line-strong)}
-.card-head{
-  padding:16px 20px;border-bottom:1px solid var(--line);
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  background:var(--card-head-grad);
-  border-radius:var(--r-lg) var(--r-lg) 0 0;
-}
-.card-head h3{
-  font-size:13.5px;font-weight:600;letter-spacing:-.005em;color:var(--text);
-  display:flex;align-items:center;gap:9px;
-}
-.card-head .mark{
-  width:8px;height:8px;border-radius:50%;
-  background:linear-gradient(135deg,#3b82f6,#a855f7);
-  box-shadow:0 0 0 3px rgba(139,92,246,.15), 0 0 8px rgba(139,92,246,.4);
-}
-.card-head .mark.redmine{
-  background:linear-gradient(135deg,#ef4444,#dc2626);
-  box-shadow:0 0 0 3px rgba(239,68,68,.15), 0 0 8px rgba(239,68,68,.4);
-}
-.card-body{padding:20px}
-.card-body.tight{padding:8px}
-
 /* ============================================================
-   PLAN LIST (new layout — cards with gap)
+   PLAN LIST — truly separated cards
    ============================================================ */
 .plan-list{
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:16px;
 }
 
-/* Single plan card */
+/* Each plan = independent card */
 .plan-card{
   background:var(--surface);
   border:1px solid var(--line);
   border-radius:var(--r-lg);
-  box-shadow:var(--shadow-xs);
+  box-shadow:var(--shadow-sm);
   overflow:visible;
   position:relative;
-  transition:box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition:box-shadow var(--dur) var(--ease),
+             transform var(--dur) var(--ease),
+             border-color var(--dur) var(--ease);
 }
 .plan-card:hover{
   box-shadow:var(--shadow-md);
@@ -418,61 +392,109 @@ svg{display:block;flex-shrink:0}
 }
 .plan-card.menu-open{z-index:100;}
 
-/* Card header */
-.plan-card-head{
-  padding:16px 18px 12px;
-  border-bottom:1px solid var(--line);
+/* Card body = main clickable area */
+.plan-card-main{
+  padding:16px 18px;
+  cursor:pointer;
   display:flex;
   justify-content:space-between;
-  align-items:flex-start;
-  gap:12px;
+  align-items:center;
+  gap:14px;
+  user-select:none;
+  transition:background var(--dur-fast) var(--ease);
+  border-radius:var(--r-lg);
 }
+.plan-card-main:hover{background:var(--list-hover-bg)}
+
+.plan-card-left{min-width:0;flex:1}
+
 .plan-card-title{
-  font-size:14.5px;
+  font-size:15px;
   font-weight:600;
-  letter-spacing:-.005em;
+  letter-spacing:-.01em;
   color:var(--text);
   line-height:1.3;
   margin-bottom:6px;
 }
+
 .plan-card-meta{
   display:flex;
   gap:8px;
   flex-wrap:wrap;
   align-items:center;
 }
-.plan-card-note{
-  font-size:12px;
-  color:var(--text-secondary);
-  margin-top:8px;
-  padding:6px 10px;
-  background:var(--note-bg);
-  border-radius:var(--r-xs);
-  border-left:2px solid var(--note-border);
-  display:flex;
-  gap:6px;
-  align-items:flex-start;
-  line-height:1.5;
-}
-.plan-card-note svg{width:12px;height:12px;color:var(--note-icon);margin-top:2px;flex-shrink:0}
 
-/* Issue list section */
-.plan-issues{
+/* Chevron indicator on the right */
+.plan-card-chevron{
+  width:32px;
+  height:32px;
+  flex-shrink:0;
+  border-radius:var(--r-sm);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--text-tertiary);
+  background:var(--bg-subtle);
+  border:1px solid var(--line);
+  transition:all var(--dur) var(--ease);
+}
+.plan-card-chevron svg{
+  width:16px;
+  height:16px;
+  transition:transform var(--dur) var(--ease);
+}
+.plan-card.expanded .plan-card-chevron{
+  background:var(--brand-soft);
+  color:var(--brand);
+  border-color:var(--brand-ring);
+}
+.plan-card.expanded .plan-card-chevron svg{
+  transform:rotate(180deg);
+}
+
+/* Details section (collapsible) */
+.plan-details{
+  display:none;
+  border-top:1px solid var(--line);
+  animation:detailsIn .22s var(--ease);
+}
+.plan-card.expanded .plan-details{
+  display:block;
+}
+@keyframes detailsIn{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:none}
+}
+
+.plan-details-note{
   padding:12px 18px;
   border-bottom:1px solid var(--line);
-}
-.plan-issues-head{
+  background:var(--note-bg);
+  font-size:12.5px;
+  color:var(--text-secondary);
   display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:8px;
+  align-items:flex-start;
+  gap:8px;
+  line-height:1.55;
+}
+.plan-details-note svg{width:14px;height:14px;color:var(--note-icon);margin-top:2px;flex-shrink:0}
+
+.plan-details-issues{
+  padding:14px 18px;
+  border-bottom:1px solid var(--line);
+}
+.plan-issues-label{
   font-size:11px;
   font-weight:600;
   letter-spacing:.05em;
   text-transform:uppercase;
   color:var(--text-tertiary);
+  margin-bottom:8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
-.plan-issues-head .issue-count{
+.plan-issues-label .issue-count{
   background:var(--brand-soft);
   color:var(--brand);
   padding:2px 8px;
@@ -480,7 +502,10 @@ svg{display:block;flex-shrink:0}
   font-size:10.5px;
   border:1px solid var(--brand-ring);
   font-weight:700;
+  text-transform:none;
+  letter-spacing:0;
 }
+
 .plan-issue-list{
   display:flex;
   flex-direction:column;
@@ -534,38 +559,14 @@ svg{display:block;flex-shrink:0}
 }
 .plan-issue-row .pi-open svg{width:11px;height:11px}
 
-/* "Show more" toggle */
-.plan-issues-toggle{
-  margin-top:6px;
-  padding:6px 10px;
-  font-size:11.5px;
-  font-weight:600;
-  color:var(--brand);
-  background:transparent;
-  border:none;
-  cursor:pointer;
-  border-radius:6px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  width:100%;
-  transition:background var(--dur-fast) var(--ease);
-  font-family:inherit;
-}
-.plan-issues-toggle:hover{background:var(--brand-soft)}
-.plan-issues-toggle svg{
-  width:12px;height:12px;
-  transition:transform var(--dur) var(--ease);
-}
-.plan-issues-toggle.expanded svg{transform:rotate(180deg)}
-
-/* Card actions footer */
-.plan-card-foot{
+/* Details footer with actions */
+.plan-details-foot{
   padding:12px 18px;
   display:flex;
   gap:6px;
   flex-wrap:wrap;
+  background:var(--bg-subtle);
+  border-radius:0 0 var(--r-lg) var(--r-lg);
 }
 
 /* ============================================================
@@ -599,13 +600,13 @@ svg{display:block;flex-shrink:0}
 .summary-list{
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:16px;
 }
 .summary-card{
   background:var(--surface);
   border:1px solid var(--line);
   border-radius:var(--r-lg);
-  box-shadow:var(--shadow-xs);
+  box-shadow:var(--shadow-sm);
   overflow:visible;
   transition:box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
@@ -689,7 +690,9 @@ svg{display:block;flex-shrink:0}
 
 /* List wrapper */
 .list-wrapper{
-  padding:14px 16px;
+  padding:18px;
+  background:var(--bg);
+  border-radius:0 0 var(--r-lg) var(--r-lg);
 }
 
 /* ============================================================
@@ -792,6 +795,83 @@ svg{display:block;flex-shrink:0}
 .empty-icon svg{width:26px;height:26px}
 .empty h4{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;letter-spacing:-.005em}
 .empty p{font-size:13px;color:var(--text-tertiary);max-width:340px;margin:0 auto;line-height:1.55}
+
+/* ============================================================
+   STATS
+   ============================================================ */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:700px){.stats-grid{grid-template-columns:1fr}}
+.stat{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:18px 20px;box-shadow:var(--shadow-xs);position:relative;overflow:hidden;
+  transition:all var(--dur) var(--ease);
+}
+.stat::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg, var(--stat-c1), var(--stat-c2));
+}
+.stat::after{
+  content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;
+  background:radial-gradient(circle, var(--stat-glow) 0%, transparent 65%);
+  opacity:.7;pointer-events:none;transition:opacity var(--dur) var(--ease);
+}
+.stat:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.stat:hover::after{opacity:1}
+.stat.blue{--stat-c1:#3b82f6;--stat-c2:#6366f1;--stat-glow:rgba(59,130,246,.22)}
+.stat.violet{--stat-c1:#8b5cf6;--stat-c2:#ec4899;--stat-glow:rgba(168,85,247,.22)}
+.stat.amber{--stat-c1:#f59e0b;--stat-c2:#ef4444;--stat-glow:rgba(245,158,11,.22)}
+[data-theme="dark"] .stat.blue{--stat-glow:rgba(59,130,246,.35)}
+[data-theme="dark"] .stat.violet{--stat-glow:rgba(168,85,247,.35)}
+[data-theme="dark"] .stat.amber{--stat-glow:rgba(245,158,11,.3)}
+.stat-label{
+  font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-secondary);display:flex;align-items:center;gap:7px;
+  position:relative;z-index:1;
+}
+.stat-label .icon{
+  width:22px;height:22px;border-radius:6px;display:flex;align-items:center;
+  justify-content:center;color:#fff;flex-shrink:0;
+}
+.stat.blue .stat-label .icon{background:linear-gradient(135deg,#3b82f6,#6366f1);box-shadow:0 3px 10px rgba(59,130,246,.35)}
+.stat.violet .stat-label .icon{background:linear-gradient(135deg,#8b5cf6,#ec4899);box-shadow:0 3px 10px rgba(168,85,247,.35)}
+.stat.amber .stat-label .icon{background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 3px 10px rgba(245,158,11,.35)}
+.stat-label .icon svg{width:12px;height:12px}
+.stat-value{
+  font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:10px;
+  color:var(--text);font-variant-numeric:tabular-nums;position:relative;z-index:1;line-height:1;
+}
+
+/* ============================================================
+   CARD (generic wrapper, e.g. Dashboard latest summary)
+   ============================================================ */
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  box-shadow:var(--shadow-xs);margin-bottom:16px;overflow:visible;
+  transition:box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color .3s var(--ease);
+  position:relative;
+}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--line-strong)}
+.card-head{
+  padding:16px 20px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--card-head-grad);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
+}
+.card-head h3{
+  font-size:13.5px;font-weight:600;letter-spacing:-.005em;color:var(--text);
+  display:flex;align-items:center;gap:9px;
+}
+.card-head .mark{
+  width:8px;height:8px;border-radius:50%;
+  background:linear-gradient(135deg,#3b82f6,#a855f7);
+  box-shadow:0 0 0 3px rgba(139,92,246,.15), 0 0 8px rgba(139,92,246,.4);
+}
+.card-head .mark.redmine{
+  background:linear-gradient(135deg,#ef4444,#dc2626);
+  box-shadow:0 0 0 3px rgba(239,68,68,.15), 0 0 8px rgba(239,68,68,.4);
+}
+.card-body{padding:20px}
+.card-body.tight{padding:8px}
 
 /* ============================================================
    FORM CONTROLS
@@ -1468,8 +1548,9 @@ svg{display:block;flex-shrink:0}
 @media(max-width:600px){
   .theme-switch button{width:26px;height:24px}
   .theme-switch button svg{width:13px;height:13px}
-  .plan-card-head{padding:14px 14px 10px}
-  .plan-issues{padding:10px 14px}
-  .plan-card-foot{padding:10px 14px}
   .list-wrapper{padding:12px}
+  .plan-list{gap:12px}
+  .plan-card-main{padding:14px}
+  .plan-card-title{font-size:14px}
+  .plan-details-foot{padding:10px 14px}
 }
