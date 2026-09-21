@@ -8,7 +8,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script>
-  // Prevent FOUC — apply theme before paint
   (function(){
     const saved = localStorage.getItem('zahir-theme') || 'auto';
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -18,9 +17,6 @@
   })();
 </script>
 <style>
-  /* ============================================================
-     DESIGN TOKENS — LIGHT (default)
-     ============================================================ */
   :root, [data-theme="light"]{
     --bg:#f8fafc;
     --bg-subtle:#f4f6f8;
@@ -32,19 +28,15 @@
     --sidebar:#0b1220;
     --sidebar-soft:#111c33;
     --sidebar-line:#1e2b45;
-
     --text:#0b1220;
     --text-secondary:#475569;
     --text-tertiary:#94a3b8;
-
     --line:#e6e9ef;
     --line-strong:#d4d9e2;
-
     --brand:#2563eb;
     --brand-hover:#1d4ed8;
     --brand-soft:#eff4ff;
     --brand-ring:rgba(37,99,235,.14);
-
     --success:#059669;
     --success-soft:#ecfdf5;
     --warning:#d97706;
@@ -58,17 +50,14 @@
     --amber-soft:#fffbeb;
     --cyan:#0891b2;
     --cyan-soft:#ecfeff;
-
     --shadow-xs:0 1px 2px rgba(11,18,32,.05);
     --shadow-sm:0 1px 2px rgba(11,18,32,.06), 0 1px 3px rgba(11,18,32,.04);
     --shadow-md:0 4px 8px -2px rgba(11,18,32,.06), 0 2px 4px -2px rgba(11,18,32,.04);
     --shadow-lg:0 12px 24px -6px rgba(11,18,32,.10), 0 4px 8px -2px rgba(11,18,32,.05);
     --shadow-xl:0 24px 48px -12px rgba(11,18,32,.18);
-
     --r-xs:6px;--r-sm:8px;--r-md:10px;--r-lg:12px;--r-xl:16px;
     --ease:cubic-bezier(.16,1,.3,1);
     --dur-fast:.12s;--dur:.2s;--dur-slow:.32s;
-
     --overlay-bg:rgba(11,18,32,.55);
     --topbar-bg:rgba(255,255,255,.7);
     --card-head-grad:linear-gradient(180deg, rgba(248,250,252,.7) 0%, rgba(255,255,255,0) 100%);
@@ -91,8 +80,6 @@
     --toggle-border:var(--line-strong);
     --toggle-hover:#eef2f7;
   }
-
-  /* DARK */
   [data-theme="dark"]{
     --bg:#080c16;
     --bg-subtle:#0d1420;
@@ -104,19 +91,15 @@
     --sidebar:#05080f;
     --sidebar-soft:#111c33;
     --sidebar-line:#1a2438;
-
     --text:#e8edf5;
     --text-secondary:#a3b1c6;
     --text-tertiary:#6b7a92;
-
     --line:#1c2740;
     --line-strong:#28354f;
-
     --brand:#3b82f6;
     --brand-hover:#60a5fa;
     --brand-soft:rgba(59,130,246,.14);
     --brand-ring:rgba(96,165,250,.22);
-
     --success:#10b981;
     --success-soft:rgba(16,185,129,.14);
     --warning:#f59e0b;
@@ -130,13 +113,11 @@
     --amber-soft:rgba(245,158,11,.14);
     --cyan:#22d3ee;
     --cyan-soft:rgba(34,211,238,.14);
-
     --shadow-xs:0 1px 2px rgba(0,0,0,.4);
     --shadow-sm:0 1px 2px rgba(0,0,0,.4), 0 1px 3px rgba(0,0,0,.3);
     --shadow-md:0 4px 8px -2px rgba(0,0,0,.5), 0 2px 4px -2px rgba(0,0,0,.3);
     --shadow-lg:0 12px 24px -6px rgba(0,0,0,.55), 0 4px 8px -2px rgba(0,0,0,.3);
     --shadow-xl:0 24px 48px -12px rgba(0,0,0,.7);
-
     --overlay-bg:rgba(0,0,0,.7);
     --topbar-bg:rgba(8,12,22,.72);
     --card-head-grad:linear-gradient(180deg, rgba(30,41,64,.35) 0%, rgba(15,24,41,0) 100%);
@@ -159,7 +140,6 @@
     --toggle-border:#28354f;
     --toggle-hover:#1a2438;
   }
-
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
@@ -180,13 +160,11 @@
   input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
   a{color:inherit;text-decoration:none}
   svg{display:block;flex-shrink:0}
-
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-track{background:transparent}
   ::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:10px;border:3px solid transparent;background-clip:content-box}
   ::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover);background-clip:content-box}
 
-  /* SIDEBAR */
   .sidebar{
     width:248px;
     background:linear-gradient(180deg, #0b1220 0%, #0f1a33 50%, #140f2e 100%);
@@ -215,11 +193,9 @@
   }
   .sidebar-brand .brand-text h1{font-size:13.5px;font-weight:600;color:#fff;letter-spacing:-.01em;line-height:1.2}
   .sidebar-brand .brand-text p{font-size:11px;color:#64748b;margin-top:2px;font-weight:500}
-
   .sidebar-nav{flex:1;padding:6px 12px 16px;overflow-y:auto;position:relative;z-index:1}
   .nav-section{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:#475569;padding:18px 10px 6px;font-weight:600}
   .nav-section:first-child{padding-top:6px}
-
   .nav-item{
     display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);
     cursor:pointer;font-size:13.5px;font-weight:500;color:#94a3b8;
@@ -246,7 +222,6 @@
     transition:background var(--dur-fast) var(--ease);
   }
   .nav-item.active .count{background:linear-gradient(135deg,rgba(96,165,250,.35),rgba(167,139,250,.35));color:#fff}
-
   .sidebar-footer{
     padding:14px 16px;border-top:1px solid var(--sidebar-line);
     display:flex;justify-content:space-between;align-items:center;
@@ -258,12 +233,10 @@
     box-shadow:0 0 0 3px rgba(34,197,94,.15), 0 0 8px rgba(34,197,94,.5);
     transition:all .2s var(--ease);
   }
-  .sidebar-footer .dot-status.offline::before{background:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.15)}
   .sidebar-footer .dot-status.syncing::before{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15), 0 0 8px rgba(245,158,11,.6);animation:pulse 1.2s infinite}
   .sidebar-footer .dot-status.error::before{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.15)}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-  /* MAIN / TOPBAR */
   .main{flex:1;display:flex;flex-direction:column;min-width:0}
   .topbar{
     height:64px;background:var(--topbar-bg);
@@ -280,7 +253,6 @@
   .page-heading h2{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--text);line-height:1.3}
   .page-heading p{font-size:12.5px;color:var(--text-tertiary);margin-top:1px;font-weight:450}
 
-  /* Sync indicator (topbar) */
   .sync-indicator{
     display:inline-flex;align-items:center;gap:6px;
     font-size:11.5px;font-weight:500;color:var(--text-tertiary);
@@ -297,7 +269,6 @@
   .sync-indicator.offline .dot{background:#94a3b8;box-shadow:none}
   @media(max-width:700px){.sync-indicator .label{display:none}}
 
-  /* THEME SWITCHER */
   .theme-switch{
     display:inline-flex;align-items:center;background:var(--toggle-bg);
     border:1px solid var(--toggle-border);border-radius:var(--r-sm);padding:2px;gap:1px;height:32px;
@@ -319,7 +290,6 @@
     box-shadow:0 1px 3px rgba(0,0,0,.4), 0 0 0 1px rgba(96,165,250,.3);
   }
 
-  /* BUTTONS */
   .btn{
     display:inline-flex;align-items:center;justify-content:center;gap:7px;
     padding:8px 14px;border-radius:var(--r-sm);font-size:13px;font-weight:550;
@@ -353,13 +323,11 @@
   .btn-icon{width:32px;height:32px;padding:0;border-radius:var(--r-sm);color:var(--text-tertiary)}
   .btn-icon:hover{background:var(--bg-subtle);color:var(--text)}
 
-  /* CONTENT */
   .content{padding:28px;max-width:1080px;width:100%;margin:0 auto}
   .view{display:none}
   .view.active{display:block;animation:viewIn var(--dur-slow) var(--ease)}
   @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-  /* CARD */
   .card{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
     box-shadow:var(--shadow-xs);margin-bottom:16px;overflow:hidden;
@@ -384,7 +352,6 @@
   .card-body{padding:20px}
   .card-body.tight{padding:8px}
 
-  /* STATS */
   .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
   @media(max-width:700px){.stats-grid{grid-template-columns:1fr}}
   .stat{
@@ -427,7 +394,6 @@
     color:var(--text);font-variant-numeric:tabular-nums;position:relative;z-index:1;line-height:1;
   }
 
-  /* TOOLBAR */
   .toolbar{
     display:flex;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);
     background:var(--toolbar-grad);flex-wrap:wrap;
@@ -458,7 +424,6 @@
   }
   .select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
 
-  /* LIST ITEMS */
   .list-item{
     padding:18px 20px;border-bottom:1px solid var(--line);
     transition:background var(--dur-fast) var(--ease);position:relative;
@@ -527,7 +492,6 @@
 
   .list-item-actions{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
 
-  /* EMPTY */
   .empty{padding:64px 24px;text-align:center}
   .empty-icon{
     width:60px;height:60px;margin:0 auto 16px;border-radius:16px;
@@ -542,7 +506,6 @@
   .empty h4{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;letter-spacing:-.005em}
   .empty p{font-size:13px;color:var(--text-tertiary);max-width:340px;margin:0 auto;line-height:1.55}
 
-  /* FORM */
   .field{margin-bottom:16px}
   .field:last-child{margin-bottom:0}
   .field label{
@@ -568,7 +531,6 @@
   .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
   @media(max-width:600px){.form-row,.form-row-3{grid-template-columns:1fr}}
 
-  /* MODAL */
   .modal-overlay{
     display:none;position:fixed;inset:0;background:var(--overlay-bg);
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
@@ -611,7 +573,6 @@
   }
   .modal-foot-right{display:flex;gap:8px;margin-left:auto}
 
-  /* TOAST */
   .toast{
     position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(24px);
     background:linear-gradient(135deg,#0b1220 0%,#1e1b4b 100%);color:#fff;
@@ -631,12 +592,12 @@
   .toast .toast-icon svg{width:11px;height:11px}
   .toast.error .toast-icon{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 12px rgba(239,68,68,.5)}
 
-  /* LOADING */
   .loading-overlay{
     position:fixed;inset:0;background:var(--overlay-bg);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
     z-index:300;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:14px;color:var(--text);
+    padding:24px;
   }
   .loading-overlay.hidden{display:none}
   .spinner{
@@ -646,16 +607,57 @@
     animation:spin .8s linear infinite;
   }
   @keyframes spin{to{transform:rotate(360deg)}}
-  .loading-overlay p{font-size:13px;color:var(--text-secondary);font-weight:500}
+  .loading-overlay p{font-size:13px;color:var(--text-secondary);font-weight:500;text-align:center}
 
-  /* OVERLAY mobile */
   .overlay{
     display:none;position:fixed;inset:0;background:var(--overlay-bg);
     backdrop-filter:blur(2px);z-index:40;
   }
   .overlay.show{display:block;animation:overlayIn var(--dur) var(--ease)}
 
-  /* RESPONSIVE */
+  .theme-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:600px){.theme-options{grid-template-columns:1fr}}
+  .theme-card{
+    border:1.5px solid var(--line-strong);border-radius:var(--r-lg);
+    background:var(--surface);padding:10px;cursor:pointer;
+    transition:all var(--dur) var(--ease);text-align:left;position:relative;font-family:inherit;
+  }
+  .theme-card:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .theme-card.active{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+  .theme-card.active::after{
+    content:'';position:absolute;top:10px;right:10px;width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+    box-shadow:0 2px 8px rgba(99,102,241,.4);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
+    background-repeat:no-repeat;background-position:center;
+  }
+  .theme-preview{
+    border-radius:var(--r-sm);height:80px;padding:10px;
+    display:flex;flex-direction:column;gap:5px;overflow:hidden;
+    position:relative;border:1px solid rgba(0,0,0,.06);
+  }
+  .light-preview{background:#f8fafc}
+  .light-preview .tp-bar{background:#e2e8f0}
+  .light-preview .tp-line{background:#cbd5e1}
+  .light-preview .tp-block{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}
+  .dark-preview{background:#0f1829}
+  .dark-preview .tp-bar{background:#1c2740}
+  .dark-preview .tp-line{background:#28354f}
+  .dark-preview .tp-block{background:linear-gradient(135deg,#60a5fa,#a78bfa)}
+  .auto-preview{background:linear-gradient(135deg,#f8fafc 0%,#f8fafc 50%,#0f1829 50%,#0f1829 100%)}
+  .auto-preview .tp-bar{background:linear-gradient(90deg,#e2e8f0 50%,#1c2740 50%)}
+  .auto-preview .tp-line{background:linear-gradient(90deg,#cbd5e1 50%,#28354f 50%)}
+  .auto-preview .tp-block{background:linear-gradient(135deg,#3b82f6,#a78bfa)}
+  .tp-bar{height:6px;border-radius:2px;width:40%}
+  .tp-line{height:4px;border-radius:2px}
+  .tp-line.long{width:80%}
+  .tp-line.short{width:55%}
+  .tp-block{height:24px;border-radius:4px;margin-top:auto;width:100%}
+  .theme-card-label{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;font-weight:550;color:var(--text)}
+  .theme-card-label svg{width:14px;height:14px;color:var(--text-tertiary)}
+  .theme-card.active .theme-card-label{color:var(--brand)}
+  .theme-card.active .theme-card-label svg{color:var(--brand)}
+
   @media(max-width:860px){
     .sidebar{position:fixed;top:0;left:0;transform:translateX(-100%);box-shadow:var(--shadow-xl)}
     .sidebar.open{transform:translateX(0)}
@@ -677,13 +679,11 @@
 </head>
 <body>
 
-<!-- Loading overlay -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
   <p id="loadingText">Connecting to Firebase...</p>
 </div>
 
-<!-- ============ SIDEBAR ============ -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
     <div class="mark">Z</div>
@@ -737,13 +737,12 @@
 
   <div class="sidebar-footer">
     <span class="dot-status syncing" id="statusDot">Connecting</span>
-    <span>v2.0.0</span>
+    <span>v2.1.0</span>
   </div>
 </aside>
 
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
-<!-- ============ MAIN ============ -->
 <div class="main">
   <header class="topbar">
     <div class="topbar-left">
@@ -799,7 +798,6 @@
 
   <main class="content">
 
-    <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
       <div class="stats-grid">
         <div class="stat blue">
@@ -848,7 +846,6 @@
       </div>
     </section>
 
-    <!-- PLANS -->
     <section class="view" id="view-plans">
       <div class="card">
         <div class="toolbar">
@@ -868,7 +865,6 @@
       </div>
     </section>
 
-    <!-- SUMMARIES -->
     <section class="view" id="view-summaries">
       <div class="card">
         <div class="toolbar">
@@ -888,7 +884,6 @@
       </div>
     </section>
 
-    <!-- SETTINGS -->
     <section class="view" id="view-settings">
       <div class="card">
         <div class="card-head">
@@ -964,7 +959,7 @@
               <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">
                 Your data is synced to the cloud in real-time. Access from any device using the same browser session.
               </div>
-              <div style="font-size:11.5px;color:var(--text-tertiary);margin-top:8px;font-family:'JetBrains Mono',monospace">
+              <div style="font-size:11.5px;color:var(--text-tertiary);margin-top:8px;font-family:'JetBrains Mono',monospace;word-break:break-all">
                 UID: <span id="userUID">—</span>
               </div>
             </div>
@@ -1022,7 +1017,6 @@
   </main>
 </div>
 
-<!-- MODAL: PLAN -->
 <div class="modal-overlay" id="planModal">
   <div class="modal">
     <div class="modal-head">
@@ -1086,7 +1080,6 @@
   </div>
 </div>
 
-<!-- MODAL: SUMMARY -->
 <div class="modal-overlay" id="summaryModal">
   <div class="modal">
     <div class="modal-head">
@@ -1164,55 +1157,6 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- THEME OPTIONS STYLES -->
-<style>
-  .theme-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-  @media(max-width:600px){.theme-options{grid-template-columns:1fr}}
-  .theme-card{
-    border:1.5px solid var(--line-strong);border-radius:var(--r-lg);
-    background:var(--surface);padding:10px;cursor:pointer;
-    transition:all var(--dur) var(--ease);text-align:left;position:relative;font-family:inherit;
-  }
-  .theme-card:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow-md)}
-  .theme-card.active{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
-  .theme-card.active::after{
-    content:'';position:absolute;top:10px;right:10px;width:18px;height:18px;border-radius:50%;
-    background:linear-gradient(135deg,#3b82f6,#8b5cf6);
-    box-shadow:0 2px 8px rgba(99,102,241,.4);
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
-    background-repeat:no-repeat;background-position:center;
-  }
-  .theme-preview{
-    border-radius:var(--r-sm);height:80px;padding:10px;
-    display:flex;flex-direction:column;gap:5px;overflow:hidden;
-    position:relative;border:1px solid rgba(0,0,0,.06);
-  }
-  .light-preview{background:#f8fafc}
-  .light-preview .tp-bar{background:#e2e8f0}
-  .light-preview .tp-line{background:#cbd5e1}
-  .light-preview .tp-block{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}
-  .dark-preview{background:#0f1829}
-  .dark-preview .tp-bar{background:#1c2740}
-  .dark-preview .tp-line{background:#28354f}
-  .dark-preview .tp-block{background:linear-gradient(135deg,#60a5fa,#a78bfa)}
-  .auto-preview{background:linear-gradient(135deg,#f8fafc 0%,#f8fafc 50%,#0f1829 50%,#0f1829 100%)}
-  .auto-preview .tp-bar{background:linear-gradient(90deg,#e2e8f0 50%,#1c2740 50%)}
-  .auto-preview .tp-line{background:linear-gradient(90deg,#cbd5e1 50%,#28354f 50%)}
-  .auto-preview .tp-block{background:linear-gradient(135deg,#3b82f6,#a78bfa)}
-  .tp-bar{height:6px;border-radius:2px;width:40%}
-  .tp-line{height:4px;border-radius:2px}
-  .tp-line.long{width:80%}
-  .tp-line.short{width:55%}
-  .tp-block{height:24px;border-radius:4px;margin-top:auto;width:100%}
-  .theme-card-label{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;font-weight:550;color:var(--text)}
-  .theme-card-label svg{width:14px;height:14px;color:var(--text-tertiary)}
-  .theme-card.active .theme-card-label{color:var(--brand)}
-  .theme-card.active .theme-card-label svg{color:var(--brand)}
-</style>
-
-<!-- ============================================================
-     FIREBASE SDK (compat)
-     ============================================================ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -1235,15 +1179,41 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Enable offline persistence
-db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-  console.warn('Offline persistence:', err.code);
-});
+// Offline persistence (safe fallback)
+try {
+  db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Multiple tabs open, persistence only enabled in first tab');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Browser does not support persistence');
+    }
+  });
+} catch(e){
+  console.warn('Persistence init skipped:', e);
+}
+
+/* ============================================================
+   STATE (in-memory cache)
+   Use _plans/_summaries to avoid key collision
+   ============================================================ */
+const State = {
+  _plans: [],
+  _summaries: [],
+
+  plans: {
+    all(){ return State._plans; },
+    get(id){ return State._plans.find(x => x.id === id); },
+    set(arr){ State._plans = arr; }
+  },
+  summaries: {
+    all(){ return State._summaries; },
+    get(id){ return State._summaries.find(x => x.id === id); },
+    set(arr){ State._summaries = arr; }
+  }
+};
 
 /* ============================================================
    CLOUD SYNC (Firestore)
-   Path: users/{uid}/plans/{docId}
-         users/{uid}/summaries/{docId}
    ============================================================ */
 const CloudSync = {
   uid: null,
@@ -1256,7 +1226,8 @@ const CloudSync = {
     this.uid = uid;
     this.plansRef = db.collection('users').doc(uid).collection('plans');
     this.summariesRef = db.collection('users').doc(uid).collection('summaries');
-    $('userUID').textContent = uid;
+    const uidEl = $('userUID');
+    if(uidEl) uidEl.textContent = uid;
 
     setSyncStatus('syncing', 'Syncing');
     await this.pullAll();
@@ -1264,7 +1235,6 @@ const CloudSync = {
     setSyncStatus('online', 'Synced');
   },
 
-  // Initial pull — pull both collections
   async pullAll(){
     try {
       setSyncStatus('syncing', 'Syncing');
@@ -1273,8 +1243,8 @@ const CloudSync = {
         this.summariesRef.get()
       ]);
 
-      State.plans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      State.summaries = sumsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      State.plans.set(plansSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      State.summaries.set(sumsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
       renderAll();
       setSyncStatus('online', 'Synced');
@@ -1286,13 +1256,12 @@ const CloudSync = {
     }
   },
 
-  // Real-time listeners
   subscribe(){
     if(this.unsubPlans) this.unsubPlans();
     if(this.unsubSummaries) this.unsubSummaries();
 
     this.unsubPlans = this.plansRef.onSnapshot(snap => {
-      State.plans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      State.plans.set(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       renderPlans();
       refreshCounts();
       setSyncStatus('online', 'Synced');
@@ -1302,9 +1271,9 @@ const CloudSync = {
     });
 
     this.unsubSummaries = this.summariesRef.onSnapshot(snap => {
-      State.summaries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      State.summaries.set(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       renderSummaries();
-      renderPlans(); // update badge counts
+      renderPlans();
       refreshCounts();
       setSyncStatus('online', 'Synced');
     }, err => {
@@ -1313,7 +1282,6 @@ const CloudSync = {
     });
   },
 
-  // ---- PLANS CRUD ----
   async addPlan(data){
     setSyncStatus('syncing', 'Saving');
     try {
@@ -1348,8 +1316,7 @@ const CloudSync = {
   async deletePlan(id){
     setSyncStatus('syncing', 'Deleting');
     try {
-      // Delete summary linked to this plan (client-side, since we have summaries in State)
-      const linked = State.summaries.filter(s => s.planId === id);
+      const linked = State.summaries.all().filter(s => s.planId === id);
       const batch = db.batch();
       batch.delete(this.plansRef.doc(id));
       linked.forEach(s => batch.delete(this.summariesRef.doc(s.id)));
@@ -1362,7 +1329,6 @@ const CloudSync = {
     }
   },
 
-  // ---- SUMMARIES CRUD ----
   async addSummary(data){
     setSyncStatus('syncing', 'Saving');
     try {
@@ -1406,7 +1372,6 @@ const CloudSync = {
     }
   },
 
-  // Bulk import (used by importAll)
   async bulkImport(plans, summaries){
     setSyncStatus('syncing', 'Importing');
     try {
@@ -1449,32 +1414,20 @@ const CloudSync = {
 };
 
 /* ============================================================
-   STATE (in-memory cache, kept in sync via listeners)
-   ============================================================ */
-const State = {
-  plans: [],
-  summaries: [],
-
-  plans: {
-    all(){ return State.plans; },
-    get(id){ return State.plans.find(x => x.id === id); }
-  },
-  summaries: {
-    all(){ return State.summaries; },
-    get(id){ return State.summaries.find(x => x.id === id); }
-  }
-};
-
-/* ============================================================
    SYNC STATUS UI
    ============================================================ */
 function setSyncStatus(status, label){
   const ind = $('syncIndicator');
   const dot = $('statusDot');
-  ind.className = 'sync-indicator ' + (status === 'online' ? '' : status);
-  $('syncLabel').textContent = label;
-  dot.className = 'dot-status ' + (status === 'online' ? '' : status);
-  dot.textContent = status === 'online' ? 'Synced' : (status === 'syncing' ? 'Syncing' : 'Error');
+  if(ind){
+    ind.className = 'sync-indicator ' + (status === 'online' ? '' : status);
+    const lbl = $('syncLabel');
+    if(lbl) lbl.textContent = label;
+  }
+  if(dot){
+    dot.className = 'dot-status ' + (status === 'online' ? '' : status);
+    dot.textContent = status === 'online' ? 'Synced' : (status === 'syncing' ? 'Syncing' : 'Error');
+  }
 }
 
 /* ============================================================
@@ -1537,6 +1490,7 @@ const todayISO = () => new Date().toISOString().split('T')[0];
 
 function toast(msg, type){
   const t = $('toast');
+  if(!t) return;
   const icon = type === 'error' ? ICON.alert : ICON.check;
   t.className = 'toast' + (type === 'error' ? ' error' : '');
   t.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(msg)}</span>`;
@@ -1547,11 +1501,10 @@ function toast(msg, type){
 
 function formatDate(iso){
   if(!iso) return '-';
-  // Handle Firestore Timestamp object
   if(typeof iso === 'object' && iso.seconds){
     iso = new Date(iso.seconds * 1000).toISOString().split('T')[0];
   }
-  if(!iso.includes('-')) return iso;
+  if(typeof iso !== 'string' || !iso.includes('-')) return String(iso);
   const [y,m,d] = iso.split('-');
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
@@ -1638,7 +1591,7 @@ function openAddModal(){
 }
 
 /* ============================================================
-   PLANS — CRUD (async with CloudSync)
+   PLANS — CRUD
    ============================================================ */
 async function savePlan(e){
   e.preventDefault();
@@ -1769,7 +1722,7 @@ function renderPlans(){
 }
 
 /* ============================================================
-   SUMMARIES — CRUD (async with CloudSync)
+   SUMMARIES — CRUD
    ============================================================ */
 function populatePlanDropdown(selected){
   const sel = $('summaryPlanRef');
@@ -2074,25 +2027,40 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderAll();
   switchView('dashboard');
 
-  // Sign in anonymously → init CloudSync
   $('loadingText').textContent = 'Connecting to Firebase...';
   auth.signInAnonymously()
     .then(async (cred) => {
-      const uid = cred.user.uid;
-      console.log('Signed in anonymously:', uid);
+      const userUID = cred.user.uid;
+      console.log('✅ Signed in anonymously:', userUID);
       $('loadingText').textContent = 'Loading your data...';
-      await CloudSync.init(uid);
+      await CloudSync.init(userUID);
       $('loadingOverlay').classList.add('hidden');
     })
     .catch(err => {
-      console.error('Auth failed:', err);
+      console.error('❌ Auth failed:', err);
       setSyncStatus('error', 'Auth failed');
-      $('loadingText').textContent = 'Connection failed. Check console.';
-      setTimeout(()=> $('loadingOverlay').classList.add('hidden'), 2000);
-      toast('Firebase auth failed. Check console.', 'error');
+
+      const msgMap = {
+        'auth/unauthorized-domain': `Domain <b>${location.hostname}</b> belum di-authorize di Firebase Console.<br>Buka: Authentication → Settings → Authorized domains → Add domain.`,
+        'auth/operation-not-allowed': 'Anonymous sign-in belum diaktifkan.<br>Buka: Firebase Console → Authentication → Sign-in method → Anonymous → Enable.',
+        'auth/network-request-failed': 'Gagal konek ke Firebase. Cek internet atau matikan adblock.',
+        'auth/invalid-api-key': 'API key Firebase tidak valid.'
+      };
+      const friendly = msgMap[err.code] || `Error: ${err.code || err.message}`;
+
+      $('loadingText').innerHTML = `
+        <div style="max-width:420px;text-align:center;color:#ef4444;font-weight:600;margin-bottom:8px">
+          Gagal terhubung ke Firebase
+        </div>
+        <div style="max-width:420px;text-align:center;color:var(--text-secondary);font-size:12.5px;line-height:1.6">
+          ${friendly}
+        </div>
+        <button onclick="location.reload()" style="margin-top:16px;padding:8px 16px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">
+          Coba Lagi
+        </button>
+      `;
     });
 
-  // Online/offline detection
   window.addEventListener('online', ()=>{
     if(CloudSync.uid) setSyncStatus('syncing', 'Reconnecting');
   });
