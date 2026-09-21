@@ -1617,3 +1617,5 @@ kbd{
   .plan-details-issues{padding:12px 16px}
   .plan-details-note{padding:10px 16px}
 }
+.btn.active-sync{border-color:var(--redmine);color:var(--redmine);background:var(--redmine-soft)}
+.sync-panel{border-color:var(--redmine-border)}

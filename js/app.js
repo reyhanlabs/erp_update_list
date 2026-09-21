@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.13.0';
+const APP_VERSION = '4.13.1';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tester table layout, PWA, Redmine cache, better errors';
+const APP_VERSION_NOTE = 'Sync Redmine moved into Update Plans panel';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -518,12 +518,32 @@ let currentView = 'dashboard';
 
 const VIEW_META = {
   dashboard: { title:'Dashboard', sub:'Overview of your ERP update activity', addBtn:false },
-  plans:     { title:'Update Plans', sub:'Manage issue lists from SDET', addBtn:true, addLabel:'Add New Plan' },
+  plans:     { title:'Update Plans', sub:'Manage plans & sync from Redmine', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issue berstatus Ready for Testing dari Redmine', addBtn:false },
-  sync:      { title:'Sync from Redmine', sub:'Import resolved issues automatically', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
+
+function toggleSyncPanel(force){
+  const panel = $('syncPanel');
+  const btn = $('btnToggleSyncPanel');
+  if(!panel) return;
+  const open = force !== undefined ? !!force : (panel.style.display === 'none' || !panel.style.display);
+  // When display is '' (default visible after open), treat as open
+  const currentlyOpen = panel.style.display !== 'none';
+  const shouldOpen = force !== undefined ? !!force : !currentlyOpen;
+  panel.style.display = shouldOpen ? '' : 'none';
+  if(btn) btn.classList.toggle('active-sync', shouldOpen);
+  if(shouldOpen){
+    loadRedmineProjects();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function openPlansWithSync(){
+  switchView('plans');
+  setTimeout(()=> toggleSyncPanel(true), 60);
+}
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=> switchView(btn.dataset.view));
@@ -548,7 +568,7 @@ function switchView(view){
   if(window.innerWidth <= 860) toggleSidebar(false);
   refreshCounts();
   if(view === 'settings') updateLastSync();
-  if(view === 'sync') loadRedmineProjects();
+  if(view === 'plans') loadRedmineProjects();
   if(view === 'tester') loadTesterReminder();
 }
 
@@ -982,7 +1002,7 @@ function renderPlans(){
     if(!total){
       el.innerHTML = emptyState(ICON.inbox, 'No Update Plans yet', 'Create your first plan or sync from Redmine.', [
         { label: 'Add Plan', action: "openAddModal()", primary: true },
-        { label: 'Sync Redmine', action: "switchView('sync')" }
+        { label: 'Sync Redmine', action: "openPlansWithSync()" }
       ]);
     } else {
       el.innerHTML = emptyState(ICON.inbox, 'No matching plans', 'Coba ubah filter atau kata kunci pencarian.', [
@@ -1403,7 +1423,7 @@ function refreshCounts(){
     if(!recent.length){
       recentEl.innerHTML = emptyState(ICON.inbox, 'No plans yet', 'Mulai dengan sync Redmine atau buat plan manual.', [
         { label: 'Add Plan', action: "switchView('plans'); openAddModal()", primary: true },
-        { label: 'Sync Redmine', action: "switchView('sync')" }
+        { label: 'Sync Redmine', action: "openPlansWithSync()" }
       ]);
     } else {
       recentEl.innerHTML = `<div class="recent-list">` + recent.map(p => {
@@ -1848,7 +1868,7 @@ async function loadTesterReminder(force){
   const pid = getSelectedProjectId();
   if(!pid){
     el.innerHTML = emptyState(ICON.inbox, 'Pilih project dulu', 'Buka Sync from Redmine, pilih project, lalu refresh di sini.', [
-      { label: 'Buka Sync', action: "switchView('sync')" }
+      { label: 'Buka Sync', action: "openPlansWithSync()" }
     ]);
     setTesterBadgeCount(null);
     return;
@@ -1896,7 +1916,7 @@ async function loadTesterReminder(force){
     if(badge) badge.textContent = '!';
     el.innerHTML = emptyState(ICON.alert, friendly.title, friendly.message, [
       { label: 'Coba lagi', action: 'loadTesterReminder(true)', primary: true },
-      { label: 'Buka Sync', action: "switchView('sync')" }
+      { label: 'Buka Sync', action: "openPlansWithSync()" }
     ]);
   } finally {
     if(btn){
