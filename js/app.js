@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.11.1';
+const APP_VERSION = '4.11.2';
 const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tester reminder — Ready for Testing issues on dashboard';
+const APP_VERSION_NOTE = 'Tester Queue moved to its own sidebar menu';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -520,6 +520,7 @@ const VIEW_META = {
   dashboard: { title:'Dashboard', sub:'Overview of your ERP update activity', addBtn:false },
   plans:     { title:'Update Plans', sub:'Manage issue lists from SDET', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
+  tester:    { title:'Tester Queue', sub:'Issue berstatus Ready for Testing dari Redmine', addBtn:false },
   sync:      { title:'Sync from Redmine', sub:'Import resolved issues automatically', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
@@ -548,7 +549,7 @@ function switchView(view){
   refreshCounts();
   if(view === 'settings') updateLastSync();
   if(view === 'sync') loadRedmineProjects();
-  if(view === 'dashboard') loadTesterReminder();
+  if(view === 'tester') loadTesterReminder();
 }
 
 function toggleSidebar(force){
@@ -1540,6 +1541,8 @@ async function loadTesterReminder(force){
     const resolvedName = data.resolved_status?.name || 'Ready for Testing';
     if(statusLabel) statusLabel.textContent = resolvedName;
     if(badge) badge.textContent = String(issues.length);
+    const navCount = $('countTester');
+    if(navCount) navCount.textContent = String(issues.length);
 
     if(!issues.length){
       el.innerHTML = emptyState(ICON.check, 'Tidak ada antrian testing', `Tidak ada issue berstatus "${resolvedName}" di project ini.`);
@@ -1655,7 +1658,7 @@ function onRedmineProjectChange(){
   try { localStorage.setItem(REDMINE_STORAGE_KEY, val); } catch(e){}
   updateRedmineProjectBadge();
   // Refresh tester queue for the newly selected project
-  if(currentView === 'dashboard') loadTesterReminder(true);
+  if(currentView === 'tester') loadTesterReminder(true);
 }
 
 function updateRedmineProjectBadge(){

@@ -72,13 +72,21 @@
     </button>
 
     <div class="nav-section">Integration</div>
+    <button class="nav-item" data-view="tester">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 3h6v4H9z"/>
+        <path d="M10 7v4.5L7 18h10l-3-6.5V7"/>
+        <path d="M8 21h8"/>
+      </svg>
+      <span class="label">Tester Queue</span>
+      <span class="count" id="countTester">0</span>
+    </button>
     <button class="nav-item" data-view="sync">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
         <path d="M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
       </svg>
       <span class="label">Sync from Redmine</span>
-      <span class="nav-badge-new">NEW</span>
     </button>
 
     <div class="nav-section">System</div>
@@ -213,6 +221,10 @@
           <span class="da-icon blue">+</span>
           <span class="da-text"><strong>New Plan</strong><small>Tambah update plan manual</small></span>
         </button>
+        <button type="button" class="dash-action-btn" onclick="switchView('tester')">
+          <span class="da-icon amber">T</span>
+          <span class="da-text"><strong>Tester Queue</strong><small>Issue Ready for Testing</small></span>
+        </button>
         <button type="button" class="dash-action-btn" onclick="switchView('sync')">
           <span class="da-icon red">R</span>
           <span class="da-text"><strong>Sync Redmine</strong><small>Tarik issue Resolved</small></span>
@@ -221,28 +233,6 @@
           <span class="da-icon violet">S</span>
           <span class="da-text"><strong>New Summary</strong><small>Buat ringkasan WA/Telegram</small></span>
         </button>
-      </div>
-
-      <!-- Tester reminder: Ready for Testing -->
-      <div class="card tester-card">
-        <div class="card-head">
-          <h3>
-            <span class="mark tester-mark"></span>
-            Tester Reminder
-            <span class="badge badge-amber" id="testerCountBadge" style="margin-left:8px">—</span>
-          </h3>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <span class="meta-chip" id="testerStatusLabel" style="font-size:11.5px">Ready for Testing</span>
-            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshTester" onclick="loadTesterReminder(true)">
-              Refresh
-            </button>
-          </div>
-        </div>
-        <div class="card-body tight" id="testerReminder">
-          <div class="empty" style="padding:28px 16px">
-            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p>
-          </div>
-        </div>
       </div>
 
       <div class="dash-two-col">
@@ -303,6 +293,35 @@
         </select>
       </div>
       <div id="summaryList"></div>
+    </section>
+
+    <!-- TESTER QUEUE -->
+    <section class="view" id="view-tester">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark tester-mark"></span>
+            Ready for Testing
+            <span class="badge badge-amber" id="testerCountBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="meta-chip" id="testerStatusLabel" style="font-size:11.5px">Ready for Testing</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshTester" onclick="loadTesterReminder(true)">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="card-body" style="padding:12px 16px 4px;border-bottom:1px solid var(--line)">
+          <p style="font-size:13px;color:var(--text-secondary);margin:0;line-height:1.55">
+            Antrian issue untuk tester. Data diambil dari Redmine (project yang dipilih di Sync).
+          </p>
+        </div>
+        <div class="card-body tight" id="testerReminder">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Buka menu ini untuk memuat issue…</p>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- REDMINE SYNC -->
@@ -633,8 +652,12 @@
         <div class="card-body">
           <div class="changelog" id="changelogList">
             <div class="changelog-item">
+              <span class="cl-ver">v4.11.2</span>
+              <span class="cl-note">Tester Queue pindah ke menu sidebar sendiri</span>
+            </div>
+            <div class="changelog-item">
               <span class="cl-ver">v4.11.1</span>
-              <span class="cl-note">Tester reminder — Ready for Testing di Dashboard</span>
+              <span class="cl-note">Tester reminder — Ready for Testing</span>
             </div>
             <div class="changelog-item">
               <span class="cl-ver">v4.11.0</span>
