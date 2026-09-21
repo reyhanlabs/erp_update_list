@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.4.1 — Fixed layout + smaller chevron icons
+   v4.5.0 — Redmine project picker
    ============================================================ */
 
 /* ============================================================
@@ -20,17 +20,16 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-try {
-  db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Multiple tabs open, persistence only enabled in first tab');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Browser does not support persistence');
-    }
-  });
-} catch(e){
-  console.warn('Persistence init skipped:', e);
-}
+/* ============================================================
+   REDMINE STATE
+   ============================================================ */
+const RedmineState = {
+  projects: [],
+  selectedProjectId: null,
+  loaded: false
+};
+
+const REDMINE_STORAGE_KEY = 'zahir-redmine-project';
 
 /* ============================================================
    HELPERS
@@ -495,6 +494,7 @@ function switchView(view){
   if(window.innerWidth <= 860) toggleSidebar(false);
   refreshCounts();
   if(view === 'settings') updateLastSync();
+  if(view === 'sync') loadRedmineProjects();
 }
 
 function toggleSidebar(force){
@@ -843,7 +843,7 @@ async function deletePlan(id){
 }
 
 /* ============================================================
-   RENDER PLANS — compact card layout
+   RENDER PLANS
    ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
@@ -1257,6 +1257,111 @@ function emptyState(iconSvg, title, desc){
 }
 
 /* ============================================================
+   REDMINE — PROJECT LOADER
+   ============================================================ */
+async function loadRedmineProjects(){
+  if(RedmineState.loaded && RedmineState.projects.length) return;
+
+  const sel = $('syncProject');
+  if(!sel) return;
+
+  sel.innerHTML = '<option value="">Loading projects…</option>';
+  sel.disabled = true;
+
+  try {
+    const r = await fetch('/api/redmine-projects');
+    const data = await r.json();
+
+    if(!r.ok) throw new Error(data.detail || data.error || 'Failed to load projects');
+
+    const projects = (data.projects || []).filter(p => p.status === 1);
+    if(!projects.length){
+      sel.innerHTML = '<option value="">No active projects found</option>';
+      return;
+    }
+
+    RedmineState.projects = projects;
+    RedmineState.loaded = true;
+
+    let saved = null;
+    try { saved = localStorage.getItem(REDMINE_STORAGE_KEY); } catch(e){}
+    if(saved && projects.some(p => String(p.id) === saved || p.identifier === saved)){
+      RedmineState.selectedProjectId = saved;
+    } else if(projects.length === 1){
+      RedmineState.selectedProjectId = String(projects[0].id);
+    } else {
+      const zahir = projects.find(p =>
+        p.name.toLowerCase().includes('zahir erp') ||
+        p.identifier === 'zahir-erp'
+      );
+      if(zahir) RedmineState.selectedProjectId = String(zahir.id);
+    }
+
+    sel.innerHTML = '<option value="">— Select project —</option>' +
+      projects.map(p => {
+        const isZahir = p.name.toLowerCase().includes('zahir erp') || p.identifier === 'zahir-erp';
+        const label = (isZahir ? '⭐ ' : '') + p.name + (p.parent ? ` (${p.parent.name})` : '');
+        return `<option value="${p.id}" data-identifier="${escapeHtml(p.identifier)}">${escapeHtml(label)}</option>`;
+      }).join('');
+
+    if(RedmineState.selectedProjectId){
+      sel.value = RedmineState.selectedProjectId;
+    }
+
+    sel.disabled = false;
+    updateRedmineProjectBadge();
+
+  } catch(err){
+    console.error('Failed to load projects:', err);
+    sel.innerHTML = '<option value="">⚠ Failed to load projects</option>';
+    sel.disabled = false;
+    showSyncResult('error', `<b>Could not load projects:</b> ${escapeHtml(err.message)}<br><span style="color:var(--text-secondary);font-size:12px">Make sure <code>api/redmine-projects.js</code> exists and REDMINE_API_KEY is set.</span>`);
+  }
+}
+
+function onRedmineProjectChange(){
+  const sel = $('syncProject');
+  if(!sel) return;
+  const val = sel.value;
+  if(!val){
+    RedmineState.selectedProjectId = null;
+    updateRedmineProjectBadge();
+    return;
+  }
+  RedmineState.selectedProjectId = val;
+  try { localStorage.setItem(REDMINE_STORAGE_KEY, val); } catch(e){}
+  updateRedmineProjectBadge();
+}
+
+function updateRedmineProjectBadge(){
+  const label = $('redmineProjectLabel');
+  const idLabel = $('redmineProjectIdLabel');
+  if(!label || !idLabel) return;
+
+  const pid = RedmineState.selectedProjectId;
+  if(!pid){
+    label.textContent = 'No project selected';
+    idLabel.textContent = '—';
+    idLabel.style.display = 'none';
+    return;
+  }
+
+  const proj = RedmineState.projects.find(p => String(p.id) === pid);
+  if(proj){
+    label.textContent = proj.name;
+    idLabel.textContent = proj.identifier;
+    idLabel.style.display = 'inline-flex';
+  } else {
+    label.textContent = pid;
+    idLabel.style.display = 'none';
+  }
+}
+
+function getSelectedProjectId(){
+  return RedmineState.selectedProjectId;
+}
+
+/* ============================================================
    REDMINE SYNC
    ============================================================ */
 async function testRedmineConnection(event){
@@ -1267,7 +1372,12 @@ async function testRedmineConnection(event){
   setRedmineStatus('loading', 'Testing...');
 
   try {
-    const r = await fetch('/api/redmine?limit=1');
+    const params = new URLSearchParams();
+    params.set('limit', '1');
+    const pid = getSelectedProjectId();
+    if(pid) params.set('project_id', pid);
+
+    const r = await fetch(`/api/redmine?${params.toString()}`);
     const data = await r.json();
     if (r.ok && data.issues && data.issues.length) {
       setRedmineStatus('success', 'Connected');
@@ -1279,7 +1389,7 @@ async function testRedmineConnection(event){
     } else if (r.ok) {
       setRedmineStatus('success', 'Connected');
       toast('Connected, but no issues returned');
-      showSyncResult('info', `<b>Connected.</b> API works but returned no issues. Try a different filter.`);
+      showSyncResult('info', `<b>Connected.</b> API works but this project has no matching issues.`);
     } else {
       throw new Error(data.detail || data.error || 'Unknown error');
     }
@@ -1296,6 +1406,13 @@ async function testRedmineConnection(event){
 async function previewRedmineSync(event){
   const btn = event.currentTarget;
   const originalText = btn.innerHTML;
+
+  const pid = getSelectedProjectId();
+  if(!pid){
+    toast('Please select a Redmine project first', 'error');
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner-sm"></div> Loading...';
   setRedmineStatus('loading', 'Fetching...');
@@ -1306,6 +1423,7 @@ async function previewRedmineSync(event){
 
     const params = new URLSearchParams();
     if (statusId !== '*') params.set('status_id', statusId);
+    params.set('project_id', pid);
     params.set('limit', '100');
     if (sinceDate) params.set('updated_on', `>=${sinceDate}T00:00:00Z`);
 
@@ -1316,7 +1434,7 @@ async function previewRedmineSync(event){
     const issues = data.issues || [];
     if (!issues.length) {
       setRedmineStatus('success', 'No issues');
-      showSyncResult('info', `No issues match the current filter.`);
+      showSyncResult('info', `No issues match the current filter for this project.`);
       return;
     }
 
@@ -1363,6 +1481,13 @@ async function previewRedmineSync(event){
 async function syncFromRedmine(event){
   const btn = event.currentTarget;
   const originalText = btn.innerHTML;
+
+  const pid = getSelectedProjectId();
+  if(!pid){
+    toast('Please select a Redmine project first', 'error');
+    return;
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner-sm"></div> Syncing...';
   setRedmineStatus('loading', 'Syncing...');
@@ -1373,6 +1498,7 @@ async function syncFromRedmine(event){
 
     const params = new URLSearchParams();
     if (statusId !== '*') params.set('status_id', statusId);
+    params.set('project_id', pid);
     params.set('limit', '100');
     if (sinceDate) params.set('updated_on', `>=${sinceDate}T00:00:00Z`);
 
@@ -1402,26 +1528,29 @@ async function syncFromRedmine(event){
       return;
     }
 
+    const proj = RedmineState.projects.find(p => String(p.id) === pid);
+    const projName = proj ? proj.name : 'Redmine';
+
     const today = new Date().toISOString().split('T')[0];
     const statusLabels = {'1':'New','2':'In Progress','3':'Resolved','4':'Feedback','5':'Closed','*':'All'};
     const statusLabel = statusLabels[statusId] || statusId;
-    const title = `Update ERP ${formatDate(today)} (Redmine Sync — ${statusLabel})`;
+    const title = `${projName} — Update ${formatDate(today)} (${statusLabel})`;
     const issueUrls = newIssues.map(i => `https://pjm.zahironline.com/issues/${i.id}`);
 
     await CloudSync.addPlan({
       title: title,
       date: today,
       issues: issueUrls.join('\n'),
-      note: `Auto-synced from Redmine on ${new Date().toLocaleString()}`
+      note: `Auto-synced from Redmine · Project: ${projName} (${proj?.identifier || pid}) · ${new Date().toLocaleString()}`
     });
 
     setRedmineStatus('success', 'Synced');
-    toast(`Synced ${newIssues.length} new issues`);
+    toast(`Synced ${newIssues.length} new issues from ${projName}`);
 
     const skipped = issues.length - newIssues.length;
     showSyncResult('success', `
       <b>✅ Sync complete!</b><br>
-      Added <b>${newIssues.length} new issues</b> as plan: "<b>${escapeHtml(title)}</b>"
+      Added <b>${newIssues.length} new issues</b> from <b>${escapeHtml(projName)}</b> as plan: "<b>${escapeHtml(title)}</b>"
       ${skipped ? `<br><span style="color:var(--text-secondary);font-size:12px">${skipped} issues skipped (already in your plans).</span>` : ''}
       <br><br>
       <button type="button" class="btn btn-primary btn-sm" onclick="switchView('plans')">View in Update Plans →</button>
@@ -1559,6 +1688,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   ThemeManager.init();
   $('planDate').value = todayISO();
   $('summaryDate').value = todayISO();
+
+  const sinceInput = $('syncSince');
+  if(sinceInput && !sinceInput.value){
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    sinceInput.value = d.toISOString().split('T')[0];
+  }
+
   setIssueLines([]);
   renderAll();
   switchView('dashboard');
