@@ -581,45 +581,42 @@ function buildCopyText(plan, format){
   const title = plan.title || 'Update Plan';
   const dateStr = formatDate(plan.date);
 
+  // Plain URLs — 1 per line
   if(format === 'plain') {
     return parsed.map(p => p.url).join('\n');
   }
 
+  // Numbered list — nomor + URL (without description)
   if(format === 'numbered'){
     let out = `${title}\n`;
     out += `Date: ${dateStr}\n`;
     out += `Total: ${parsed.length} issues\n\n`;
     parsed.forEach((p, i)=>{
       const num = p.number || '—';
-      const desc = p.description || p.url;
-      out += `${i+1}. [#${num}] ${desc}\n`;
+      out += `${i+1}. [#${num}] ${p.url}\n`;
     });
     return out.trim();
   }
 
+  // Markdown links — [#issue](url)
   if(format === 'markdown'){
     let out = `*${title}*\n`;
     out += `_${dateStr} · ${parsed.length} issues_\n\n`;
     parsed.forEach((p)=>{
       const num = p.number || '—';
-      const desc = p.description || p.url;
-      out += `• [#${num}](${p.url}) ${desc ? '— ' + desc : ''}\n`;
+      out += `• [#${num}](${p.url})\n`;
     });
     return out.trim();
   }
 
+  // Telegram format — clickable link only
   if(format === 'telegram'){
     let out = `📋 *${title}*\n`;
     out += `📅 ${dateStr}\n`;
     out += `🔢 ${parsed.length} issues\n\n`;
     parsed.forEach((p)=>{
       const num = p.number || '—';
-      const desc = p.description || '';
-      if(desc){
-        out += `• [#${num}](${p.url}) — ${desc}\n`;
-      } else {
-        out += `• [#${num}](${p.url})\n`;
-      }
+      out += `• [#${num}](${p.url})\n`;
     });
     return out.trim();
   }
