@@ -89,7 +89,7 @@
 
   <div class="sidebar-footer">
     <span class="dot-status syncing" id="statusDot">Connecting</span>
-    <span>v4.9.0</span>
+    <span id="appVersionLabel">v—</span>
   </div>
 </aside>
 
@@ -560,8 +560,9 @@
       </div>
 
       <div class="settings-footer">
-        <div>Zahir ERP Update Manager · v4.9.0</div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div>Zahir ERP Update Manager · <span id="appVersionLabelSettings">v—</span></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span class="badge-soft" id="appVersionDate">—</span>
           <span class="badge-soft">Firebase v10</span>
           <span class="badge-soft" id="footerDataCount">0 items</span>
         </div>
