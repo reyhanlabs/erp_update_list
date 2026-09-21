@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zahir ERP · Update Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+  // Prevent FOUC — apply theme before paint
+  (function(){
+    const saved = localStorage.getItem('zahir-theme') || 'auto';
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const resolved = saved === 'auto' ? (prefersDark ? 'dark' : 'light') : saved;
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-pref', saved);
+  })();
+</script>
+<style>
+  /* ============================================================
+     DESIGN TOKENS — LIGHT (default)
+     ============================================================ */
+  :root, [data-theme="light"]{
+    --bg:#f8fafc;
+    --bg-subtle:#f4f6f8;
+    --bg-mesh-1:rgba(59,130,246,.08);
+    --bg-mesh-2:rgba(168,85,247,.07);
+    --bg-mesh-3:rgba(236,72,153,.05);
+    --surface:#ffffff;
+    --surface-elev:#ffffff;
+    --sidebar:#0b1220;
+    --sidebar-soft:#111c33;
+    --sidebar-line:#1e2b45;
+
+    --text:#0b1220;
+    --text-secondary:#475569;
+    --text-tertiary:#94a3b8;
+
+    --line:#e6e9ef;
+    --line-strong:#d4d9e2;
+
+    --brand:#2563eb;
+    --brand-hover:#1d4ed8;
+    --brand-soft:#eff4ff;
+    --brand-ring:rgba(37,99,235,.14);
+
+    --success:#059669;
+    --success-soft:#ecfdf5;
+    --warning:#d97706;
+    --warning-soft:#fffbeb;
+    --danger:#dc2626;
+    --danger-soft:#fef2f2;
+    --danger-ring:rgba(220,38,38,.12);
+    --violet:#7c3aed;
+    --violet-soft:#f5f3ff;
+    --amber:#d97706;
+    --amber-soft:#fffbeb;
+    --cyan:#0891b2;
+    --cyan-soft:#ecfeff;
+
+    --shadow-xs:0 1px 2px rgba(11,18,32,.05);
+    --shadow-sm:0 1px 2px rgba(11,18,32,.06), 0 1px 3px rgba(11,18,32,.04);
+    --shadow-md:0 4px 8px -2px rgba(11,18,32,.06), 0 2px 4px -2px rgba(11,18,32,.04);
+    --shadow-lg:0 12px 24px -6px rgba(11,18,32,.10), 0 4px 8px -2px rgba(11,18,32,.05);
+    --shadow-xl:0 24px 48px -12px rgba(11,18,32,.18);
+
+    --r-xs:6px;--r-sm:8px;--r-md:10px;--r-lg:12px;--r-xl:16px;
+    --ease:cubic-bezier(.16,1,.3,1);
+    --dur-fast:.12s;--dur:.2s;--dur-slow:.32s;
+
+    --overlay-bg:rgba(11,18,32,.55);
+    --topbar-bg:rgba(255,255,255,.7);
+    --card-head-grad:linear-gradient(180deg, rgba(248,250,252,.7) 0%, rgba(255,255,255,0) 100%);
+    --toolbar-grad:linear-gradient(180deg, #fbfcfe 0%, var(--bg-subtle) 100%);
+    --modal-head-grad:linear-gradient(180deg, #fafbff, #fff);
+    --modal-foot-grad:linear-gradient(180deg, #fafbff, #f5f7fa);
+    --code-bg:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    --code-border:var(--line);
+    --code-text:var(--text-secondary);
+    --preview-bg:linear-gradient(135deg, #fafbff 0%, #f5f3ff 100%);
+    --preview-border:#e9e5fb;
+    --note-bg:linear-gradient(90deg, #fffbeb, #fef9e7);
+    --note-border:#f59e0b;
+    --note-icon:#d97706;
+    --list-hover-bg:linear-gradient(90deg, rgba(239,244,255,.55) 0%, rgba(255,255,255,.2) 100%);
+    --textarea-mono-bg:linear-gradient(135deg, #fafbff, #f8fafc);
+    --scrollbar-thumb:#cbd5e1;
+    --scrollbar-thumb-hover:#94a3b8;
+    --toggle-bg:var(--bg-subtle);
+    --toggle-border:var(--line-strong);
+    --toggle-hover:#eef2f7;
+  }
+
+  /* DARK */
+  [data-theme="dark"]{
+    --bg:#080c16;
+    --bg-subtle:#0d1420;
+    --bg-mesh-1:rgba(59,130,246,.15);
+    --bg-mesh-2:rgba(168,85,247,.13);
+    --bg-mesh-3:rgba(236,72,153,.09);
+    --surface:#0f1829;
+    --surface-elev:#121c30;
+    --sidebar:#05080f;
+    --sidebar-soft:#111c33;
+    --sidebar-line:#1a2438;
+
+    --text:#e8edf5;
+    --text-secondary:#a3b1c6;
+    --text-tertiary:#6b7a92;
+
+    --line:#1c2740;
+    --line-strong:#28354f;
+
+    --brand:#3b82f6;
+    --brand-hover:#60a5fa;
+    --brand-soft:rgba(59,130,246,.14);
+    --brand-ring:rgba(96,165,250,.22);
+
+    --success:#10b981;
+    --success-soft:rgba(16,185,129,.14);
+    --warning:#f59e0b;
+    --warning-soft:rgba(245,158,11,.14);
+    --danger:#ef4444;
+    --danger-soft:rgba(239,68,68,.14);
+    --danger-ring:rgba(239,68,68,.22);
+    --violet:#a78bfa;
+    --violet-soft:rgba(167,139,250,.14);
+    --amber:#f59e0b;
+    --amber-soft:rgba(245,158,11,.14);
+    --cyan:#22d3ee;
+    --cyan-soft:rgba(34,211,238,.14);
+
+    --shadow-xs:0 1px 2px rgba(0,0,0,.4);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4), 0 1px 3px rgba(0,0,0,.3);
+    --shadow-md:0 4px 8px -2px rgba(0,0,0,.5), 0 2px 4px -2px rgba(0,0,0,.3);
+    --shadow-lg:0 12px 24px -6px rgba(0,0,0,.55), 0 4px 8px -2px rgba(0,0,0,.3);
+    --shadow-xl:0 24px 48px -12px rgba(0,0,0,.7);
+
+    --overlay-bg:rgba(0,0,0,.7);
+    --topbar-bg:rgba(8,12,22,.72);
+    --card-head-grad:linear-gradient(180deg, rgba(30,41,64,.35) 0%, rgba(15,24,41,0) 100%);
+    --toolbar-grad:linear-gradient(180deg, #0d1420 0%, #0a111d 100%);
+    --modal-head-grad:linear-gradient(180deg, #131f34, #0f1829);
+    --modal-foot-grad:linear-gradient(180deg, #131f34, #0d1420);
+    --code-bg:linear-gradient(135deg, #0d1420 0%, #0a111d 100%);
+    --code-border:#1c2740;
+    --code-text:#a3b1c6;
+    --preview-bg:linear-gradient(135deg, rgba(99,102,241,.08) 0%, rgba(139,92,246,.08) 100%);
+    --preview-border:rgba(139,92,246,.25);
+    --note-bg:linear-gradient(90deg, rgba(245,158,11,.12), rgba(245,158,11,.06));
+    --note-border:#f59e0b;
+    --note-icon:#fbbf24;
+    --list-hover-bg:linear-gradient(90deg, rgba(59,130,246,.08) 0%, rgba(139,92,246,.04) 100%);
+    --textarea-mono-bg:linear-gradient(135deg, #0d1420, #0a111d);
+    --scrollbar-thumb:#28354f;
+    --scrollbar-thumb-hover:#3d4d6f;
+    --toggle-bg:#0d1420;
+    --toggle-border:#28354f;
+    --toggle-hover:#1a2438;
+  }
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    font-size:14px;line-height:1.5;
+    color:var(--text);background:var(--bg);
+    background-image:
+      radial-gradient(ellipse 800px 500px at 15% -5%, var(--bg-mesh-1), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 85% 5%, var(--bg-mesh-2), transparent 60%),
+      radial-gradient(ellipse 600px 400px at 50% 100%, var(--bg-mesh-3), transparent 60%);
+    background-attachment:fixed;
+    display:flex;min-height:100vh;
+    font-feature-settings:"cv02","cv03","cv04","cv11";
+    transition:background-color .3s var(--ease), color .3s var(--ease);
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+  a{color:inherit;text-decoration:none}
+  svg{display:block;flex-shrink:0}
+
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--scrollbar-thumb);border-radius:10px;border:3px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:var(--scrollbar-thumb-hover);background-clip:content-box}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:248px;
+    background:linear-gradient(180deg, #0b1220 0%, #0f1a33 50%, #140f2e 100%);
+    color:#cbd5e1;display:flex;flex-direction:column;flex-shrink:0;
+    position:sticky;top:0;height:100vh;
+    transition:transform var(--dur-slow) var(--ease);
+    z-index:50;border-right:1px solid var(--sidebar-line);overflow:hidden;
+  }
+  [data-theme="dark"] .sidebar{background:linear-gradient(180deg, #05080f 0%, #0a1120 50%, #0d0820 100%)}
+  .sidebar::before{
+    content:'';position:absolute;top:-120px;left:-60px;width:300px;height:300px;border-radius:50%;
+    background:radial-gradient(circle, rgba(59,130,246,.25) 0%, transparent 70%);pointer-events:none;
+  }
+  .sidebar::after{
+    content:'';position:absolute;bottom:-100px;right:-80px;width:280px;height:280px;border-radius:50%;
+    background:radial-gradient(circle, rgba(168,85,247,.22) 0%, transparent 70%);pointer-events:none;
+  }
+  .sidebar-brand{padding:22px 20px 20px;display:flex;align-items:center;gap:11px;position:relative;z-index:1}
+  .sidebar-brand .mark{
+    width:36px;height:36px;border-radius:10px;
+    background:linear-gradient(135deg,#3b82f6 0%,#6366f1 50%,#a855f7 100%);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;
+    letter-spacing:-.02em;
+    box-shadow:0 6px 20px rgba(99,102,241,.5), 0 0 0 1px rgba(255,255,255,.08), inset 0 1px 0 rgba(255,255,255,.25);
+    position:relative;
+  }
+  .sidebar-brand .brand-text h1{font-size:13.5px;font-weight:600;color:#fff;letter-spacing:-.01em;line-height:1.2}
+  .sidebar-brand .brand-text p{font-size:11px;color:#64748b;margin-top:2px;font-weight:500}
+
+  .sidebar-nav{flex:1;padding:6px 12px 16px;overflow-y:auto;position:relative;z-index:1}
+  .nav-section{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:#475569;padding:18px 10px 6px;font-weight:600}
+  .nav-section:first-child{padding-top:6px}
+
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-sm);
+    cursor:pointer;font-size:13.5px;font-weight:500;color:#94a3b8;
+    transition:background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+    margin-bottom:1px;width:100%;text-align:left;position:relative;
+  }
+  .nav-item:hover{background:var(--sidebar-soft);color:#e2e8f0}
+  .nav-item.active{
+    background:linear-gradient(90deg, rgba(59,130,246,.28) 0%, rgba(139,92,246,.18) 100%);
+    color:#fff;
+    box-shadow:inset 0 0 0 1px rgba(147,197,253,.28), 0 4px 12px rgba(59,130,246,.18);
+  }
+  .nav-item.active::before{
+    content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;
+    background:linear-gradient(180deg,#60a5fa,#a78bfa);box-shadow:0 0 12px rgba(96,165,250,.6);
+  }
+  .nav-item.active .nav-icon{color:#93c5fd}
+  .nav-icon{width:16px;height:16px;color:#64748b;transition:color var(--dur-fast) var(--ease)}
+  .nav-item:hover .nav-icon{color:#cbd5e1}
+  .nav-item .label{flex:1}
+  .nav-item .count{
+    font-size:11px;font-weight:600;color:#94a3b8;background:rgba(255,255,255,.06);
+    padding:1px 7px;border-radius:10px;min-width:20px;text-align:center;line-height:16px;
+    transition:background var(--dur-fast) var(--ease);
+  }
+  .nav-item.active .count{background:linear-gradient(135deg,rgba(96,165,250,.35),rgba(167,139,250,.35));color:#fff}
+
+  .sidebar-footer{
+    padding:14px 16px;border-top:1px solid var(--sidebar-line);
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:11px;color:#64748b;position:relative;z-index:1;
+  }
+  .sidebar-footer .dot-status{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+  .sidebar-footer .dot-status::before{
+    content:'';width:6px;height:6px;border-radius:50%;background:#22c55e;
+    box-shadow:0 0 0 3px rgba(34,197,94,.15), 0 0 8px rgba(34,197,94,.5);
+    transition:all .2s var(--ease);
+  }
+  .sidebar-footer .dot-status.offline::before{background:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.15)}
+  .sidebar-footer .dot-status.syncing::before{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.15), 0 0 8px rgba(245,158,11,.6);animation:pulse 1.2s infinite}
+  .sidebar-footer .dot-status.error::before{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.15)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  /* MAIN / TOPBAR */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{
+    height:64px;background:var(--topbar-bg);
+    backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
+    border-bottom:1px solid var(--line);padding:0 28px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:20;gap:16px;
+    transition:background-color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .topbar-left{display:flex;align-items:center;gap:14px;min-width:0}
+  .topbar-right{display:flex;align-items:center;gap:10px}
+  .menu-toggle{display:none;padding:8px;border-radius:var(--r-sm);color:var(--text-secondary)}
+  .menu-toggle:hover{background:var(--bg-subtle)}
+  .page-heading h2{font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--text);line-height:1.3}
+  .page-heading p{font-size:12.5px;color:var(--text-tertiary);margin-top:1px;font-weight:450}
+
+  /* Sync indicator (topbar) */
+  .sync-indicator{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:11.5px;font-weight:500;color:var(--text-tertiary);
+    padding:5px 10px;border-radius:var(--r-sm);
+    background:var(--bg-subtle);border:1px solid var(--line);
+    transition:all var(--dur) var(--ease);
+  }
+  .sync-indicator .dot{
+    width:6px;height:6px;border-radius:50%;background:#22c55e;
+    box-shadow:0 0 6px rgba(34,197,94,.6);
+  }
+  .sync-indicator.syncing .dot{background:#f59e0b;box-shadow:0 0 6px rgba(245,158,11,.6);animation:pulse 1.2s infinite}
+  .sync-indicator.error .dot{background:#ef4444;box-shadow:0 0 6px rgba(239,68,68,.6)}
+  .sync-indicator.offline .dot{background:#94a3b8;box-shadow:none}
+  @media(max-width:700px){.sync-indicator .label{display:none}}
+
+  /* THEME SWITCHER */
+  .theme-switch{
+    display:inline-flex;align-items:center;background:var(--toggle-bg);
+    border:1px solid var(--toggle-border);border-radius:var(--r-sm);padding:2px;gap:1px;height:32px;
+    transition:background-color .3s var(--ease), border-color .3s var(--ease);
+  }
+  .theme-switch button{
+    width:28px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+    color:var(--text-tertiary);transition:all var(--dur-fast) var(--ease);position:relative;
+  }
+  .theme-switch button svg{width:14px;height:14px}
+  .theme-switch button:hover{color:var(--text);background:var(--toggle-hover)}
+  .theme-switch button.active{
+    background:var(--surface);color:var(--brand);
+    box-shadow:0 1px 3px rgba(11,18,32,.12), 0 0 0 1px rgba(37,99,235,.15);
+  }
+  [data-theme="dark"] .theme-switch button.active{
+    background:linear-gradient(135deg, rgba(59,130,246,.25), rgba(139,92,246,.2));
+    color:#93c5fd;
+    box-shadow:0 1px 3px rgba(0,0,0,.4), 0 0 0 1px rgba(96,165,250,.3);
+  }
+
+  /* BUTTONS */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:8px 14px;border-radius:var(--r-sm);font-size:13px;font-weight:550;
+    letter-spacing:-.005em;transition:all var(--dur-fast) var(--ease);
+    white-space:nowrap;border:1px solid transparent;line-height:1.3;height:36px;
+  }
+  .btn svg{width:15px;height:15px}
+  .btn-primary{
+    background:linear-gradient(135deg,#3b82f6 0%,#2563eb 60%,#6366f1 100%);
+    color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.35), inset 0 1px 0 rgba(255,255,255,.2);
+    background-size:150% 150%;background-position:0% 50%;
+  }
+  .btn-primary:hover{background-position:100% 50%;box-shadow:0 6px 20px rgba(37,99,235,.4);transform:translateY(-1px)}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+  .btn-secondary{
+    background:var(--surface);color:var(--text);border-color:var(--line-strong);box-shadow:var(--shadow-xs);
+  }
+  .btn-secondary:hover{background:var(--bg-subtle);border-color:var(--text-tertiary)}
+  .btn-ghost{background:transparent;color:var(--text-secondary)}
+  .btn-ghost:hover{background:var(--bg-subtle);color:var(--text)}
+  .btn-danger{background:var(--surface);color:var(--danger);border-color:var(--danger-ring)}
+  .btn-danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+  .btn-success{
+    background:linear-gradient(135deg,#10b981 0%,#059669 60%,#0d9488 100%);
+    color:#fff;box-shadow:0 2px 8px rgba(5,150,105,.3), inset 0 1px 0 rgba(255,255,255,.2);
+    background-size:150% 150%;background-position:0% 50%;
+  }
+  .btn-success:hover{background-position:100% 50%;box-shadow:0 6px 20px rgba(5,150,105,.35);transform:translateY(-1px)}
+  .btn-sm{height:30px;padding:0 11px;font-size:12.5px;border-radius:7px}
+  .btn-sm svg{width:13px;height:13px}
+  .btn-icon{width:32px;height:32px;padding:0;border-radius:var(--r-sm);color:var(--text-tertiary)}
+  .btn-icon:hover{background:var(--bg-subtle);color:var(--text)}
+
+  /* CONTENT */
+  .content{padding:28px;max-width:1080px;width:100%;margin:0 auto}
+  .view{display:none}
+  .view.active{display:block;animation:viewIn var(--dur-slow) var(--ease)}
+  @keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* CARD */
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+    box-shadow:var(--shadow-xs);margin-bottom:16px;overflow:hidden;
+    transition:box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color .3s var(--ease);
+    position:relative;
+  }
+  .card:hover{box-shadow:var(--shadow-md);border-color:var(--line-strong)}
+  .card-head{
+    padding:16px 20px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--card-head-grad);
+  }
+  .card-head h3{
+    font-size:13.5px;font-weight:600;letter-spacing:-.005em;color:var(--text);
+    display:flex;align-items:center;gap:9px;
+  }
+  .card-head .mark{
+    width:8px;height:8px;border-radius:50%;
+    background:linear-gradient(135deg,#3b82f6,#a855f7);
+    box-shadow:0 0 0 3px rgba(139,92,246,.15), 0 0 8px rgba(139,92,246,.4);
+  }
+  .card-body{padding:20px}
+  .card-body.tight{padding:8px}
+
+  /* STATS */
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+  @media(max-width:700px){.stats-grid{grid-template-columns:1fr}}
+  .stat{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:18px 20px;box-shadow:var(--shadow-xs);position:relative;overflow:hidden;
+    transition:all var(--dur) var(--ease);
+  }
+  .stat::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg, var(--stat-c1), var(--stat-c2));
+  }
+  .stat::after{
+    content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;
+    background:radial-gradient(circle, var(--stat-glow) 0%, transparent 65%);
+    opacity:.7;pointer-events:none;transition:opacity var(--dur) var(--ease);
+  }
+  .stat:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+  .stat:hover::after{opacity:1}
+  .stat.blue{--stat-c1:#3b82f6;--stat-c2:#6366f1;--stat-glow:rgba(59,130,246,.22)}
+  .stat.violet{--stat-c1:#8b5cf6;--stat-c2:#ec4899;--stat-glow:rgba(168,85,247,.22)}
+  .stat.amber{--stat-c1:#f59e0b;--stat-c2:#ef4444;--stat-glow:rgba(245,158,11,.22)}
+  [data-theme="dark"] .stat.blue{--stat-glow:rgba(59,130,246,.35)}
+  [data-theme="dark"] .stat.violet{--stat-glow:rgba(168,85,247,.35)}
+  [data-theme="dark"] .stat.amber{--stat-glow:rgba(245,158,11,.3)}
+  .stat-label{
+    font-size:11.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--text-secondary);display:flex;align-items:center;gap:7px;
+    position:relative;z-index:1;
+  }
+  .stat-label .icon{
+    width:22px;height:22px;border-radius:6px;display:flex;align-items:center;
+    justify-content:center;color:#fff;flex-shrink:0;
+  }
+  .stat.blue .stat-label .icon{background:linear-gradient(135deg,#3b82f6,#6366f1);box-shadow:0 3px 10px rgba(59,130,246,.35)}
+  .stat.violet .stat-label .icon{background:linear-gradient(135deg,#8b5cf6,#ec4899);box-shadow:0 3px 10px rgba(168,85,247,.35)}
+  .stat.amber .stat-label .icon{background:linear-gradient(135deg,#f59e0b,#ef4444);box-shadow:0 3px 10px rgba(245,158,11,.35)}
+  .stat-label .icon svg{width:12px;height:12px}
+  .stat-value{
+    font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:10px;
+    color:var(--text);font-variant-numeric:tabular-nums;position:relative;z-index:1;line-height:1;
+  }
+
+  /* TOOLBAR */
+  .toolbar{
+    display:flex;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);
+    background:var(--toolbar-grad);flex-wrap:wrap;
+  }
+  .search-wrap{flex:1;min-width:200px;position:relative}
+  .search-wrap svg{
+    position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    width:15px;height:15px;color:var(--text-tertiary);pointer-events:none;
+  }
+  .search-wrap input{
+    width:100%;height:36px;padding:0 12px 0 34px;
+    border:1px solid var(--line-strong);border-radius:var(--r-sm);
+    background:var(--surface);font-size:13px;color:var(--text);
+    transition:all var(--dur-fast) var(--ease);
+  }
+  .search-wrap input::placeholder{color:var(--text-tertiary)}
+  .search-wrap input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+
+  .select{
+    height:36px;padding:0 32px 0 12px;
+    border:1px solid var(--line-strong);border-radius:var(--r-sm);
+    background:var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+    font-size:13px;color:var(--text);appearance:none;-webkit-appearance:none;cursor:pointer;
+    transition:all var(--dur-fast) var(--ease);
+  }
+  [data-theme="dark"] .select{
+    background:var(--surface) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3b1c6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 11px center;
+  }
+  .select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+
+  /* LIST ITEMS */
+  .list-item{
+    padding:18px 20px;border-bottom:1px solid var(--line);
+    transition:background var(--dur-fast) var(--ease);position:relative;
+  }
+  .list-item::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:linear-gradient(180deg,#3b82f6,#a855f7);
+    opacity:0;transition:opacity var(--dur-fast) var(--ease);
+  }
+  .list-item:hover{background:var(--list-hover-bg)}
+  .list-item:hover::before{opacity:1}
+  .list-item:last-child{border-bottom:none}
+  .list-item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:10px}
+  .list-item-title{font-size:14px;font-weight:600;letter-spacing:-.005em;color:var(--text);line-height:1.35}
+  .list-item-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center}
+  .meta-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;color:var(--text-secondary)}
+  .meta-chip svg{width:12px;height:12px;color:var(--text-tertiary)}
+  .meta-divider{width:3px;height:3px;border-radius:50%;background:var(--line-strong)}
+
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;
+    font-size:11px;font-weight:600;letter-spacing:-.005em;line-height:1.4;border:1px solid transparent;
+  }
+  .badge svg{width:11px;height:11px}
+  .badge-neutral{background:var(--bg-subtle);color:var(--text-secondary);border-color:var(--line-strong)}
+  .badge-brand{background:linear-gradient(135deg,var(--brand-soft),rgba(139,92,246,.12));color:var(--brand);border-color:var(--brand-ring)}
+  .badge-success{background:var(--success-soft);color:var(--success);border-color:rgba(5,150,105,.22)}
+  .badge-warning{background:var(--warning-soft);color:var(--warning);border-color:rgba(217,119,6,.22)}
+  .badge-violet{background:linear-gradient(135deg,var(--violet-soft),var(--brand-soft));color:var(--violet);border-color:var(--violet-soft)}
+  .badge-cyan{background:var(--cyan-soft);color:var(--cyan);border-color:rgba(34,211,238,.22)}
+  [data-theme="dark"] .badge-brand{color:#93c5fd;border-color:rgba(96,165,250,.3)}
+  [data-theme="dark"] .badge-success{color:#34d399;border-color:rgba(52,211,153,.3)}
+  [data-theme="dark"] .badge-warning{color:#fbbf24;border-color:rgba(251,191,36,.3)}
+  [data-theme="dark"] .badge-violet{color:#c4b5fd;border-color:rgba(167,139,250,.3)}
+  [data-theme="dark"] .badge-cyan{color:#22d3ee;border-color:rgba(34,211,238,.3)}
+
+  .list-item-note{
+    font-size:12.5px;color:var(--text-secondary);margin-top:8px;padding:8px 12px;
+    background:var(--note-bg);border-radius:var(--r-xs);border-left:3px solid var(--note-border);
+    display:flex;gap:8px;align-items:flex-start;
+  }
+  .list-item-note svg{width:14px;height:14px;color:var(--note-icon);margin-top:1px;flex-shrink:0}
+
+  .issues-block{
+    margin-top:10px;background:var(--code-bg);border:1px solid var(--code-border);
+    border-radius:var(--r-sm);padding:10px 12px;max-height:150px;overflow-y:auto;
+    font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:11.5px;line-height:1.7;
+  }
+  .issues-block .issue-row{
+    display:flex;align-items:center;gap:8px;padding:3px 0;
+    color:var(--code-text);text-decoration:none;transition:color var(--dur-fast) var(--ease);
+  }
+  .issues-block .issue-row:hover{color:var(--brand)}
+  .issues-block .issue-num{color:var(--brand);font-weight:600;flex-shrink:0}
+  .issues-block .issue-url{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+  .issues-more{padding-top:6px;color:var(--text-tertiary);font-size:11px;font-style:italic}
+
+  .preview-block{
+    margin-top:10px;background:var(--preview-bg);border:1px solid var(--preview-border);
+    border-radius:var(--r-sm);padding:12px 14px;
+    font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:11.5px;line-height:1.7;color:var(--text-secondary);
+    white-space:pre-wrap;word-break:break-word;max-height:220px;overflow-y:auto;
+  }
+
+  .list-item-actions{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+
+  /* EMPTY */
+  .empty{padding:64px 24px;text-align:center}
+  .empty-icon{
+    width:60px;height:60px;margin:0 auto 16px;border-radius:16px;
+    background:linear-gradient(135deg, var(--brand-soft) 0%, var(--violet-soft) 50%, rgba(236,72,153,.08) 100%);
+    border:1px solid var(--brand-ring);display:flex;align-items:center;justify-content:center;
+    color:var(--brand);
+    box-shadow:0 8px 24px rgba(99,102,241,.12), inset 0 1px 0 rgba(255,255,255,.05);
+    position:relative;
+  }
+  [data-theme="dark"] .empty-icon{box-shadow:0 8px 24px rgba(99,102,241,.25), inset 0 1px 0 rgba(255,255,255,.05);color:#93c5fd}
+  .empty-icon svg{width:26px;height:26px}
+  .empty h4{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;letter-spacing:-.005em}
+  .empty p{font-size:13px;color:var(--text-tertiary);max-width:340px;margin:0 auto;line-height:1.55}
+
+  /* FORM */
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  .field label{
+    display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:550;
+    color:var(--text);margin-bottom:6px;letter-spacing:-.005em;
+  }
+  .field label .req{color:var(--danger);font-size:13px}
+  .field-hint{font-size:11.5px;color:var(--text-tertiary);margin-top:5px}
+  .input,.textarea{
+    width:100%;padding:9px 12px;border:1px solid var(--line-strong);
+    border-radius:var(--r-sm);background:var(--surface);font-size:13.5px;color:var(--text);
+    transition:all var(--dur-fast) var(--ease);
+  }
+  .input{height:38px}
+  .input::placeholder,.textarea::placeholder{color:var(--text-tertiary)}
+  .input:focus,.textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+  .textarea{resize:vertical;line-height:1.55;min-height:100px;font-family:inherit}
+  .textarea.mono{
+    font-family:'JetBrains Mono',ui-monospace,monospace;
+    font-size:12.5px;line-height:1.6;background:var(--textarea-mono-bg);
+  }
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:600px){.form-row,.form-row-3{grid-template-columns:1fr}}
+
+  /* MODAL */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:var(--overlay-bg);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    z-index:100;padding:40px 16px;overflow-y:auto;
+    align-items:flex-start;justify-content:center;
+  }
+  .modal-overlay.show{display:flex;animation:overlayIn var(--dur) var(--ease)}
+  @keyframes overlayIn{from{opacity:0}to{opacity:1}}
+  .modal{
+    background:var(--surface);border-radius:var(--r-xl);width:100%;max-width:640px;
+    box-shadow:var(--shadow-xl), 0 0 0 1px var(--line);
+    animation:modalIn var(--dur-slow) var(--ease);
+    margin:auto;overflow:hidden;position:relative;
+  }
+  .modal::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899);
+  }
+  @keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+  .modal-head{
+    padding:18px 22px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;gap:12px;
+    background:var(--modal-head-grad);
+  }
+  .modal-head h3{
+    font-size:15px;font-weight:600;letter-spacing:-.01em;
+    display:flex;align-items:center;gap:10px;
+  }
+  .modal-head .mark{
+    width:32px;height:32px;border-radius:9px;
+    background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+    display:flex;align-items:center;justify-content:center;color:#fff;
+    box-shadow:0 4px 12px rgba(99,102,241,.35);
+  }
+  .modal-head .mark svg{width:15px;height:15px}
+  .modal-body{padding:22px;max-height:calc(100vh - 220px);overflow-y:auto}
+  .modal-foot{
+    padding:14px 22px;border-top:1px solid var(--line);background:var(--modal-foot-grad);
+    display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  }
+  .modal-foot-right{display:flex;gap:8px;margin-left:auto}
+
+  /* TOAST */
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(24px);
+    background:linear-gradient(135deg,#0b1220 0%,#1e1b4b 100%);color:#fff;
+    padding:11px 18px;border-radius:var(--r-md);font-size:13px;font-weight:500;
+    letter-spacing:-.005em;opacity:0;transition:all var(--dur-slow) var(--ease);
+    pointer-events:none;z-index:200;
+    box-shadow:0 12px 32px rgba(11,18,32,.3), 0 0 0 1px rgba(139,92,246,.2), inset 0 1px 0 rgba(255,255,255,.1);
+    display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .toast-icon{
+    width:20px;height:20px;border-radius:50%;
+    background:linear-gradient(135deg,#10b981,#059669);color:#fff;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:0 0 12px rgba(16,185,129,.5);
+  }
+  .toast .toast-icon svg{width:11px;height:11px}
+  .toast.error .toast-icon{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 12px rgba(239,68,68,.5)}
+
+  /* LOADING */
+  .loading-overlay{
+    position:fixed;inset:0;background:var(--overlay-bg);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    z-index:300;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;color:var(--text);
+  }
+  .loading-overlay.hidden{display:none}
+  .spinner{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid var(--line-strong);
+    border-top-color:var(--brand);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-overlay p{font-size:13px;color:var(--text-secondary);font-weight:500}
+
+  /* OVERLAY mobile */
+  .overlay{
+    display:none;position:fixed;inset:0;background:var(--overlay-bg);
+    backdrop-filter:blur(2px);z-index:40;
+  }
+  .overlay.show{display:block;animation:overlayIn var(--dur) var(--ease)}
+
+  /* RESPONSIVE */
+  @media(max-width:860px){
+    .sidebar{position:fixed;top:0;left:0;transform:translateX(-100%);box-shadow:var(--shadow-xl)}
+    .sidebar.open{transform:translateX(0)}
+    .menu-toggle{display:flex}
+    .content{padding:18px}
+    .topbar{padding:0 16px;height:60px}
+    .page-heading h2{font-size:14px}
+    .page-heading p{font-size:11.5px}
+    .btn-add .btn-text{display:none}
+    .btn-add{padding:0;width:36px}
+    .stats-grid{grid-template-columns:1fr}
+    .stat-value{font-size:26px}
+  }
+  @media(max-width:600px){
+    .theme-switch button{width:26px;height:24px}
+    .theme-switch button svg{width:13px;height:13px}
+  }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p id="loadingText">Connecting to Firebase...</p>
+</div>
+
+<!-- ============ SIDEBAR ============ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="mark">Z</div>
+    <div class="brand-text">
+      <h1>Zahir ERP</h1>
+      <p>Update Manager</p>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <button class="nav-item active" data-view="dashboard">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
+        <rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+      </svg>
+      <span class="label">Dashboard</span>
+    </button>
+
+    <div class="nav-section">Workspace</div>
+    <button class="nav-item" data-view="plans">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <path d="M9 12h6M9 16h4"/>
+      </svg>
+      <span class="label">Update Plans</span>
+      <span class="count" id="countPlans">0</span>
+    </button>
+
+    <button class="nav-item" data-view="summaries">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span class="label">Update Summaries</span>
+      <span class="count" id="countSummaries">0</span>
+    </button>
+
+    <div class="nav-section">System</div>
+    <button class="nav-item" data-view="settings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span class="label">Settings</span>
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    <span class="dot-status syncing" id="statusDot">Connecting</span>
+    <span>v2.0.0</span>
+  </div>
+</aside>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<!-- ============ MAIN ============ -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="page-heading">
+        <h2 id="pageTitle">Dashboard</h2>
+        <p id="pageSubtitle">Overview of your ERP update activity</p>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="sync-indicator syncing" id="syncIndicator" title="Sync status">
+        <span class="dot"></span>
+        <span class="label" id="syncLabel">Syncing</span>
+      </div>
+
+      <div class="theme-switch" role="group" aria-label="Theme switcher">
+        <button data-theme-set="light" title="Light mode" aria-label="Light mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
+        <button data-theme-set="dark" title="Dark mode" aria-label="Dark mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button data-theme-set="auto" title="Auto (system)" aria-label="Auto theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </button>
+      </div>
+
+      <button class="btn btn-primary btn-add hidden" id="btnAdd" onclick="openAddModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span class="btn-text">Add New</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="stats-grid">
+        <div class="stat blue">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+              </svg>
+            </span>
+            Total Plans
+          </div>
+          <div class="stat-value" id="statPlans">0</div>
+        </div>
+        <div class="stat violet">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </span>
+            Total Summaries
+          </div>
+          <div class="stat-value" id="statSummaries">0</div>
+        </div>
+        <div class="stat amber">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4l3 2"/>
+              </svg>
+            </span>
+            Total Issues
+          </div>
+          <div class="stat-value" id="statIssues">0</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark"></span> Latest Summary</h3>
+        </div>
+        <div class="card-body tight" id="latestSummary"></div>
+      </div>
+    </section>
+
+    <!-- PLANS -->
+    <section class="view" id="view-plans">
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="planSearch" placeholder="Search title, issue, or date..." oninput="renderPlans()"/>
+          </div>
+          <select class="select" id="planSort" onchange="renderPlans()">
+            <option value="desc">Newest first</option>
+            <option value="asc">Oldest first</option>
+          </select>
+        </div>
+        <div id="planList"></div>
+      </div>
+    </section>
+
+    <!-- SUMMARIES -->
+    <section class="view" id="view-summaries">
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="summarySearch" placeholder="Search version or content..." oninput="renderSummaries()"/>
+          </div>
+          <select class="select" id="summarySort" onchange="renderSummaries()">
+            <option value="desc">Newest first</option>
+            <option value="asc">Oldest first</option>
+          </select>
+        </div>
+        <div id="summaryList"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark"></span> Appearance</h3>
+        </div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.6">
+            Choose how Zahir ERP Update Manager looks to you. Select a single theme, or sync with your system settings.
+          </p>
+          <div class="theme-options">
+            <button class="theme-card" data-theme-set="light">
+              <div class="theme-preview light-preview">
+                <div class="tp-bar"></div>
+                <div class="tp-line long"></div>
+                <div class="tp-line short"></div>
+                <div class="tp-block"></div>
+              </div>
+              <div class="theme-card-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="4"/>
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                </svg>
+                <span>Light</span>
+              </div>
+            </button>
+            <button class="theme-card" data-theme-set="dark">
+              <div class="theme-preview dark-preview">
+                <div class="tp-bar"></div>
+                <div class="tp-line long"></div>
+                <div class="tp-line short"></div>
+                <div class="tp-block"></div>
+              </div>
+              <div class="theme-card-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <span>Dark</span>
+              </div>
+            </button>
+            <button class="theme-card" data-theme-set="auto">
+              <div class="theme-preview auto-preview">
+                <div class="tp-bar"></div>
+                <div class="tp-line long"></div>
+                <div class="tp-line short"></div>
+                <div class="tp-block"></div>
+              </div>
+              <div class="theme-card-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                <span>Auto</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark"></span> Cloud Sync</h3>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start;margin-bottom:16px">
+            <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.35)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.5A4.5 4.5 0 0 0 6.5 19z"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Firebase Firestore</div>
+              <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">
+                Your data is synced to the cloud in real-time. Access from any device using the same browser session.
+              </div>
+              <div style="font-size:11.5px;color:var(--text-tertiary);margin-top:8px;font-family:'JetBrains Mono',monospace">
+                UID: <span id="userUID">—</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary" onclick="CloudSync.pullAll()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                <path d="M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+              </svg>
+              Force Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark"></span> Backup & Restore</h3>
+        </div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;line-height:1.6">
+            Export a local copy of your data for backup, or import a previous backup file to restore.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="exportAll()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export JSON
+            </button>
+            <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              Import JSON
+            </button>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importAll(event)"/>
+            <button class="btn btn-danger" onclick="wipeAll()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              Delete All Data
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- MODAL: PLAN -->
+<div class="modal-overlay" id="planModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>
+        <span class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="1"/>
+          </svg>
+        </span>
+        <span id="planModalTitle">Add Update Plan</span>
+      </h3>
+      <button class="btn-icon" onclick="closeModal('planModal')" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="planForm" onsubmit="savePlan(event)">
+      <input type="hidden" id="planEditId"/>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="field">
+            <label>Title <span class="req">*</span></label>
+            <input class="input" type="text" id="planTitle" placeholder="Update ERP 16 September 2026" required/>
+          </div>
+          <div class="field">
+            <label>Date <span class="req">*</span></label>
+            <input class="input" type="date" id="planDate" required/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>SDET Issue List <span class="req">*</span></label>
+          <textarea class="textarea mono" id="planIssues" style="min-height:180px"
+            placeholder="https://pjm.zahironline.com/issues/32685&#10;https://pjm.zahironline.com/issues/32706&#10;https://pjm.zahironline.com/issues/32744"
+            required></textarea>
+          <div class="field-hint">One issue URL per line.</div>
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <input class="input" type="text" id="planNote" placeholder="e.g. high priority for Trial Balance module"/>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('planModal')">Cancel</button>
+        <div class="modal-foot-right">
+          <button type="submit" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save Plan
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: SUMMARY -->
+<div class="modal-overlay" id="summaryModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>
+        <span class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </span>
+        <span id="summaryModalTitle">Add Summary</span>
+      </h3>
+      <button class="btn-icon" onclick="closeModal('summaryModal')" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="summaryForm" onsubmit="saveSummary(event)">
+      <input type="hidden" id="summaryEditId"/>
+      <div class="modal-body">
+        <div class="field">
+          <label>Update Plan <span class="req">*</span></label>
+          <select class="input select" id="summaryPlanRef" required onchange="onPlanRefChange()" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
+            <option value="">— Select a Plan —</option>
+          </select>
+        </div>
+
+        <div class="form-row-3">
+          <div class="field">
+            <label>FE Version <span class="req">*</span></label>
+            <input class="input" type="text" id="summaryFe" placeholder="V2.26.09.171600" required/>
+          </div>
+          <div class="field">
+            <label>V2 Version <span class="req">*</span></label>
+            <input class="input" type="text" id="summaryV2" placeholder="V2.26.09.171619" required/>
+          </div>
+          <div class="field">
+            <label>Release Date <span class="req">*</span></label>
+            <input class="input" type="date" id="summaryDate" required/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Update Summary <span class="req">*</span></label>
+          <textarea class="textarea mono" id="summaryText" style="min-height:220px"
+            placeholder="🚀 Zahir ERP Update&#10;&#10;FE Version : ..."
+            required></textarea>
+          <div class="field-hint">Paste the GPT output, or click Auto-generate to build a template.</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('summaryModal')">Cancel</button>
+        <div class="modal-foot-right">
+          <button type="button" class="btn btn-secondary" onclick="autoGenerate()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+            </svg>
+            Auto-generate
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save Summary
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- THEME OPTIONS STYLES -->
+<style>
+  .theme-options{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:600px){.theme-options{grid-template-columns:1fr}}
+  .theme-card{
+    border:1.5px solid var(--line-strong);border-radius:var(--r-lg);
+    background:var(--surface);padding:10px;cursor:pointer;
+    transition:all var(--dur) var(--ease);text-align:left;position:relative;font-family:inherit;
+  }
+  .theme-card:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .theme-card.active{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-ring)}
+  .theme-card.active::after{
+    content:'';position:absolute;top:10px;right:10px;width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+    box-shadow:0 2px 8px rgba(99,102,241,.4);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
+    background-repeat:no-repeat;background-position:center;
+  }
+  .theme-preview{
+    border-radius:var(--r-sm);height:80px;padding:10px;
+    display:flex;flex-direction:column;gap:5px;overflow:hidden;
+    position:relative;border:1px solid rgba(0,0,0,.06);
+  }
+  .light-preview{background:#f8fafc}
+  .light-preview .tp-bar{background:#e2e8f0}
+  .light-preview .tp-line{background:#cbd5e1}
+  .light-preview .tp-block{background:linear-gradient(135deg,#3b82f6,#8b5cf6)}
+  .dark-preview{background:#0f1829}
+  .dark-preview .tp-bar{background:#1c2740}
+  .dark-preview .tp-line{background:#28354f}
+  .dark-preview .tp-block{background:linear-gradient(135deg,#60a5fa,#a78bfa)}
+  .auto-preview{background:linear-gradient(135deg,#f8fafc 0%,#f8fafc 50%,#0f1829 50%,#0f1829 100%)}
+  .auto-preview .tp-bar{background:linear-gradient(90deg,#e2e8f0 50%,#1c2740 50%)}
+  .auto-preview .tp-line{background:linear-gradient(90deg,#cbd5e1 50%,#28354f 50%)}
+  .auto-preview .tp-block{background:linear-gradient(135deg,#3b82f6,#a78bfa)}
+  .tp-bar{height:6px;border-radius:2px;width:40%}
+  .tp-line{height:4px;border-radius:2px}
+  .tp-line.long{width:80%}
+  .tp-line.short{width:55%}
+  .tp-block{height:24px;border-radius:4px;margin-top:auto;width:100%}
+  .theme-card-label{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;font-weight:550;color:var(--text)}
+  .theme-card-label svg{width:14px;height:14px;color:var(--text-tertiary)}
+  .theme-card.active .theme-card-label{color:var(--brand)}
+  .theme-card.active .theme-card-label svg{color:var(--brand)}
+</style>
+
+<!-- ============================================================
+     FIREBASE SDK (compat)
+     ============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+/* ============================================================
+   FIREBASE INIT
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA9EXEDl79MzQkO4k181BH4SQPE6lOArGg",
+  authDomain: "erpupdate-f0b18.firebaseapp.com",
+  projectId: "erpupdate-f0b18",
+  storageBucket: "erpupdate-f0b18.firebasestorage.app",
+  messagingSenderId: "500016291571",
+  appId: "1:500016291571:web:455e3a23ce8f8597142186",
+  measurementId: "G-WNPME76HRK"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Enable offline persistence
+db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+  console.warn('Offline persistence:', err.code);
+});
+
+/* ============================================================
+   CLOUD SYNC (Firestore)
+   Path: users/{uid}/plans/{docId}
+         users/{uid}/summaries/{docId}
+   ============================================================ */
+const CloudSync = {
+  uid: null,
+  plansRef: null,
+  summariesRef: null,
+  unsubPlans: null,
+  unsubSummaries: null,
+
+  async init(uid){
+    this.uid = uid;
+    this.plansRef = db.collection('users').doc(uid).collection('plans');
+    this.summariesRef = db.collection('users').doc(uid).collection('summaries');
+    $('userUID').textContent = uid;
+
+    setSyncStatus('syncing', 'Syncing');
+    await this.pullAll();
+    this.subscribe();
+    setSyncStatus('online', 'Synced');
+  },
+
+  // Initial pull — pull both collections
+  async pullAll(){
+    try {
+      setSyncStatus('syncing', 'Syncing');
+      const [plansSnap, sumsSnap] = await Promise.all([
+        this.plansRef.get(),
+        this.summariesRef.get()
+      ]);
+
+      State.plans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      State.summaries = sumsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      renderAll();
+      setSyncStatus('online', 'Synced');
+      toast('Data synced from cloud');
+    } catch(err){
+      console.error('Pull failed:', err);
+      setSyncStatus('error', 'Sync error');
+      toast('Failed to load from cloud', 'error');
+    }
+  },
+
+  // Real-time listeners
+  subscribe(){
+    if(this.unsubPlans) this.unsubPlans();
+    if(this.unsubSummaries) this.unsubSummaries();
+
+    this.unsubPlans = this.plansRef.onSnapshot(snap => {
+      State.plans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderPlans();
+      refreshCounts();
+      setSyncStatus('online', 'Synced');
+    }, err => {
+      console.error('Plans snapshot error:', err);
+      setSyncStatus('error', 'Sync error');
+    });
+
+    this.unsubSummaries = this.summariesRef.onSnapshot(snap => {
+      State.summaries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderSummaries();
+      renderPlans(); // update badge counts
+      refreshCounts();
+      setSyncStatus('online', 'Synced');
+    }, err => {
+      console.error('Summaries snapshot error:', err);
+      setSyncStatus('error', 'Sync error');
+    });
+  },
+
+  // ---- PLANS CRUD ----
+  async addPlan(data){
+    setSyncStatus('syncing', 'Saving');
+    try {
+      const ref = await this.plansRef.add({
+        ...data,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setSyncStatus('online', 'Synced');
+      return ref.id;
+    } catch(err){
+      console.error('addPlan failed:', err);
+      setSyncStatus('error', 'Save error');
+      throw err;
+    }
+  },
+
+  async updatePlan(id, data){
+    setSyncStatus('syncing', 'Saving');
+    try {
+      await this.plansRef.doc(id).update({
+        ...data,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setSyncStatus('online', 'Synced');
+    } catch(err){
+      console.error('updatePlan failed:', err);
+      setSyncStatus('error', 'Update error');
+      throw err;
+    }
+  },
+
+  async deletePlan(id){
+    setSyncStatus('syncing', 'Deleting');
+    try {
+      // Delete summary linked to this plan (client-side, since we have summaries in State)
+      const linked = State.summaries.filter(s => s.planId === id);
+      const batch = db.batch();
+      batch.delete(this.plansRef.doc(id));
+      linked.forEach(s => batch.delete(this.summariesRef.doc(s.id)));
+      await batch.commit();
+      setSyncStatus('online', 'Synced');
+    } catch(err){
+      console.error('deletePlan failed:', err);
+      setSyncStatus('error', 'Delete error');
+      throw err;
+    }
+  },
+
+  // ---- SUMMARIES CRUD ----
+  async addSummary(data){
+    setSyncStatus('syncing', 'Saving');
+    try {
+      const ref = await this.summariesRef.add({
+        ...data,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setSyncStatus('online', 'Synced');
+      return ref.id;
+    } catch(err){
+      console.error('addSummary failed:', err);
+      setSyncStatus('error', 'Save error');
+      throw err;
+    }
+  },
+
+  async updateSummary(id, data){
+    setSyncStatus('syncing', 'Saving');
+    try {
+      await this.summariesRef.doc(id).update({
+        ...data,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      setSyncStatus('online', 'Synced');
+    } catch(err){
+      console.error('updateSummary failed:', err);
+      setSyncStatus('error', 'Update error');
+      throw err;
+    }
+  },
+
+  async deleteSummary(id){
+    setSyncStatus('syncing', 'Deleting');
+    try {
+      await this.summariesRef.doc(id).delete();
+      setSyncStatus('online', 'Synced');
+    } catch(err){
+      console.error('deleteSummary failed:', err);
+      setSyncStatus('error', 'Delete error');
+      throw err;
+    }
+  },
+
+  // Bulk import (used by importAll)
+  async bulkImport(plans, summaries){
+    setSyncStatus('syncing', 'Importing');
+    try {
+      const batch = db.batch();
+      plans.forEach(p => {
+        const id = p.id || uid();
+        batch.set(this.plansRef.doc(id), { ...p, id });
+      });
+      summaries.forEach(s => {
+        const id = s.id || uid();
+        batch.set(this.summariesRef.doc(id), { ...s, id });
+      });
+      await batch.commit();
+      setSyncStatus('online', 'Synced');
+    } catch(err){
+      console.error('bulkImport failed:', err);
+      setSyncStatus('error', 'Import error');
+      throw err;
+    }
+  },
+
+  async wipeAll(){
+    setSyncStatus('syncing', 'Clearing');
+    try {
+      const [plansSnap, sumsSnap] = await Promise.all([
+        this.plansRef.get(),
+        this.summariesRef.get()
+      ]);
+      const batch = db.batch();
+      plansSnap.docs.forEach(d => batch.delete(d.ref));
+      sumsSnap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      setSyncStatus('online', 'Synced');
+    } catch(err){
+      console.error('wipeAll failed:', err);
+      setSyncStatus('error', 'Clear error');
+      throw err;
+    }
+  }
+};
+
+/* ============================================================
+   STATE (in-memory cache, kept in sync via listeners)
+   ============================================================ */
+const State = {
+  plans: [],
+  summaries: [],
+
+  plans: {
+    all(){ return State.plans; },
+    get(id){ return State.plans.find(x => x.id === id); }
+  },
+  summaries: {
+    all(){ return State.summaries; },
+    get(id){ return State.summaries.find(x => x.id === id); }
+  }
+};
+
+/* ============================================================
+   SYNC STATUS UI
+   ============================================================ */
+function setSyncStatus(status, label){
+  const ind = $('syncIndicator');
+  const dot = $('statusDot');
+  ind.className = 'sync-indicator ' + (status === 'online' ? '' : status);
+  $('syncLabel').textContent = label;
+  dot.className = 'dot-status ' + (status === 'online' ? '' : status);
+  dot.textContent = status === 'online' ? 'Synced' : (status === 'syncing' ? 'Syncing' : 'Error');
+}
+
+/* ============================================================
+   THEME MANAGER
+   ============================================================ */
+const ThemeManager = {
+  STORAGE_KEY: 'zahir-theme',
+  mediaQuery: window.matchMedia('(prefers-color-scheme: dark)'),
+  getPreference(){ return localStorage.getItem(this.STORAGE_KEY) || 'auto'; },
+  resolve(pref){ return pref === 'auto' ? (this.mediaQuery.matches ? 'dark' : 'light') : pref; },
+  apply(pref){
+    const resolved = this.resolve(pref);
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-pref', pref);
+    localStorage.setItem(this.STORAGE_KEY, pref);
+    this.updateUI(pref);
+  },
+  updateUI(pref){
+    document.querySelectorAll('[data-theme-set]').forEach(b => b.classList.toggle('active', b.dataset.themeSet === pref));
+  },
+  init(){
+    this.apply(this.getPreference());
+    this.mediaQuery.addEventListener('change', ()=>{
+      if(this.getPreference() === 'auto'){
+        document.documentElement.setAttribute('data-theme', this.resolve('auto'));
+      }
+    });
+    document.querySelectorAll('[data-theme-set]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        this.apply(btn.dataset.themeSet);
+        toast(`Switched to ${btn.dataset.themeSet} theme`);
+      });
+    });
+  }
+};
+
+/* ============================================================
+   ICON LIBRARY
+   ============================================================ */
+const ICON = {
+  calendar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  hash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>',
+  fileText:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  clipboard:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  messageSquare:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+};
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+const todayISO = () => new Date().toISOString().split('T')[0];
+
+function toast(msg, type){
+  const t = $('toast');
+  const icon = type === 'error' ? ICON.alert : ICON.check;
+  t.className = 'toast' + (type === 'error' ? ' error' : '');
+  t.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(msg)}</span>`;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+
+function formatDate(iso){
+  if(!iso) return '-';
+  // Handle Firestore Timestamp object
+  if(typeof iso === 'object' && iso.seconds){
+    iso = new Date(iso.seconds * 1000).toISOString().split('T')[0];
+  }
+  if(!iso.includes('-')) return iso;
+  const [y,m,d] = iso.split('-');
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(d)} ${months[parseInt(m)-1]} ${y}`;
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function countIssues(text){
+  return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).length;
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+let currentView = 'dashboard';
+
+const VIEW_META = {
+  dashboard: { title:'Dashboard', sub:'Overview of your ERP update activity', addBtn:false },
+  plans:     { title:'Update Plans', sub:'Manage issue lists from SDET', addBtn:true, addLabel:'Add New Plan' },
+  summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
+  settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
+};
+
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchView(btn.dataset.view));
+});
+
+function switchView(view){
+  currentView = view;
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view===view));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
+  const meta = VIEW_META[view];
+  $('pageTitle').textContent = meta.title;
+  $('pageSubtitle').textContent = meta.sub;
+
+  const btn = $('btnAdd');
+  if(meta.addBtn){
+    btn.classList.remove('hidden');
+    btn.querySelector('.btn-text').textContent = meta.addLabel;
+  } else {
+    btn.classList.add('hidden');
+  }
+
+  if(window.innerWidth <= 860) toggleSidebar(false);
+  refreshCounts();
+}
+
+function toggleSidebar(force){
+  const sb = $('sidebar'), ov = $('overlay');
+  const open = force !== undefined ? force : !sb.classList.contains('open');
+  sb.classList.toggle('open', open);
+  ov.classList.toggle('show', open);
+}
+
+/* ============================================================
+   MODAL CONTROL
+   ============================================================ */
+function openModal(id){ $(id).classList.add('show'); document.body.style.overflow = 'hidden'; }
+function closeModal(id){ $(id).classList.remove('show'); document.body.style.overflow = ''; }
+
+document.querySelectorAll('.modal-overlay').forEach(ov=>{
+  ov.addEventListener('click', e => { if(e.target === ov) closeModal(ov.id); });
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') document.querySelectorAll('.modal-overlay.show').forEach(m => closeModal(m.id));
+});
+
+/* ============================================================
+   ADD NEW
+   ============================================================ */
+function openAddModal(){
+  if(currentView === 'plans'){
+    resetPlanForm();
+    $('planModalTitle').textContent = 'Add Update Plan';
+    openModal('planModal');
+  } else if(currentView === 'summaries'){
+    resetSummaryForm();
+    $('summaryModalTitle').textContent = 'Add Summary';
+    populatePlanDropdown();
+    openModal('summaryModal');
+  }
+}
+
+/* ============================================================
+   PLANS — CRUD (async with CloudSync)
+   ============================================================ */
+async function savePlan(e){
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+
+  const id = $('planEditId').value;
+  const data = {
+    title: $('planTitle').value.trim(),
+    date: $('planDate').value,
+    issues: $('planIssues').value.trim(),
+    note: $('planNote').value.trim()
+  };
+
+  try {
+    if(id){
+      await CloudSync.updatePlan(id, data);
+      toast('Plan updated successfully');
+    } else {
+      await CloudSync.addPlan(data);
+      toast('New plan added');
+    }
+    closeModal('planModal');
+    resetPlanForm();
+  } catch(err){
+    toast('Failed to save plan', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function resetPlanForm(){
+  $('planForm').reset();
+  $('planEditId').value = '';
+  $('planDate').value = todayISO();
+  $('planModalTitle').textContent = 'Add Update Plan';
+}
+
+function editPlan(id){
+  const d = State.plans.get(id);
+  if(!d) return;
+  resetPlanForm();
+  $('planEditId').value = d.id;
+  $('planTitle').value = d.title;
+  $('planDate').value = d.date;
+  $('planIssues').value = d.issues;
+  $('planNote').value = d.note || '';
+  $('planModalTitle').textContent = 'Edit Update Plan';
+  openModal('planModal');
+}
+
+async function deletePlan(id){
+  const linked = State.summaries.all().filter(s=>s.planId===id).length;
+  const msg = linked ? `This plan has ${linked} linked summary(ies). Delete all?` : 'Delete this plan?';
+  if(!confirm(msg)) return;
+  try {
+    await CloudSync.deletePlan(id);
+    toast('Plan deleted');
+  } catch(err){
+    toast('Failed to delete plan', 'error');
+  }
+}
+
+function renderPlans(){
+  const q = ($('planSearch').value || '').toLowerCase().trim();
+  const sort = $('planSort').value;
+  let list = [...State.plans.all()];
+
+  if(q){
+    list = list.filter(x =>
+      (x.title||'').toLowerCase().includes(q) ||
+      (x.date||'').includes(q) ||
+      (x.issues||'').toLowerCase().includes(q) ||
+      (x.note||'').toLowerCase().includes(q)
+    );
+  }
+  list.sort((a,b)=>{
+    const ta = new Date(a.date || (a.createdAt?.seconds*1000) || 0).getTime();
+    const tb = new Date(b.date || (b.createdAt?.seconds*1000) || 0).getTime();
+    return sort==='asc' ? ta-tb : tb-ta;
+  });
+
+  const el = $('planList');
+  if(!list.length){
+    el.innerHTML = emptyState(ICON.inbox, 'No Update Plans yet', 'Create your first plan to start tracking SDET issues and generating summaries.');
+    return;
+  }
+
+  el.innerHTML = list.map(d=>{
+    const issueLines = (d.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    const totalIssue = issueLines.length;
+    const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
+    const issuesHtml = issueLines.slice(0,5).map(u=>{
+      const m = u.match(/issues\/(\d+)/);
+      const label = m ? `#${m[1]}` : u;
+      return `<a class="issue-row" href="${escapeHtml(u)}" target="_blank" rel="noopener">
+        <span class="issue-num">${escapeHtml(label)}</span>
+        <span class="issue-url">${escapeHtml(u)}</span>
+      </a>`;
+    }).join('');
+    const more = issueLines.length > 5 ? `<div class="issues-more">+${issueLines.length-5} more issues</div>` : '';
+
+    return `
+      <div class="list-item">
+        <div class="list-item-head">
+          <div style="min-width:0;flex:1">
+            <div class="list-item-title">${escapeHtml(d.title)}</div>
+            <div class="list-item-meta">
+              <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
+              <span class="meta-divider"></span>
+              <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
+              ${linkedSummaries
+                ? `<span class="badge badge-violet">${ICON.fileText}${linkedSummaries} summaries</span>`
+                : `<span class="badge badge-neutral">No summary yet</span>`}
+            </div>
+            ${d.note ? `<div class="list-item-note">${ICON.messageSquare}<span>${escapeHtml(d.note)}</span></div>` : ''}
+          </div>
+        </div>
+        ${issueLines.length ? `<div class="issues-block">${issuesHtml}${more}</div>` : ''}
+        <div class="list-item-actions">
+          <button class="btn btn-primary btn-sm" onclick="quickSummary('${d.id}')">${ICON.plus}Create Summary</button>
+          <button class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ============================================================
+   SUMMARIES — CRUD (async with CloudSync)
+   ============================================================ */
+function populatePlanDropdown(selected){
+  const sel = $('summaryPlanRef');
+  const plans = [...State.plans.all()].sort((a,b)=>
+    new Date(b.date || (b.createdAt?.seconds*1000) || 0) - new Date(a.date || (a.createdAt?.seconds*1000) || 0)
+  );
+  sel.innerHTML = '<option value="">— Select a Plan —</option>' +
+    plans.map(p=>`<option value="${p.id}">${escapeHtml(p.title)} · ${escapeHtml(formatDate(p.date))}</option>`).join('');
+  if(selected) sel.value = selected;
+}
+
+function onPlanRefChange(){
+  const planId = $('summaryPlanRef').value;
+  if(!planId) return;
+  const p = State.plans.get(planId);
+  if(p && p.date && !$('summaryDate').value) $('summaryDate').value = p.date;
+}
+
+function autoGenerate(){
+  const planId = $('summaryPlanRef').value;
+  if(!planId){ toast('Please select an Update Plan first'); return; }
+  const p = State.plans.get(planId);
+  const fe = $('summaryFe').value.trim() || 'V?.??.??.??????';
+  const v2 = $('summaryV2').value.trim() || 'V?.??.??.??????';
+  const tgl = $('summaryDate').value ? formatDate($('summaryDate').value) : formatDate(p.date || todayISO());
+  const issues = (p.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
+
+  let text = `🚀 Zahir ERP Update\n\n`;
+  text += `FE Version : ${fe}\n`;
+  text += `V2 Version : ${v2}\n`;
+  text += `Date : ${tgl}\n\n`;
+  text += `⚡ Improvements\n`;
+  if(issues.length){
+    issues.forEach(url=>{
+      const m = url.match(/issues\/(\d+)/);
+      const num = m ? m[1] : url;
+      text += `• [#${num}] \n`;
+    });
+  } else {
+    text += `• \n`;
+  }
+  text += `\n🛠️ Bug Fixes\n• [#xxxxx] \n`;
+  $('summaryText').value = text;
+  toast('Template generated');
+}
+
+function quickSummary(planId){
+  resetSummaryForm();
+  populatePlanDropdown(planId);
+  const p = State.plans.get(planId);
+  if(p && p.date) $('summaryDate').value = p.date;
+  $('summaryModalTitle').textContent = 'Add Summary';
+  openModal('summaryModal');
+}
+
+async function saveSummary(e){
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+
+  const id = $('summaryEditId').value;
+  const data = {
+    planId: $('summaryPlanRef').value,
+    fe: $('summaryFe').value.trim(),
+    v2: $('summaryV2').value.trim(),
+    date: $('summaryDate').value,
+    text: $('summaryText').value.trim()
+  };
+
+  try {
+    if(id){
+      await CloudSync.updateSummary(id, data);
+      toast('Summary updated successfully');
+    } else {
+      await CloudSync.addSummary(data);
+      toast('New summary added');
+    }
+    closeModal('summaryModal');
+    resetSummaryForm();
+  } catch(err){
+    toast('Failed to save summary', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function resetSummaryForm(){
+  $('summaryForm').reset();
+  $('summaryEditId').value = '';
+  $('summaryDate').value = todayISO();
+  $('summaryModalTitle').textContent = 'Add Summary';
+  populatePlanDropdown();
+}
+
+function editSummary(id){
+  const d = State.summaries.get(id);
+  if(!d) return;
+  resetSummaryForm();
+  populatePlanDropdown(d.planId);
+  $('summaryEditId').value = d.id;
+  $('summaryFe').value = d.fe;
+  $('summaryV2').value = d.v2;
+  $('summaryDate').value = d.date;
+  $('summaryText').value = d.text;
+  $('summaryModalTitle').textContent = 'Edit Summary';
+  openModal('summaryModal');
+}
+
+async function deleteSummary(id){
+  if(!confirm('Delete this summary?')) return;
+  try {
+    await CloudSync.deleteSummary(id);
+    toast('Summary deleted');
+  } catch(err){
+    toast('Failed to delete summary', 'error');
+  }
+}
+
+function copySummary(id){
+  const d = State.summaries.get(id);
+  if(!d) return;
+  navigator.clipboard.writeText(d.text).then(()=>{
+    toast('Copied — ready to paste into WhatsApp');
+  }).catch(()=>{
+    const ta = document.createElement('textarea');
+    ta.value = d.text;
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+    toast('Copied to clipboard');
+  });
+}
+
+function renderSummaries(){
+  const q = ($('summarySearch').value || '').toLowerCase().trim();
+  const sort = $('summarySort').value;
+  let list = [...State.summaries.all()];
+
+  if(q){
+    list = list.filter(x =>
+      (x.fe||'').toLowerCase().includes(q) ||
+      (x.v2||'').toLowerCase().includes(q) ||
+      (x.date||'').includes(q) ||
+      (x.text||'').toLowerCase().includes(q)
+    );
+  }
+  list.sort((a,b)=>{
+    const ta = new Date(a.date || (a.createdAt?.seconds*1000) || 0).getTime();
+    const tb = new Date(b.date || (b.createdAt?.seconds*1000) || 0).getTime();
+    return sort==='asc' ? ta-tb : tb-ta;
+  });
+
+  const el = $('summaryList');
+  if(!list.length){
+    el.innerHTML = emptyState(ICON.inbox, 'No Summaries yet', 'Add a summary from an Update Plan to make it shareable to the WA group.');
+    return;
+  }
+
+  el.innerHTML = list.map(d=>{
+    const plan = d.planId ? State.plans.get(d.planId) : null;
+    return `
+      <div class="list-item">
+        <div class="list-item-head">
+          <div style="min-width:0;flex:1">
+            <div class="list-item-title">${escapeHtml(d.fe)} <span style="color:var(--text-tertiary);font-weight:400">→</span> ${escapeHtml(d.v2)}</div>
+            <div class="list-item-meta">
+              <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
+              ${plan
+                ? `<span class="meta-divider"></span><span class="badge badge-brand">${ICON.fileText}${escapeHtml(plan.title)}</span>`
+                : `<span class="meta-divider"></span><span class="badge badge-neutral">No plan</span>`}
+            </div>
+          </div>
+        </div>
+        <div class="preview-block">${escapeHtml(d.text)}</div>
+        <div class="list-item-actions">
+          <button class="btn btn-success btn-sm" onclick="copySummary('${d.id}')">${ICON.clipboard}Copy for WhatsApp</button>
+          <button class="btn btn-secondary btn-sm" onclick="editSummary('${d.id}')">${ICON.edit}Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSummary('${d.id}')">${ICON.trash}Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function refreshCounts(){
+  const plans = State.plans.all();
+  const sums = State.summaries.all();
+
+  $('countPlans').textContent = plans.length;
+  $('countSummaries').textContent = sums.length;
+  $('statPlans').textContent = plans.length;
+  $('statSummaries').textContent = sums.length;
+
+  const totalIssues = plans.reduce((acc,p)=> acc + countIssues(p.issues), 0);
+  $('statIssues').textContent = totalIssues;
+
+  const latest = [...sums].sort((a,b)=>
+    new Date(b.date || (b.createdAt?.seconds*1000) || 0) - new Date(a.date || (a.createdAt?.seconds*1000) || 0)
+  )[0];
+  const el = $('latestSummary');
+  if(!latest){
+    el.innerHTML = emptyState(ICON.inbox, 'No summaries yet', 'Create a plan first, then generate a summary from it.');
+  } else {
+    const plan = latest.planId ? State.plans.get(latest.planId) : null;
+    el.innerHTML = `
+      <div class="list-item" style="border-bottom:none">
+        <div class="list-item-head">
+          <div style="min-width:0;flex:1">
+            <div class="list-item-title">${escapeHtml(latest.fe)} <span style="color:var(--text-tertiary);font-weight:400">→</span> ${escapeHtml(latest.v2)}</div>
+            <div class="list-item-meta">
+              <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(latest.date))}</span>
+              ${plan ? `<span class="meta-divider"></span><span class="badge badge-violet">${escapeHtml(plan.title)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="preview-block">${escapeHtml(latest.text)}</div>
+        <div class="list-item-actions">
+          <button class="btn btn-success btn-sm" onclick="copySummary('${latest.id}')">${ICON.clipboard}Copy for WhatsApp</button>
+        </div>
+      </div>`;
+  }
+}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+function emptyState(iconSvg, title, desc){
+  return `<div class="empty">
+    <div class="empty-icon">${iconSvg}</div>
+    <h4>${escapeHtml(title)}</h4>
+    <p>${escapeHtml(desc)}</p>
+  </div>`;
+}
+
+/* ============================================================
+   BACKUP / RESTORE
+   ============================================================ */
+function exportAll(){
+  const data = {
+    plans: State.plans.all(),
+    summaries: State.summaries.all(),
+    exportedAt: new Date().toISOString(),
+    uid: CloudSync.uid
+  };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `zahir-erp-backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+
+function importAll(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if(!data.plans || !data.summaries) throw new Error('Invalid format');
+      if(!confirm('Importing will overwrite your current data. Continue?')) return;
+      await CloudSync.bulkImport(data.plans, data.summaries);
+      toast('Import successful');
+    } catch(err){
+      console.error(err);
+      toast('Invalid file', 'error');
+    }
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+}
+
+async function wipeAll(){
+  if(!confirm('Delete ALL plan & summary data? This cannot be undone.')) return;
+  if(!confirm('Are you sure? Data will be permanently lost.')) return;
+  try {
+    await CloudSync.wipeAll();
+    toast('All data deleted');
+  } catch(err){
+    toast('Failed to clear data', 'error');
+  }
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function renderAll(){
+  renderPlans();
+  renderSummaries();
+  populatePlanDropdown();
+  refreshCounts();
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  ThemeManager.init();
+  $('planDate').value = todayISO();
+  $('summaryDate').value = todayISO();
+  renderAll();
+  switchView('dashboard');
+
+  // Sign in anonymously → init CloudSync
+  $('loadingText').textContent = 'Connecting to Firebase...';
+  auth.signInAnonymously()
+    .then(async (cred) => {
+      const uid = cred.user.uid;
+      console.log('Signed in anonymously:', uid);
+      $('loadingText').textContent = 'Loading your data...';
+      await CloudSync.init(uid);
+      $('loadingOverlay').classList.add('hidden');
+    })
+    .catch(err => {
+      console.error('Auth failed:', err);
+      setSyncStatus('error', 'Auth failed');
+      $('loadingText').textContent = 'Connection failed. Check console.';
+      setTimeout(()=> $('loadingOverlay').classList.add('hidden'), 2000);
+      toast('Firebase auth failed. Check console.', 'error');
+    });
+
+  // Online/offline detection
+  window.addEventListener('online', ()=>{
+    if(CloudSync.uid) setSyncStatus('syncing', 'Reconnecting');
+  });
+  window.addEventListener('offline', ()=> setSyncStatus('offline', 'Offline'));
+});
+</script>
+</body>
+</html>
