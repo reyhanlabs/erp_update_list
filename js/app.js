@@ -1,6 +1,6 @@
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
-   v4.6.0 — Colored plan cards (6-color cycle) + bordered issue rows
+   v4.7.0 — Fixed dropdown persistence + Redmine issue descriptions
    ============================================================ */
 
 /* ============================================================
@@ -30,6 +30,9 @@ const RedmineState = {
 };
 
 const REDMINE_STORAGE_KEY = 'zahir-redmine-project';
+
+/* Track which copy dropdown is currently open (survives re-render) */
+window.__openCopyMenuId = window.__openCopyMenuId || null;
 
 /* ============================================================
    HELPERS
@@ -74,11 +77,38 @@ function extractIssueNumber(url){
   return m ? m[1] : '';
 }
 
+/**
+ * Parse a plan line into { url, description }
+ * Supports two formats:
+ *   1. "https://.../issues/32685"                 (URL only, legacy)
+ *   2. "https://.../issues/32685 | Deskripsi..."  (URL + description)
+ */
+function parseIssueLine(line){
+  if(!line) return { url:'', description:'' };
+  const trimmed = String(line).trim();
+  const sepIdx = trimmed.indexOf('|');
+  if(sepIdx > -1){
+    const url = trimmed.slice(0, sepIdx).trim();
+    const description = trimmed.slice(sepIdx + 1).trim();
+    return { url, description };
+  }
+  return { url: trimmed, description: '' };
+}
+
+/**
+ * Split plan.issues text into array of { url, description, number }
+ */
+function parseIssueLines(text){
+  return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line => {
+    const { url, description } = parseIssueLine(line);
+    return { url, description, number: extractIssueNumber(url) };
+  });
+}
+
 /* ============================================================
-   COLOR CYCLE — 6 colors for plan cards
+   COLOR CYCLE
    ============================================================ */
 const CARD_COLORS = ['c-blue', 'c-violet', 'c-pink', 'c-green', 'c-amber', 'c-cyan'];
-
 function getCardColorClass(index){
   return CARD_COLORS[index % CARD_COLORS.length];
 }
@@ -561,32 +591,37 @@ function togglePlanCard(planId, event){
 }
 
 /* ============================================================
-   COPY DROPDOWN
+   COPY DROPDOWN — persistent across re-render
    ============================================================ */
 function buildCopyText(plan, format){
-  const issues = (plan.issues || '').split('\n').map(s=>s.trim()).filter(Boolean);
+  const parsed = parseIssueLines(plan.issues);
   const title = plan.title || 'Update Plan';
   const dateStr = formatDate(plan.date);
 
-  if(format === 'plain') return issues.join('\n');
+  if(format === 'plain') {
+    // Plain URLs one per line
+    return parsed.map(p => p.url).join('\n');
+  }
 
   if(format === 'numbered'){
     let out = `${title}\n`;
     out += `Date: ${dateStr}\n`;
-    out += `Total: ${issues.length} issues\n\n`;
-    issues.forEach((url, i)=>{
-      const num = extractIssueNumber(url) || '—';
-      out += `${i+1}. [#${num}] ${url}\n`;
+    out += `Total: ${parsed.length} issues\n\n`;
+    parsed.forEach((p, i)=>{
+      const num = p.number || '—';
+      const desc = p.description || p.url;
+      out += `${i+1}. [#${num}] ${desc}\n`;
     });
     return out.trim();
   }
 
   if(format === 'markdown'){
     let out = `*${title}*\n`;
-    out += `_${dateStr} · ${issues.length} issues_\n\n`;
-    issues.forEach((url)=>{
-      const num = extractIssueNumber(url) || '—';
-      out += `• [#${num}](${url})\n`;
+    out += `_${dateStr} · ${parsed.length} issues_\n\n`;
+    parsed.forEach((p)=>{
+      const num = p.number || '—';
+      const desc = p.description || p.url;
+      out += `• [#${num}](${p.url}) ${desc ? '— ' + desc : ''}\n`;
     });
     return out.trim();
   }
@@ -594,15 +629,20 @@ function buildCopyText(plan, format){
   if(format === 'telegram'){
     let out = `📋 *${title}*\n`;
     out += `📅 ${dateStr}\n`;
-    out += `🔢 ${issues.length} issues\n\n`;
-    issues.forEach((url)=>{
-      const num = extractIssueNumber(url) || '—';
-      out += `• [#${num}](${url})\n`;
+    out += `🔢 ${parsed.length} issues\n\n`;
+    parsed.forEach((p)=>{
+      const num = p.number || '—';
+      const desc = p.description || '';
+      if(desc){
+        out += `• [#${num}](${p.url}) — ${desc}\n`;
+      } else {
+        out += `• [#${num}](${p.url})\n`;
+      }
     });
     return out.trim();
   }
 
-  return issues.join('\n');
+  return parsed.map(p => p.url).join('\n');
 }
 
 async function copyPlan(id, format){
@@ -648,25 +688,49 @@ function toggleCopyMenu(btn, event){
   const wrapper = btn.closest('.copy-menu-wrap');
   if(!wrapper) return;
 
+  const planId = btn.getAttribute('data-plan-id');
   const menu = wrapper.querySelector('.copy-menu');
   const card = btn.closest('.plan-card');
   const isOpen = menu.classList.contains('open');
 
-  closeAllCopyMenus();
-
-  if(!isOpen){
-    menu.classList.add('open');
-    btn.classList.add('active');
-    if(card) card.classList.add('menu-open');
-
-    window.__copyMenuJustOpened = Date.now();
+  // If this exact menu is open → close it
+  if(isOpen && window.__openCopyMenuId === planId){
+    closeAllCopyMenus();
+    return;
   }
+
+  // Otherwise close all, then open this one
+  closeAllCopyMenus();
+  menu.classList.add('open');
+  btn.classList.add('active');
+  if(card) card.classList.add('menu-open');
+  window.__openCopyMenuId = planId;
+  window.__copyMenuJustOpened = Date.now();
 }
 
 function closeAllCopyMenus(){
   document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
   document.querySelectorAll('.copy-menu-wrap .btn.active').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.plan-card.menu-open').forEach(c => c.classList.remove('menu-open'));
+  window.__openCopyMenuId = null;
+}
+
+/* Restore open dropdown after re-render */
+function restoreOpenCopyMenu(){
+  const openId = window.__openCopyMenuId;
+  if(!openId) return;
+
+  const btn = document.querySelector(`.copy-menu-wrap .btn[data-plan-id="${openId}"]`);
+  if(!btn){ window.__openCopyMenuId = null; return; }
+
+  const wrapper = btn.closest('.copy-menu-wrap');
+  const menu = wrapper?.querySelector('.copy-menu');
+  const card = btn.closest('.plan-card');
+  if(menu){
+    menu.classList.add('open');
+    btn.classList.add('active');
+    if(card) card.classList.add('menu-open');
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -686,28 +750,35 @@ document.addEventListener('keydown', (e) => {
 
 /* ============================================================
    ISSUE EDITOR
+   Editor stores URL only. When editing, if there was a description,
+   we keep it appended: "url | description"
    ============================================================ */
-function addIssueRow(url){
+function addIssueRow(fullLine){
   const body = $('issueEditorBody');
   if(!body) return;
+  const parsed = parseIssueLine(fullLine || '');
+  const urlVal = parsed.url || '';
+  const descVal = parsed.description || '';
+
   const row = document.createElement('div');
   row.className = 'issue-row-input';
   row.innerHTML = `
     <div class="row-num empty">#—</div>
-    <input type="text" placeholder="https://pjm.zahironline.com/issues/32685" value="${escapeHtml(url || '')}" oninput="onIssueInput(this)"/>
+    <input type="text" placeholder="https://pjm.zahironline.com/issues/32685" value="${escapeHtml(urlVal)}" oninput="onIssueInput(this)" data-url="true"/>
     <button type="button" class="row-delete" onclick="removeIssueRow(this)" title="Remove">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="18" y1="6" x2="6" y2="18"/>
         <line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </button>
+    <input type="text" class="row-desc" placeholder="Deskripsi issue (opsional, dari Redmine)" value="${escapeHtml(descVal)}" data-desc="true" style="grid-column:1 / -1; margin-top:2px"/>
   `;
   body.appendChild(row);
-  if(url) onIssueInput(row.querySelector('input'));
+  if(urlVal) onIssueInput(row.querySelector('input[data-url]'));
   updateIssueCountBadge();
   setTimeout(()=>{
     row.scrollIntoView({block:'nearest', behavior:'smooth'});
-    const inp = row.querySelector('input');
+    const inp = row.querySelector('input[data-url]');
     if(inp) inp.focus();
   }, 30);
 }
@@ -745,16 +816,23 @@ function updateIssueCountBadge(){
   const badge = $('issueCountBadge');
   if(!body || !badge) return;
   const total = body.querySelectorAll('.issue-row-input').length;
-  const filled = [...body.querySelectorAll('.issue-row-input input')].filter(i=>i.value.trim()).length;
+  const filled = [...body.querySelectorAll('.issue-row-input input[data-url]')].filter(i=>i.value.trim()).length;
   badge.textContent = filled === total ? total : `${filled}/${total}`;
 }
 
 function getIssueLines(){
   const body = $('issueEditorBody');
   if(!body) return [];
-  return [...body.querySelectorAll('.issue-row-input input')]
-    .map(i => i.value.trim())
-    .filter(Boolean);
+  const rows = [...body.querySelectorAll('.issue-row-input')];
+  const out = [];
+  rows.forEach(row => {
+    const url = (row.querySelector('input[data-url]')?.value || '').trim();
+    const desc = (row.querySelector('input[data-desc]')?.value || '').trim();
+    if(!url) return;
+    if(desc) out.push(`${url} | ${desc}`);
+    else out.push(url);
+  });
+  return out;
 }
 
 function setIssueLines(lines){
@@ -852,7 +930,7 @@ async function deletePlan(id){
 }
 
 /* ============================================================
-   RENDER PLANS — with color per card
+   RENDER PLANS
    ============================================================ */
 function renderPlans(){
   const q = ($('planSearch').value || '').toLowerCase().trim();
@@ -879,27 +957,31 @@ function renderPlans(){
     return;
   }
 
-  // Assign color per card based on index
   el.innerHTML = `<div class="plan-list">` + list.map((d, i) => renderPlanCard(d, i)).join('') + `</div>`;
+
+  // Restore any open dropdown after re-render
+  restoreOpenCopyMenu();
 }
 
 function renderPlanCard(d, index){
-  const issueLines = (d.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
-  const totalIssue = issueLines.length;
+  const parsed = parseIssueLines(d.issues);
+  const totalIssue = parsed.length;
   const linkedSummaries = State.summaries.all().filter(s=>s.planId===d.id).length;
   const isRedmineSynced = (d.note || '').toLowerCase().includes('synced from redmine');
   const isExpanded = window.__expandedPlans.has(d.id);
 
-  // Color cycle
   const colorClass = getCardColorClass(index);
 
-  const issueRows = issueLines.map(u=>{
-    const num = extractIssueNumber(u) || '—';
-    return `<a class="plan-issue-row" href="${escapeHtml(u)}" target="_blank" rel="noopener">
-      <span class="pi-num">#${escapeHtml(num)}</span>
-      <span class="pi-url">${escapeHtml(u)}</span>
-      <span class="pi-open">${ICON.externalLink}</span>
-    </a>`;
+  // Render rows — click on number opens the URL, description is plain text
+  const issueRows = parsed.map(p=>{
+    const num = p.number || '—';
+    const desc = p.description || '';
+    const url = p.url || '#';
+    return `<div class="plan-issue-row">
+      <a class="pi-num" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open in Redmine">#${escapeHtml(num)}</a>
+      <span class="pi-desc">${escapeHtml(desc || url)}</span>
+      <a class="pi-open" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open in Redmine">${ICON.externalLink}</a>
+    </div>`;
   }).join('');
 
   const noteHtml = d.note
@@ -924,7 +1006,7 @@ function renderPlanCard(d, index){
       ${issuesSection}
       <div class="plan-details-foot">
         <div class="copy-menu-wrap">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="toggleCopyMenu(this, event)">
+          <button type="button" class="btn btn-secondary btn-sm" data-plan-id="${d.id}" onclick="toggleCopyMenu(this, event)">
             ${ICON.clipboard}Copy for Telegram
             ${ICON.chevronDown}
           </button>
@@ -937,7 +1019,7 @@ function renderPlanCard(d, index){
               </span>
               <span class="mi-body">
                 <span class="mi-title">Telegram format</span>
-                <span class="mi-desc">Markdown link + emoji headers</span>
+                <span class="mi-desc">Markdown link + description</span>
               </span>
             </button>
             <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'markdown')">
@@ -949,7 +1031,7 @@ function renderPlanCard(d, index){
               </span>
               <span class="mi-body">
                 <span class="mi-title">Markdown links</span>
-                <span class="mi-desc">Clickable [#issue](url) format</span>
+                <span class="mi-desc">Clickable [#issue](url) + desc</span>
               </span>
             </button>
             <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'numbered')">
@@ -965,7 +1047,7 @@ function renderPlanCard(d, index){
               </span>
               <span class="mi-body">
                 <span class="mi-title">Numbered list</span>
-                <span class="mi-desc">Title + date + numbered [#issue] url</span>
+                <span class="mi-desc">Numbered [#issue] + description</span>
               </span>
             </button>
             <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'plain')">
@@ -1038,17 +1120,18 @@ function autoGenerate(){
   const fe = $('summaryFe').value.trim() || 'V?.??.??.??????';
   const v2 = $('summaryV2').value.trim() || 'V?.??.??.??????';
   const tgl = $('summaryDate').value ? formatDate($('summaryDate').value) : formatDate(p.date || todayISO());
-  const issues = (p.issues||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  const parsed = parseIssueLines(p.issues);
 
   let text = `🚀 Zahir ERP Update\n\n`;
   text += `FE Version : ${fe}\n`;
   text += `V2 Version : ${v2}\n`;
   text += `Date : ${tgl}\n\n`;
   text += `⚡ Improvements\n`;
-  if(issues.length){
-    issues.forEach(url=>{
-      const num = extractIssueNumber(url) || url;
-      text += `• [#${num}] \n`;
+  if(parsed.length){
+    parsed.forEach((it)=>{
+      const num = it.number || it.url;
+      const desc = it.description || '';
+      text += `• [#${num}] ${desc}\n`;
     });
   } else {
     text += `• \n`;
@@ -1455,9 +1538,8 @@ async function previewRedmineSync(event){
 
     const existingIds = new Set();
     State.plans.all().forEach(p => {
-      (p.issues || '').split('\n').forEach(line => {
-        const m = line.match(/issues\/(\d+)/);
-        if (m) existingIds.add(m[1]);
+      parseIssueLines(p.issues).forEach(it => {
+        if(it.number) existingIds.add(it.number);
       });
     });
     const newIssues = issues.filter(i => !existingIds.has(String(i.id)));
@@ -1530,9 +1612,8 @@ async function syncFromRedmine(event){
 
     const existingIds = new Set();
     State.plans.all().forEach(p => {
-      (p.issues || '').split('\n').forEach(line => {
-        const m = line.match(/issues\/(\d+)/);
-        if (m) existingIds.add(m[1]);
+      parseIssueLines(p.issues).forEach(it => {
+        if(it.number) existingIds.add(it.number);
       });
     });
     const newIssues = issues.filter(i => !existingIds.has(String(i.id)));
@@ -1550,12 +1631,18 @@ async function syncFromRedmine(event){
     const statusLabels = {'1':'New','2':'In Progress','3':'Resolved','4':'Feedback','5':'Closed','*':'All'};
     const statusLabel = statusLabels[statusId] || statusId;
     const title = `${projName} — Update ${formatDate(today)} (${statusLabel})`;
-    const issueUrls = newIssues.map(i => `https://pjm.zahironline.com/issues/${i.id}`);
+
+    // Build lines with URL + description
+    const issueLines = newIssues.map(i => {
+      const url = `https://pjm.zahironline.com/issues/${i.id}`;
+      const desc = (i.subject || '').replace(/\s+/g, ' ').trim();
+      return desc ? `${url} | ${desc}` : url;
+    });
 
     await CloudSync.addPlan({
       title: title,
       date: today,
-      issues: issueUrls.join('\n'),
+      issues: issueLines.join('\n'),
       note: `Auto-synced from Redmine · Project: ${projName} (${proj?.identifier || pid}) · ${new Date().toLocaleString()}`
     });
 
