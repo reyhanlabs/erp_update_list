@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Zahir ERP · Update Manager</title>
 <meta name="theme-color" content="#2563eb">
-<meta name="description" content="Kelola update plan Zahir ERP, sync Redmine, dan antrian tester">
+<meta name="description" content="Manage Zahir ERP update plans, Redmine sync, and tester queue">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ERP Updates">
@@ -226,11 +226,11 @@
         </button>
         <button type="button" class="dash-action-btn" onclick="openPlansWithSync()">
           <span class="da-icon red">R</span>
-          <span class="da-text"><strong>Sync Redmine</strong><small>Tarik issue → Update Plan</small></span>
+          <span class="da-text"><strong>Sync Redmine</strong><small>Pull issues → Update Plan</small></span>
         </button>
         <button type="button" class="dash-action-btn" onclick="switchView('summaries'); openAddModal()">
           <span class="da-icon violet">S</span>
-          <span class="da-text"><strong>New Summary</strong><small>Buat ringkasan WA/Telegram</small></span>
+          <span class="da-text"><strong>New Summary</strong><small>Create WA/Telegram summary</small></span>
         </button>
       </div>
 
@@ -238,14 +238,14 @@
         <div class="card">
           <div class="card-head">
             <h3><span class="mark"></span> Recent Plans</h3>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('plans')">Lihat semua</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('plans')">View all</button>
           </div>
           <div class="card-body tight" id="recentPlans"></div>
         </div>
         <div class="card">
           <div class="card-head">
             <h3><span class="mark"></span> Latest Summary</h3>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('summaries')">Lihat semua</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('summaries')">View all</button>
           </div>
           <div class="card-body tight" id="latestSummary"></div>
         </div>
@@ -296,7 +296,7 @@
             <div class="logo-redmine">R</div>
             <div class="hero-text">
               <h4>pjm.zahironline.com</h4>
-              <p>Tarik issue dari Redmine dan jadikan Update Plan otomatis.</p>
+              <p>Pull issues from Redmine and turn them into an Update Plan automatically.</p>
               <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
                 <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--redmine);border:1px solid var(--redmine-border);font-size:11px;font-weight:600">
                   <span style="width:6px;height:6px;border-radius:50%;background:var(--redmine)"></span>
@@ -330,33 +330,33 @@
 
           <div class="form-row" style="margin-top:14px">
             <div class="field" style="margin-bottom:0">
-              <label>Rentang Tanggal</label>
+              <label>Date range</label>
               <select class="input select" id="syncDatePreset" onchange="onDatePresetChange()">
-                <option value="today" selected>Hari Ini</option>
-                <option value="week">Minggu Ini</option>
-                <option value="month">Bulan Ini</option>
-                <option value="7d">7 Hari Terakhir</option>
-                <option value="30d">30 Hari Terakhir</option>
+                <option value="today" selected>Today</option>
+                <option value="week">This week</option>
+                <option value="month">This month</option>
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
                 <option value="custom">Custom</option>
-                <option value="all">⚠ Semua (hati-hati)</option>
+                <option value="all">⚠ All (use carefully)</option>
               </select>
             </div>
             <div class="field" style="margin-bottom:0">
-              <label>Berdasarkan</label>
+              <label>Based on</label>
               <select class="input select" id="syncDateField">
-                <option value="updated" selected>Tanggal Update</option>
-                <option value="created">Tanggal Dibuat</option>
+                <option value="updated" selected>Updated date</option>
+                <option value="created">Created date</option>
               </select>
             </div>
           </div>
 
           <div class="form-row" id="syncCustomRow" style="margin-top:14px;display:none">
             <div class="field" style="margin-bottom:0">
-              <label>Dari</label>
+              <label>From</label>
               <input class="input" type="date" id="syncFrom"/>
             </div>
             <div class="field" style="margin-bottom:0">
-              <label>Sampai</label>
+              <label>To</label>
               <input class="input" type="date" id="syncTo"/>
             </div>
           </div>
@@ -369,7 +369,7 @@
               </svg>
             </div>
             <div class="danger-tile-text">
-              <b>Mode "Semua"</b> akan menarik seluruh issue dari project. Proses bisa lama.
+              <b>"All" mode</b> will pull every issue from the project. This may take a while.
             </div>
           </div>
 
@@ -420,7 +420,7 @@
           </h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span class="meta-chip" id="testerStatusLabel" style="font-size:11.5px">Ready for Testing</span>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="copyTesterList()" title="Copy list untuk briefing">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyTesterList()" title="Copy list for briefing">
               Copy list
             </button>
             <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshTester" onclick="loadTesterReminder(true)">
@@ -434,18 +434,18 @@
               <circle cx="11" cy="11" r="8"/>
               <line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
-            <input type="text" id="testerSearch" placeholder="Cari subject, assignee, #id, priority..." oninput="renderTesterList()"/>
+            <input type="text" id="testerSearch" placeholder="Search subject, assignee, #id, priority..." oninput="renderTesterList()"/>
           </div>
           <select class="select" id="testerGroupBy" onchange="renderTesterList()">
             <option value="assignee">Group: Assignee</option>
-            <option value="none">Tanpa group</option>
+            <option value="none">No grouping</option>
             <option value="priority">Group: Priority</option>
           </select>
         </div>
         <div class="filter-chips" id="testerAssigneeFilters" style="padding:10px 12px 0"></div>
         <div class="card-body tight" id="testerReminder">
           <div class="empty" style="padding:28px 16px">
-            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Buka menu ini untuk memuat issue…</p>
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load issues…</p>
           </div>
         </div>
       </div>
@@ -626,8 +626,12 @@
         <div class="card-body">
           <div class="changelog" id="changelogList">
             <div class="changelog-item">
+              <span class="cl-ver">v4.13.2</span>
+              <span class="cl-note">Post-sync UX fix + full English UI</span>
+            </div>
+            <div class="changelog-item">
               <span class="cl-ver">v4.13.1</span>
-              <span class="cl-note">Sync Redmine pindah ke panel di Update Plans</span>
+              <span class="cl-note">Sync Redmine moved into Update Plans panel</span>
             </div>
             <div class="changelog-item">
               <span class="cl-ver">v4.13.0</span>
@@ -639,15 +643,7 @@
             </div>
             <div class="changelog-item">
               <span class="cl-ver">v4.11.2</span>
-              <span class="cl-note">Tester Queue pindah ke menu sidebar sendiri</span>
-            </div>
-            <div class="changelog-item">
-              <span class="cl-ver">v4.11.1</span>
-              <span class="cl-note">Tester reminder — Ready for Testing</span>
-            </div>
-            <div class="changelog-item">
-              <span class="cl-ver">v4.11.0</span>
-              <span class="cl-note">Dashboard, filters, shortcuts, templates, loading states</span>
+              <span class="cl-note">Tester Queue as its own sidebar menu</span>
             </div>
             <div class="changelog-item">
               <span class="cl-ver">v4.10.4</span>

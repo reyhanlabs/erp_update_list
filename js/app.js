@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.13.1';
-const APP_VERSION_DATE = '2026-09-21';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Sync Redmine moved into Update Plans panel';
+const APP_VERSION = '4.13.3';
+const APP_VERSION_DATE = '2026-09-22';   // YYYY-MM-DD
+const APP_VERSION_NOTE = 'Date-based plan card colors + post-sync UX + English UI';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -520,7 +520,7 @@ const VIEW_META = {
   dashboard: { title:'Dashboard', sub:'Overview of your ERP update activity', addBtn:false },
   plans:     { title:'Update Plans', sub:'Manage plans & sync from Redmine', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
-  tester:    { title:'Tester Queue', sub:'Issue berstatus Ready for Testing dari Redmine', addBtn:false },
+  tester:    { title:'Tester Queue', sub:'Issues with status Ready for Testing from Redmine', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -1005,7 +1005,7 @@ function renderPlans(){
         { label: 'Sync Redmine', action: "openPlansWithSync()" }
       ]);
     } else {
-      el.innerHTML = emptyState(ICON.inbox, 'No matching plans', 'Coba ubah filter atau kata kunci pencarian.', [
+      el.innerHTML = emptyState(ICON.inbox, 'No matching plans', 'Try changing the filter or search keywords.', [
         { label: 'Reset filter', action: "setPlanFilter('all')" }
       ]);
     }
@@ -1014,6 +1014,15 @@ function renderPlans(){
 
   el.innerHTML = `<div class="plan-list">` + list.map(d => renderPlanCard(d)).join('') + `</div>`;
   restoreOpenCopyMenu();
+}
+
+/** Stable pastel tone index 0–5 from plan date (same date → same color) */
+function planDateTone(dateStr){
+  const s = String(dateStr || '').slice(0, 10);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return 0;
+  const n = parseInt(m[1], 10) * 372 + parseInt(m[2], 10) * 31 + parseInt(m[3], 10);
+  return Math.abs(n) % 6;
 }
 
 function renderPlanCard(d){
@@ -1123,6 +1132,7 @@ function renderPlanCard(d){
 
   const cardClasses = [
     'plan-card',
+    'tone-' + planDateTone(d.date),
     isExpanded ? 'expanded' : '',
     isRedmineSynced ? 'from-redmine' : '',
     linkedSummaries > 0 ? 'has-summary' : ''
@@ -1139,8 +1149,8 @@ function renderPlanCard(d){
             <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
             ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine</span>` : ''}
             ${linkedSummaries
-              ? `<span class="badge badge-violet badge-click" onclick="event.stopPropagation(); viewPlanSummaries('${d.id}')" title="Lihat summaries">${ICON.fileText}${linkedSummaries} summaries</span>`
-              : `<span class="badge badge-neutral badge-click" onclick="event.stopPropagation(); quickSummary('${d.id}')" title="Buat summary">No summary</span>`}
+              ? `<span class="badge badge-violet badge-click" onclick="event.stopPropagation(); viewPlanSummaries('${d.id}')" title="View summaries">${ICON.fileText}${linkedSummaries} summaries</span>`
+              : `<span class="badge badge-neutral badge-click" onclick="event.stopPropagation(); quickSummary('${d.id}')" title="Create summary">No summary</span>`}
           </div>
         </div>
         <div class="plan-card-chevron">${ICON.chevronDown}</div>
@@ -1421,7 +1431,7 @@ function refreshCounts(){
       new Date(b.date || (b.createdAt?.seconds*1000) || 0) - new Date(a.date || (a.createdAt?.seconds*1000) || 0)
     ).slice(0, 5);
     if(!recent.length){
-      recentEl.innerHTML = emptyState(ICON.inbox, 'No plans yet', 'Mulai dengan sync Redmine atau buat plan manual.', [
+      recentEl.innerHTML = emptyState(ICON.inbox, 'No plans yet', 'Start by syncing from Redmine or creating a plan manually.', [
         { label: 'Add Plan', action: "switchView('plans'); openAddModal()", primary: true },
         { label: 'Sync Redmine', action: "openPlansWithSync()" }
       ]);
@@ -1558,42 +1568,42 @@ function friendlyRedmineError(status, data){
   const detail = (data && (data.detail || data.error || data.hint)) || '';
   if(status === 401){
     return {
-      title: 'API key tidak valid (401)',
-      message: 'Redmine menolak API key. Generate ulang di My Account → API access key, lalu update REDMINE_API_KEY di Vercel dan redeploy.'
+      title: 'Invalid API key (401)',
+      message: 'Redmine rejected the API key. Regenerate it under My Account → API access key, update REDMINE_API_KEY on Vercel, then redeploy.'
     };
   }
   if(status === 403){
     return {
-      title: 'Akses ditolak (403)',
-      message: 'User API key tidak punya permission ke project/issue ini. Cek role di Redmine.'
+      title: 'Access denied (403)',
+      message: 'This API key does not have permission for this project/issue. Check the user role in Redmine.'
     };
   }
   if(status === 404){
     return {
-      title: 'Tidak ditemukan (404)',
-      message: detail || 'Status atau resource tidak ditemukan di Redmine. Pastikan nama status "Ready for Testing" ada di Issue statuses.'
+      title: 'Not found (404)',
+      message: detail || 'Status or resource not found in Redmine. Make sure the status name "Ready for Testing" exists under Issue statuses.'
     };
   }
   if(status === 500 && /REDMINE_API_KEY not configured/i.test(detail + (data?.error||''))){
     return {
-      title: 'API key belum dikonfigurasi',
-      message: 'Set environment variable REDMINE_API_KEY di Vercel Project Settings, lalu redeploy.'
+      title: 'API key not configured',
+      message: 'Set the REDMINE_API_KEY environment variable in Vercel Project Settings, then redeploy.'
     };
   }
   if(status >= 500){
     return {
       title: 'Server error',
-      message: detail || 'Redmine/proxy sedang bermasalah. Coba lagi sebentar.'
+      message: detail || 'Redmine/proxy is having issues. Please try again shortly.'
     };
   }
   if(!navigator.onLine){
     return {
       title: 'Offline',
-      message: 'Tidak ada koneksi internet.'
+      message: 'No internet connection.'
     };
   }
   return {
-    title: 'Gagal memuat dari Redmine',
+    title: 'Failed to load from Redmine',
     message: detail || ('HTTP ' + status)
   };
 }
@@ -1759,13 +1769,13 @@ function renderTesterList(){
 
   const all = window.__testerIssues || [];
   if(!all.length){
-    el.innerHTML = emptyState(ICON.check, 'Tidak ada antrian testing', 'Tidak ada issue berstatus Ready for Testing di project ini.');
+    el.innerHTML = emptyState(ICON.check, 'No testing queue', 'No issues with status Ready for Testing in this project.');
     return;
   }
 
   const list = getFilteredTesterIssues();
   if(!list.length){
-    el.innerHTML = emptyState(ICON.inbox, 'Tidak ada hasil', 'Coba ubah kata kunci atau filter assignee.', [
+    el.innerHTML = emptyState(ICON.inbox, 'No results', 'Try changing the search keywords or assignee filter.', [
       { label: 'Reset filter', action: "setTesterAssigneeFilter('all'); $('testerSearch').value=''; renderTesterList();" }
     ]);
     return;
@@ -1773,7 +1783,7 @@ function renderTesterList(){
 
   const groupBy = $('testerGroupBy')?.value || 'assignee';
   const cacheNote = window.__testerMeta?.fromCache
-    ? `<div class="tester-cache-note">📦 Dari cache · klik Refresh untuk data terbaru</div>`
+    ? `<div class="tester-cache-note">📦 From cache · click Refresh for latest data</div>`
     : '';
 
   if(groupBy === 'none'){
@@ -1806,7 +1816,7 @@ function renderTesterList(){
 async function copyTesterList(){
   const list = getFilteredTesterIssues();
   if(!list.length){
-    toast('Tidak ada issue untuk di-copy', 'error');
+    toast('No issues to copy', 'error');
     return;
   }
 
@@ -1867,8 +1877,8 @@ async function loadTesterReminder(force){
 
   const pid = getSelectedProjectId();
   if(!pid){
-    el.innerHTML = emptyState(ICON.inbox, 'Pilih project dulu', 'Buka Sync from Redmine, pilih project, lalu refresh di sini.', [
-      { label: 'Buka Sync', action: "openPlansWithSync()" }
+    el.innerHTML = emptyState(ICON.inbox, 'Select a project first', 'Open Sync from Redmine, pick a project, then refresh here.', [
+      { label: 'Open Sync', action: "openPlansWithSync()" }
     ]);
     setTesterBadgeCount(null);
     return;
@@ -1879,7 +1889,7 @@ async function loadTesterReminder(force){
     btn.textContent = force ? 'Refreshing…' : 'Loading…';
   }
   if(!window.__testerIssues.length || force){
-    el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Memuat issue Ready for Testing…</p></div>`;
+    el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Loading Ready for Testing issues…</p></div>`;
   }
 
   try {
@@ -1907,16 +1917,16 @@ async function loadTesterReminder(force){
     renderTesterAssigneeChips();
     renderTesterList();
 
-    if(force && !fromCache) toast('Tester queue diperbarui');
+    if(force && !fromCache) toast('Tester queue updated');
   } catch(err){
     console.error('Tester reminder failed:', err);
-    const friendly = err.friendly || { title: 'Gagal memuat', message: err.message };
+    const friendly = err.friendly || { title: 'Failed to load', message: err.message };
     setTesterBadgeCount(null);
     const badge = $('testerCountBadge');
     if(badge) badge.textContent = '!';
     el.innerHTML = emptyState(ICON.alert, friendly.title, friendly.message, [
-      { label: 'Coba lagi', action: 'loadTesterReminder(true)', primary: true },
-      { label: 'Buka Sync', action: "openPlansWithSync()" }
+      { label: 'Try again', action: 'loadTesterReminder(true)', primary: true },
+      { label: 'Open Sync', action: "openPlansWithSync()" }
     ]);
   } finally {
     if(btn){
@@ -2178,17 +2188,17 @@ async function previewRedmineSync(event){
 
   if (preset === 'all') {
     const ok = await confirmDialog({
-      title: 'Tarik SEMUA issue?',
-      message: 'Mode ini akan menarik <b>seluruh issue</b> dari project ini tanpa batas tanggal.<br><br>Kalau PJM sudah lama dipakai, ini bisa <b>ribuan issue</b>. Proses bisa lama. Lanjutkan?',
-      okText: 'Ya, Lanjutkan',
-      cancelText: 'Batal',
+      title: 'Fetch ALL issues?',
+      message: 'This mode will fetch <b>all issues</b> from this project with no date limit.<br><br>On a long-running PJM this can mean <b>thousands of issues</b>. It may take a while. Continue?',
+      okText: 'Yes, continue',
+      cancelText: 'Cancel',
       type: 'warning'
     });
     if(!ok) return;
   }
 
   if (preset === 'custom' && !from && !to) {
-    toast('Isi minimal salah satu tanggal (Dari / Sampai)', 'error');
+    toast('Enter at least one date (From / To)', 'error');
     return;
   }
 
@@ -2214,7 +2224,7 @@ async function previewRedmineSync(event){
     const issues = data.issues || [];
     if (!issues.length) {
       setRedmineStatus('success', 'No issues');
-      showSyncResult('info', `Tidak ada issue yang cocok dengan filter tanggal + status ini.`);
+      showSyncResult('info', `No issues match this date + status filter.`);
       return;
     }
 
@@ -2240,10 +2250,10 @@ async function previewRedmineSync(event){
 
     const rangeLabel = from || to
       ? `${from || '…'} → ${to || '…'}`
-      : 'semua tanggal';
+      : 'all dates';
 
     showSyncResult('info', `
-      <b>Preview:</b> ${issues.length} issues (${rangeLabel}) — <b>${newIssues.length} new</b>, ${issues.length - newIssues.length} sudah ada di plans.
+      <b>Preview:</b> ${issues.length} issues (${rangeLabel}) — <b>${newIssues.length} new</b>, ${issues.length - newIssues.length} already in plans.
       <div class="sync-preview" style="margin-top:12px">
         <div class="sync-preview-head">
           <span>Issues Preview</span>
@@ -2276,17 +2286,17 @@ async function syncFromRedmine(event){
 
   if (preset === 'all') {
     const ok = await confirmDialog({
-      title: 'Tarik & sync SEMUA issue?',
-      message: 'Mode ini akan menarik <b>seluruh issue</b> dari project ini. Yang sudah pernah di-sync tetap dilewati, tapi bisa jadi <b>ribuan</b>. Lanjutkan?',
-      okText: 'Ya, Sync Semua',
-      cancelText: 'Batal',
+      title: 'Fetch & sync ALL issues?',
+      message: 'This mode will fetch <b>all issues</b> from this project. Already-synced ones are skipped, but it can still be <b>thousands</b>. Continue?',
+      okText: 'Yes, sync all',
+      cancelText: 'Cancel',
       type: 'warning'
     });
     if(!ok) return;
   }
 
   if (preset === 'custom' && !from && !to) {
-    toast('Isi minimal salah satu tanggal', 'error');
+    toast('Enter at least one date', 'error');
     return;
   }
 
@@ -2312,7 +2322,7 @@ async function syncFromRedmine(event){
     const issues = data.issues || [];
     if (!issues.length) {
       setRedmineStatus('success', 'No issues');
-      showSyncResult('info', `Tidak ada issue baru untuk rentang tanggal ini.`);
+      showSyncResult('info', `No new issues for this date range.`);
       return;
     }
 
@@ -2326,7 +2336,7 @@ async function syncFromRedmine(event){
 
     if (!newIssues.length) {
       setRedmineStatus('success', 'Nothing new');
-      showSyncResult('info', `✅ Semua <b>${issues.length}</b> issues di rentang ini sudah ada di plans. Tidak ada yang baru.`);
+      showSyncResult('info', `All <b>${issues.length}</b> issues in this range are already in plans. Nothing new.`);
       return;
     }
 
@@ -2339,12 +2349,11 @@ async function syncFromRedmine(event){
       ? statusVal.slice(5)
       : (statusLabels[statusVal] || statusVal);
 
-    // Label range di title
     let rangeLabel;
     if (preset === 'today')      rangeLabel = formatDate(today);
-    else if (preset === 'week')  rangeLabel = `Minggu Ini`;
-    else if (preset === 'month') rangeLabel = `Bulan Ini`;
-    else if (preset === 'all')   rangeLabel = `Semua`;
+    else if (preset === 'week')  rangeLabel = `This Week`;
+    else if (preset === 'month') rangeLabel = `This Month`;
+    else if (preset === 'all')   rangeLabel = `All`;
     else                         rangeLabel = `${from||'…'} → ${to||'…'}`;
 
     const title = `${projName} — Update ${rangeLabel} (${statusLabel})`;
@@ -2367,19 +2376,40 @@ async function syncFromRedmine(event){
 
     const skipped = issues.length - newIssues.length;
     showSyncResult('success', `
-      <b>✅ Sync complete!</b><br>
-      Ditambahkan <b>${newIssues.length} issue baru</b> dari <b>${escapeHtml(projName)}</b> sebagai plan: "<b>${escapeHtml(title)}</b>"
-      ${skipped ? `<br><span style="color:var(--text-secondary);font-size:12px">${skipped} issue dilewati (sudah ada di plans).</span>` : ''}
+      <b>Sync complete!</b><br>
+      Added <b>${newIssues.length} new issue(s)</b> from <b>${escapeHtml(projName)}</b> as plan: "<b>${escapeHtml(title)}</b>"
+      ${skipped ? `<br><span style="color:var(--text-secondary);font-size:12px">${skipped} issue(s) skipped (already in plans).</span>` : ''}
       <br><br>
-      <button type="button" class="btn btn-primary btn-sm" onclick="switchView('plans')">Lihat di Update Plans →</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="finishSyncAndShowPlans()">Done — view plans</button>
     `);
+    // Smooth UX: close panel shortly after success so the new plan is visible
+    setTimeout(()=> {
+      toggleSyncPanel(false);
+      renderPlans();
+    }, 1200);
   } catch(err){
     setRedmineStatus('error', 'Sync failed');
-    showSyncResult('error', `<b>Sync failed:</b> ${escapeHtml(err.message)}`);
+    const msg = err.friendly
+      ? `<b>${escapeHtml(err.friendly.title)}</b><br>${escapeHtml(err.friendly.message)}`
+      : `<b>Sync failed:</b> ${escapeHtml(err.message)}`;
+    showSyncResult('error', msg);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
   }
+}
+
+function finishSyncAndShowPlans(){
+  clearSyncResult();
+  toggleSyncPanel(false);
+  renderPlans();
+  const list = $('planList');
+  if(list) list.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearSyncResult(){
+  const el = $('syncResult');
+  if(el) el.innerHTML = '';
 }
 
 function showSyncResult(type, html){
@@ -2559,7 +2589,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('planDate').value = todayISO();
   $('summaryDate').value = todayISO();
 
-  // Init Redmine date filter — default: Hari Ini
+  // Init Redmine date filter — default: Today
   if ($('syncDatePreset')) $('syncDatePreset').value = 'today';
   if ($('syncFrom')) $('syncFrom').value = todayISO();
   if ($('syncTo'))   $('syncTo').value   = todayISO();
@@ -2585,22 +2615,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
       setSyncStatus('error', 'Auth failed');
 
       const msgMap = {
-        'auth/unauthorized-domain': `Domain <b>${location.hostname}</b> belum di-authorize di Firebase Console.<br>Buka: Authentication → Settings → Authorized domains → Add domain.`,
-        'auth/operation-not-allowed': 'Anonymous sign-in belum diaktifkan.<br>Buka: Firebase Console → Authentication → Sign-in method → Anonymous → Enable.',
-        'auth/network-request-failed': 'Gagal konek ke Firebase. Cek internet atau matikan adblock.',
-        'auth/invalid-api-key': 'API key Firebase tidak valid.'
+        'auth/unauthorized-domain': `Domain <b>${location.hostname}</b> is not authorized in Firebase Console.<br>Go to: Authentication → Settings → Authorized domains → Add domain.`,
+        'auth/operation-not-allowed': 'Anonymous sign-in is not enabled.<br>Go to: Firebase Console → Authentication → Sign-in method → Anonymous → Enable.',
+        'auth/network-request-failed': 'Could not reach Firebase. Check your internet or disable adblock.',
+        'auth/invalid-api-key': 'Firebase API key is invalid.'
       };
       const friendly = msgMap[err.code] || `Error: ${err.code || err.message}`;
 
       $('loadingText').innerHTML = `
         <div style="max-width:420px;text-align:center;color:#ef4444;font-weight:600;margin-bottom:8px">
-          Gagal terhubung ke Firebase
+          Failed to connect to Firebase
         </div>
         <div style="max-width:420px;text-align:center;color:var(--text-secondary);font-size:12.5px;line-height:1.6">
           ${friendly}
         </div>
         <button onclick="location.reload()" style="margin-top:16px;padding:8px 16px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">
-          Coba Lagi
+          Try Again
         </button>
       `;
     });
