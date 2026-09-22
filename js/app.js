@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.14.0';
+const APP_VERSION = '4.14.1';
 const APP_VERSION_DATE = '2026-09-22';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tester Queue split by category (Front End / Backend / Design / Other)';
+const APP_VERSION_NOTE = 'Remove assignee filter chips; keep group-by only';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -1762,15 +1762,10 @@ function setTesterBadgeCount(n){
 
 function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
-  const assigneeFilter = window.__testerAssigneeFilter || 'all';
   const cat = window.__testerCategory || 'frontend';
 
   return (window.__testerIssues || []).filter(i => {
     if(getIssueTesterCategory(i) !== cat) return false;
-    if(assigneeFilter !== 'all'){
-      const a = i.assigned_to?.name || 'Unassigned';
-      if(a !== assigneeFilter) return false;
-    }
     if(!q) return true;
     const hay = [
       i.id, i.subject, i.assigned_to?.name, i.priority?.name,
@@ -1781,36 +1776,9 @@ function getFilteredTesterIssues(){
 }
 
 
-function setTesterAssigneeFilter(name){
-  window.__testerAssigneeFilter = name || 'all';
-  renderTesterAssigneeChips();
-  renderTesterList();
-}
+function setTesterAssigneeFilter(name){ window.__testerAssigneeFilter = 'all'; renderTesterList(); }
 
-function renderTesterAssigneeChips(){
-  const wrap = $('testerAssigneeFilters');
-  if(!wrap) return;
-  const issues = window.__testerIssues || [];
-  if(!issues.length){
-    wrap.innerHTML = '';
-    return;
-  }
-
-  const counts = {};
-  issues.forEach(i => {
-    const a = i.assigned_to?.name || 'Unassigned';
-    counts[a] = (counts[a] || 0) + 1;
-  });
-  const names = Object.keys(counts).sort((a,b) => counts[b] - counts[a] || a.localeCompare(b));
-  const active = window.__testerAssigneeFilter || 'all';
-
-  wrap.innerHTML = [
-    `<button type="button" class="filter-chip ${active==='all'?'active':''}" onclick="setTesterAssigneeFilter('all')">All (${issues.length})</button>`,
-    ...names.map(n =>
-      `<button type="button" class="filter-chip ${active===n?'active':''}" onclick="setTesterAssigneeFilter('${escapeHtml(n).replace(/'/g, "\\'")}')">${escapeHtml(n)} (${counts[n]})</button>`
-    )
-  ].join('');
-}
+function renderTesterAssigneeChips(){ /* removed: assignee chips */ }
 
 function renderTesterTableRows(list){
   return list.map(issue => {
@@ -1865,7 +1833,7 @@ function renderTesterList(){
   const list = getFilteredTesterIssues();
   if(!list.length){
     el.innerHTML = emptyState(ICON.inbox, 'No results', 'Try changing the search keywords or assignee filter.', [
-      { label: 'Reset filter', action: "setTesterAssigneeFilter('all'); $('testerSearch').value=''; renderTesterList();" }
+      { label: 'Clear search', action: "$('testerSearch').value=''; renderTesterList();" }
     ]);
     return;
   }
