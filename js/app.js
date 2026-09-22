@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.13.3';
+const APP_VERSION = '4.14.0';
 const APP_VERSION_DATE = '2026-09-22';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Date-based plan card colors + post-sync UX + English UI';
+const APP_VERSION_NOTE = 'Tester Queue split by category (Front End / Backend / Design / Other)';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -520,7 +520,7 @@ const VIEW_META = {
   dashboard: { title:'Dashboard', sub:'Overview of your ERP update activity', addBtn:false },
   plans:     { title:'Update Plans', sub:'Manage plans & sync from Redmine', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
-  tester:    { title:'Tester Queue', sub:'Issues with status Ready for Testing from Redmine', addBtn:false },
+  tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -551,7 +551,13 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
 
 function switchView(view){
   currentView = view;
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view===view));
+  document.querySelectorAll('.nav-item').forEach(b => {
+    if(view === 'tester' && b.dataset.testerCat){
+      b.classList.toggle('active', b.dataset.testerCat === (window.__testerCategory || 'frontend'));
+    } else {
+      b.classList.toggle('active', b.dataset.view===view && !b.dataset.testerCat);
+    }
+  });
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
   const meta = VIEW_META[view] || VIEW_META.dashboard;
   $('pageTitle').textContent = meta.title;
@@ -569,7 +575,14 @@ function switchView(view){
   refreshCounts();
   if(view === 'settings') updateLastSync();
   if(view === 'plans') loadRedmineProjects();
-  if(view === 'tester') loadTesterReminder();
+  if(view === 'tester'){
+    const cat = window.__testerCategory || 'frontend';
+    const label = TESTER_CAT_LABELS[cat] || 'Tester Queue';
+    if($('pageTitle')) $('pageTitle').textContent = label;
+    if($('pageSubtitle')) $('pageSubtitle').textContent = 'Ready for Testing · ' + label;
+    if($('testerCategoryTitle')) $('testerCategoryTitle').textContent = label + ' · Ready for Testing';
+    loadTesterReminder();
+  }
 }
 
 function toggleSidebar(force){
@@ -1650,47 +1663,123 @@ window.__testerIssues = window.__testerIssues || [];
 window.__testerAssigneeFilter = window.__testerAssigneeFilter || 'all';
 window.__testerMeta = window.__testerMeta || { fromCache: false, statusName: 'Ready for Testing' };
 
-function setTesterBadgeCount(n){
+
+/* ============================================================
+   TESTER CATEGORY HELPERS
+   Maps Redmine issue.category.name → frontend | backend | design | other
+   ============================================================ */
+const TESTER_CAT_LABELS = {
+  frontend: 'Front End',
+  backend: 'Backend',
+  design: 'Design',
+  other: 'Other'
+};
+
+window.__testerCategory = window.__testerCategory || 'frontend';
+
+function normalizeTesterCategory(name){
+  const s = String(name || '').toLowerCase().trim();
+  if(!s) return 'other';
+  if(/front\s*-?\s*end|^fe$|frontend/.test(s)) return 'frontend';
+  if(/back\s*-?\s*end|^be$|backend|server/.test(s)) return 'backend';
+  if(/design|ui\/?ux|^ui$|^ux$|figma/.test(s)) return 'design';
+  return 'other';
+}
+
+function getIssueTesterCategory(issue){
+  return normalizeTesterCategory(issue?.category?.name);
+}
+
+function openTesterCategory(cat){
+  const key = TESTER_CAT_LABELS[cat] ? cat : 'other';
+  window.__testerCategory = key;
+  // Highlight active nav item among tester category buttons
+  document.querySelectorAll('.nav-item[data-tester-cat]').forEach(b => {
+    b.classList.toggle('active', b.dataset.testerCat === key);
+  });
+  // Clear active from non-tester nav when entering tester
+  document.querySelectorAll('.nav-item:not([data-tester-cat])').forEach(b => b.classList.remove('active'));
+
+  const metaTitle = TESTER_CAT_LABELS[key] || 'Tester Queue';
+  if($('pageTitle')) $('pageTitle').textContent = metaTitle;
+  if($('pageSubtitle')) $('pageSubtitle').textContent = 'Ready for Testing · ' + metaTitle;
+  if($('testerCategoryTitle')) $('testerCategoryTitle').textContent = metaTitle + ' · Ready for Testing';
+
+  switchView('tester');
+  // Re-apply active on the category button after switchView (it sets by data-view only)
+  document.querySelectorAll('.nav-item[data-tester-cat]').forEach(b => {
+    b.classList.toggle('active', b.dataset.testerCat === key);
+  });
+  renderTesterList();
+  updateTesterCategoryBadges();
+}
+
+function updateTesterCategoryBadges(){
+  const issues = window.__testerIssues || [];
+  const counts = { frontend:0, backend:0, design:0, other:0 };
+  issues.forEach(i => { counts[getIssueTesterCategory(i)]++; });
+
+  const map = {
+    frontend: 'countTesterFrontend',
+    backend: 'countTesterBackend',
+    design: 'countTesterDesign',
+    other: 'countTesterOther'
+  };
+  Object.keys(map).forEach(k => {
+    const el = $(map[k]);
+    if(el) el.textContent = String(counts[k]);
+    const nav = document.querySelector(`.nav-item[data-tester-cat="${k}"]`);
+    if(nav) nav.classList.toggle('has-queue', counts[k] > 0);
+  });
+
+  // Badge in card = current category count
+  const cat = window.__testerCategory || 'frontend';
+  const n = counts[cat] ?? issues.length;
   const badge = $('testerCountBadge');
-  const navCount = $('countTester');
-  const navItem = document.querySelector('.nav-item[data-view="tester"]');
-  const label = (n === null || n === undefined) ? '—' : String(n);
-
-  if(badge) badge.textContent = label;
-  if(navCount) navCount.textContent = label;
-
-  if(navItem){
-    navItem.classList.toggle('has-queue', typeof n === 'number' && n > 0);
-  }
   if(badge){
+    badge.textContent = String(n);
+    badge.classList.toggle('badge-pulse', n > 0);
+  }
+}
+
+function setTesterBadgeCount(n){
+  // Prefer per-category badges when we have issue list
+  if(window.__testerIssues && window.__testerIssues.length){
+    updateTesterCategoryBadges();
+    return;
+  }
+  const badge = $('testerCountBadge');
+  const label = (n === null || n === undefined) ? '—' : String(n);
+  if(badge){
+    badge.textContent = label;
     badge.classList.toggle('badge-pulse', typeof n === 'number' && n > 0);
   }
+  ['countTesterFrontend','countTesterBackend','countTesterDesign','countTesterOther'].forEach(id => {
+    const el = $(id);
+    if(el && (n === null || n === undefined)) el.textContent = '—';
+  });
 }
 
 function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
   const assigneeFilter = window.__testerAssigneeFilter || 'all';
-  let list = [...(window.__testerIssues || [])];
+  const cat = window.__testerCategory || 'frontend';
 
-  if(assigneeFilter !== 'all'){
-    list = list.filter(i => (i.assigned_to?.name || 'Unassigned') === assigneeFilter);
-  }
-
-  if(q){
-    list = list.filter(i => {
-      const hay = [
-        String(i.id),
-        i.subject || '',
-        i.assigned_to?.name || 'Unassigned',
-        i.priority?.name || '',
-        i.tracker?.name || '',
-        i.status?.name || ''
-      ].join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-  }
-  return list;
+  return (window.__testerIssues || []).filter(i => {
+    if(getIssueTesterCategory(i) !== cat) return false;
+    if(assigneeFilter !== 'all'){
+      const a = i.assigned_to?.name || 'Unassigned';
+      if(a !== assigneeFilter) return false;
+    }
+    if(!q) return true;
+    const hay = [
+      i.id, i.subject, i.assigned_to?.name, i.priority?.name,
+      i.tracker?.name, i.category?.name
+    ].map(x => String(x||'').toLowerCase()).join(' ');
+    return hay.includes(q);
+  });
 }
+
 
 function setTesterAssigneeFilter(name){
   window.__testerAssigneeFilter = name || 'all';
@@ -1912,6 +2001,7 @@ async function loadTesterReminder(force){
 
     if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName;
     setTesterBadgeCount(issues.length);
+    updateTesterCategoryBadges();
 
     if(force && $('testerSearch')) $('testerSearch').value = '';
     renderTesterAssigneeChips();
@@ -1957,6 +2047,7 @@ async function prefetchTesterCount(){
       statusName: data.resolved_status?.name || 'Ready for Testing'
     };
     setTesterBadgeCount(issues.length);
+    updateTesterCategoryBadges();
   } catch(err){
     console.warn('Prefetch tester count failed:', err.message);
   }

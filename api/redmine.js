@@ -156,6 +156,7 @@ export default async function handler(req, res) {
         priority: issue.priority,
         project: issue.project,
         tracker: issue.tracker,
+        category: issue.category || null,
         author: issue.author,
         assigned_to: issue.assigned_to,
         created_on: issue.created_on,
