@@ -909,10 +909,10 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 .tester-table .col-id a{color:inherit;text-decoration:none}
 .tester-table .col-id a:hover{text-decoration:underline}
 .tester-table .col-subject{
-  min-width:200px;max-width:420px;
+  min-width:280px;width:auto;
   font-weight:550;line-height:1.4;
 }
-.tester-table .col-assignee{white-space:nowrap;color:var(--text-secondary);width:140px}
+.tester-table .col-assignee{display:none}
 .tester-table .col-priority{white-space:nowrap;color:var(--text-secondary);width:100px}
 .tester-table .col-tracker{white-space:nowrap;color:var(--text-tertiary);width:100px}
 .tester-table .col-updated{white-space:nowrap;color:var(--text-tertiary);width:100px}
@@ -944,7 +944,7 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 @media(max-width:700px){
   .tester-table .col-tracker,
   .tester-table .col-updated{display:none}
-  .tester-table .col-subject{max-width:180px}
+  .tester-table .col-subject{min-width:160px}
 }
 
 .meta-chip{

@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.14.1';
+const APP_VERSION = '4.14.2';
 const APP_VERSION_DATE = '2026-09-22';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Remove assignee filter chips; keep group-by only';
+const APP_VERSION_NOTE = 'Tester table: drop Assignee column, widen Description';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -1783,14 +1783,12 @@ function renderTesterAssigneeChips(){ /* removed: assignee chips */ }
 function renderTesterTableRows(list){
   return list.map(issue => {
     const url = `https://pjm.zahironline.com/issues/${issue.id}`;
-    const assignee = issue.assigned_to?.name || 'Unassigned';
     const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
     const priority = issue.priority?.name || '—';
     const tracker = issue.tracker?.name || '—';
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
       <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${escapeHtml(issue.subject || '—')}</td>
-      <td class="col-assignee">${escapeHtml(assignee)}</td>
       <td class="col-priority">${escapeHtml(priority)}</td>
       <td class="col-tracker">${escapeHtml(tracker)}</td>
       <td class="col-updated">${escapeHtml(updated)}</td>
@@ -1806,7 +1804,6 @@ function renderTesterTable(list){
         <tr>
           <th class="col-id">Issue</th>
           <th class="col-subject">Description</th>
-          <th class="col-assignee">Assignee</th>
           <th class="col-priority">Priority</th>
           <th class="col-tracker">Tracker</th>
           <th class="col-updated">Updated</th>
