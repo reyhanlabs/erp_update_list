@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.15.3';
+const APP_VERSION = '4.15.4';
 const APP_VERSION_DATE = '2026-09-23';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Cleaner What\'s New list';
+const APP_VERSION_NOTE = 'Fix broken Settings HTML layout';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
