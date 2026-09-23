@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny everything by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Each signed-in user (including anonymous) may only access their own subtree
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /plans/{planId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /summaries/{summaryId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+  }
+}

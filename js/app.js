@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.16.2';
+const APP_VERSION = '4.17.0';
 const APP_VERSION_DATE = '2026-09-23';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Mobile Google login via redirect (no popup)';
+const APP_VERSION_NOTE = 'P0: Firestore rules + guest data migration to Google';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -2694,6 +2694,87 @@ function updateAccountUI(user){
   }
 }
 
+
+/* ============================================================
+   GUEST → GOOGLE DATA MIGRATION
+   Snapshot local in-memory data before auth change; import if
+   the destination account is empty.
+   ============================================================ */
+const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';
+
+function snapshotLocalWorkspace(){
+  try {
+    const plans = (State.plans && State.plans.all) ? State.plans.all() : [];
+    const summaries = (State.summaries && State.summaries.all) ? State.summaries.all() : [];
+    if(!plans.length && !summaries.length) return null;
+    const payload = {
+      at: Date.now(),
+      fromUid: CloudSync.uid || (auth.currentUser && auth.currentUser.uid) || null,
+      plans: plans.map(p => {
+        const { id, ...rest } = p;
+        // Strip server timestamps that can't be re-written as-is
+        const clean = { ...rest };
+        delete clean.createdAt;
+        delete clean.updatedAt;
+        return { id, ...clean };
+      }),
+      summaries: summaries.map(s => {
+        const { id, ...rest } = s;
+        const clean = { ...rest };
+        delete clean.createdAt;
+        delete clean.updatedAt;
+        return { id, ...clean };
+      })
+    };
+    sessionStorage.setItem(MIGRATE_SNAP_KEY, JSON.stringify(payload));
+    return payload;
+  } catch(e){
+    console.warn('snapshotLocalWorkspace failed', e);
+    return null;
+  }
+}
+
+function readMigrateSnapshot(){
+  try {
+    const raw = sessionStorage.getItem(MIGRATE_SNAP_KEY);
+    if(!raw) return null;
+    return JSON.parse(raw);
+  } catch(_){ return null; }
+}
+
+function clearMigrateSnapshot(){
+  try { sessionStorage.removeItem(MIGRATE_SNAP_KEY); } catch(_){}
+}
+
+async function maybeMigrateGuestDataToCurrentUser(){
+  const snap = readMigrateSnapshot();
+  if(!snap || (!snap.plans?.length && !snap.summaries?.length)) return false;
+  if(!CloudSync.uid) return false;
+
+  // Only migrate if destination is empty (avoid overwriting existing Google data)
+  try {
+    const [plansSnap, sumsSnap] = await Promise.all([
+      CloudSync.plansRef.limit(1).get(),
+      CloudSync.summariesRef.limit(1).get()
+    ]);
+    const destHasData = !plansSnap.empty || !sumsSnap.empty;
+    if(destHasData){
+      console.log('Skip migration — destination account already has data');
+      clearMigrateSnapshot();
+      return false;
+    }
+
+    await CloudSync.bulkImport(snap.plans || [], snap.summaries || []);
+    clearMigrateSnapshot();
+    toast(`Migrated ${snap.plans.length} plan(s) & ${snap.summaries.length} summary(ies) to this account`);
+    return true;
+  } catch(err){
+    console.error('Migration failed:', err);
+    toast('Could not migrate guest data — use Export/Import in Settings', 'error');
+    return false;
+  }
+}
+
 async function signInWithGoogle(){
   const btn = $('btnGoogleSignIn');
   const btnAuth = $('btnAuthGoogle');
@@ -2721,6 +2802,8 @@ async function signInWithGoogle(){
 
   try {
     setBusy(true, preferRedirect ? 'Redirecting to Google…' : 'Opening Google…');
+    // Keep a copy of guest data in case UID changes
+    snapshotLocalWorkspace();
     const current = auth.currentUser;
 
     // Mobile / PWA: redirect is reliable (popups are often blocked)
@@ -2778,7 +2861,10 @@ async function signInWithGoogle(){
     const user = (cred && cred.user) || auth.currentUser;
     hideAuthGate();
     updateAccountUI(user);
-    if(user) await startAppForUser(user);
+    if(user){
+      await startAppForUser(user);
+      await maybeMigrateGuestDataToCurrentUser();
+    }
   } catch(err){
     console.error('Google sign-in failed:', err);
     const map = {
@@ -2973,6 +3059,10 @@ document.addEventListener('DOMContentLoaded', async ()=>{
       __authBootstrapped = true;
       hideAuthGate();
       await startAppForUser(user);
+      // If we just returned from Google redirect with a snapshot, import it
+      if(!isAnonymousUser(user)){
+        await maybeMigrateGuestDataToCurrentUser();
+      }
     } catch(err) {
       console.error('❌ Auth failed:', err);
       setSyncStatus('error', 'Auth failed');
