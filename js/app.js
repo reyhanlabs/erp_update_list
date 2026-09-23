@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.16.1';
+const APP_VERSION = '4.16.2';
 const APP_VERSION_DATE = '2026-09-23';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Resilient Redmine status lookup for Tester Queue';
+const APP_VERSION_NOTE = 'Mobile Google login via redirect (no popup)';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -2702,17 +2702,39 @@ async function signInWithGoogle(){
   const errEl = $('authError');
   if(errEl) errEl.textContent = '';
 
-  const setBusy = (busy) => {
+  const setBusy = (busy, label) => {
     [btn, btnAuth].forEach(b => {
       if(!b) return;
       b.disabled = !!busy;
-      if(busy) b.textContent = 'Opening Google…';
+      if(busy) b.textContent = label || 'Opening Google…';
     });
   };
 
+  const preferRedirect = (() => {
+    try {
+      const ua = navigator.userAgent || '';
+      const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+      return mobile || standalone;
+    } catch(_){ return false; }
+  })();
+
   try {
-    setBusy(true);
+    setBusy(true, preferRedirect ? 'Redirecting to Google…' : 'Opening Google…');
     const current = auth.currentUser;
+
+    // Mobile / PWA: redirect is reliable (popups are often blocked)
+    if(preferRedirect){
+      sessionStorage.setItem('erp_auth_redirect', '1');
+      if(current && current.isAnonymous){
+        await current.linkWithRedirect(provider);
+      } else {
+        await auth.signInWithRedirect(provider);
+      }
+      return; // page will navigate away
+    }
+
+    // Desktop: try popup first
     let cred;
     if(current && current.isAnonymous){
       try {
@@ -2721,21 +2743,39 @@ async function signInWithGoogle(){
       } catch(linkErr){
         if(linkErr.code === 'auth/credential-already-in-use' ||
            linkErr.code === 'auth/email-already-in-use'){
-          const result = await auth.signInWithPopup(provider);
-          cred = result;
+          cred = await auth.signInWithPopup(provider);
           toast('Signed in with Google');
-        } else if(linkErr.code === 'auth/popup-blocked'){
-          throw linkErr;
+        } else if(linkErr.code === 'auth/popup-blocked' || linkErr.code === 'auth/popup-closed-by-user'){
+          // Fallback to redirect
+          sessionStorage.setItem('erp_auth_redirect', '1');
+          setBusy(true, 'Redirecting to Google…');
+          if(linkErr.code === 'auth/popup-blocked'){
+            await current.linkWithRedirect(provider);
+          } else {
+            await auth.signInWithRedirect(provider);
+          }
+          return;
         } else {
           throw linkErr;
         }
       }
     } else {
-      cred = await auth.signInWithPopup(provider);
-      toast('Signed in with Google');
+      try {
+        cred = await auth.signInWithPopup(provider);
+        toast('Signed in with Google');
+      } catch(popErr){
+        if(popErr.code === 'auth/popup-blocked'){
+          sessionStorage.setItem('erp_auth_redirect', '1');
+          setBusy(true, 'Redirecting to Google…');
+          await auth.signInWithRedirect(provider);
+          return;
+        }
+        throw popErr;
+      }
     }
+
     sessionStorage.removeItem('erp_guest_ok');
-    const user = cred.user || auth.currentUser;
+    const user = (cred && cred.user) || auth.currentUser;
     hideAuthGate();
     updateAccountUI(user);
     if(user) await startAppForUser(user);
@@ -2743,7 +2783,7 @@ async function signInWithGoogle(){
     console.error('Google sign-in failed:', err);
     const map = {
       'auth/popup-closed-by-user': 'Sign-in cancelled',
-      'auth/popup-blocked': 'Popup blocked — allow popups for this site',
+      'auth/popup-blocked': 'Popup blocked — use redirect or allow popups for this site',
       'auth/operation-not-allowed': 'Google sign-in is not enabled in Firebase Console',
       'auth/unauthorized-domain': `Domain ${location.hostname} is not authorized in Firebase Console`,
       'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method'
@@ -2815,7 +2855,7 @@ function applyAppVersion(){
   console.log(`%c Zahir ERP Update Manager ${ver} `, 'background:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600', `· ${APP_VERSION_DATE} · ${APP_VERSION_NOTE}`);
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
+document.addEventListener('DOMContentLoaded', async ()=>{
   // Show version immediately
   applyAppVersion();
 
@@ -2888,6 +2928,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
     $('loadingText').textContent = 'Connecting to Firebase...';
 
   // Restore session (Google) or fall back to anonymous guest
+  // Complete Google redirect sign-in (mobile)
+  try {
+    const redirectResult = await auth.getRedirectResult();
+    if(redirectResult && redirectResult.user){
+      sessionStorage.removeItem('erp_auth_redirect');
+      sessionStorage.removeItem('erp_guest_ok');
+      console.log('✅ Google redirect sign-in:', redirectResult.user.email || redirectResult.user.uid);
+    }
+  } catch(redirErr){
+    console.warn('Redirect sign-in error:', redirErr);
+    const errEl = $('authError');
+    if(errEl) errEl.textContent = redirErr.message || 'Google sign-in failed';
+  }
+
   let __authBootstrapped = false;
   let __authSigningIn = false;
   auth.onAuthStateChanged(async (user) => {
