@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.15.1';
+const APP_VERSION = '4.15.0';
 const APP_VERSION_DATE = '2026-09-22';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Richer colorful UI — less flat white';
+const APP_VERSION_NOTE = 'Google Sign-In for cross-device sync';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
