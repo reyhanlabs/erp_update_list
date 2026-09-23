@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.14.2';
-const APP_VERSION_DATE = '2026-09-22';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Tester table: drop Assignee column, widen Description';
+const APP_VERSION = '4.15.2';
+const APP_VERSION_DATE = '2026-09-23';   // YYYY-MM-DD
+const APP_VERSION_NOTE = 'Stable rebuild: Google Sign-In + colorful UI (hardened)';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -2565,6 +2565,139 @@ function renderAll(){
   refreshCounts();
 }
 
+
+/* ============================================================
+   ACCOUNT — Google Sign-In (cross-device sync)
+   - Guest (anonymous): random UID per device
+   - Google: same UID on PC & phone after sign-in
+   - Linking anonymous → Google keeps existing data on same UID
+   ============================================================ */
+function isAnonymousUser(user){
+  return !!(user && user.isAnonymous);
+}
+
+function updateAccountUI(user){
+  const identity = $('accountIdentity');
+  const statusText = $('accountStatusText');
+  const pill = $('accountStatusPill');
+  const btnIn = $('btnGoogleSignIn');
+  const btnOut = $('btnSignOut');
+  const uidEl = $('userUID');
+
+  if(uidEl) uidEl.textContent = user ? user.uid : '—';
+
+  if(!user){
+    if(identity) identity.textContent = 'Not signed in';
+    if(statusText) statusText.textContent = 'Signed out';
+    if(btnIn) btnIn.classList.remove('hidden');
+    if(btnOut) btnOut.classList.add('hidden');
+    return;
+  }
+
+  if(isAnonymousUser(user)){
+    if(identity) identity.textContent = 'Guest (anonymous) — data stays on this device only';
+    if(statusText) statusText.textContent = 'Guest';
+    if(pill) pill.classList.remove('ok');
+    if(btnIn) btnIn.classList.remove('hidden');
+    if(btnOut) btnOut.classList.add('hidden');
+  } else {
+    const email = user.email || user.providerData?.[0]?.email || user.displayName || 'Signed in';
+    if(identity) identity.textContent = email;
+    if(statusText) statusText.textContent = 'Google';
+    if(pill) pill.classList.add('ok');
+    if(btnIn) btnIn.classList.add('hidden');
+    if(btnOut) btnOut.classList.remove('hidden');
+  }
+}
+
+async function signInWithGoogle(){
+  const btn = $('btnGoogleSignIn');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  try {
+    if(btn){ btn.disabled = true; btn.textContent = 'Opening Google…'; }
+    const current = auth.currentUser;
+    let cred;
+    if(current && current.isAnonymous){
+      // Keep same UID + existing Firestore data
+      try {
+        cred = await current.linkWithPopup(provider);
+        toast('Google linked — data kept on this account');
+      } catch(linkErr){
+        // Already linked elsewhere, or popup blocked → fall back to sign-in
+        if(linkErr.code === 'auth/credential-already-in-use' ||
+           linkErr.code === 'auth/email-already-in-use'){
+          const result = await auth.signInWithPopup(provider);
+          cred = result;
+          toast('Signed in with Google (existing account)');
+        } else if(linkErr.code === 'auth/popup-blocked'){
+          toast('Popup blocked — allow popups for this site', 'error');
+          throw linkErr;
+        } else {
+          throw linkErr;
+        }
+      }
+    } else {
+      cred = await auth.signInWithPopup(provider);
+      toast('Signed in with Google');
+    }
+    const user = cred.user || auth.currentUser;
+    updateAccountUI(user);
+    if(user) await CloudSync.init(user.uid);
+    prefetchTesterCount();
+  } catch(err){
+    console.error('Google sign-in failed:', err);
+    const map = {
+      'auth/popup-closed-by-user': 'Sign-in cancelled',
+      'auth/popup-blocked': 'Popup blocked — allow popups for this site',
+      'auth/operation-not-allowed': 'Google sign-in is not enabled in Firebase Console (Authentication → Sign-in method → Google)',
+      'auth/unauthorized-domain': `Domain ${location.hostname} is not authorized in Firebase Console`,
+      'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method'
+    };
+    toast(map[err.code] || (err.message || 'Sign-in failed'), 'error');
+  } finally {
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" style="margin-right:4px"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Sign in with Google`;
+    }
+  }
+}
+
+async function signOutAccount(){
+  try {
+    await auth.signOut();
+    toast('Signed out — switching to guest…');
+    await auth.signInAnonymously();
+  } catch(err){
+    console.error(err);
+    toast(err.message || 'Sign out failed', 'error');
+  }
+}
+
+async function startAppForUser(user){
+  if(!user || !user.uid){
+    console.error('startAppForUser: missing user');
+    return;
+  }
+  try {
+    updateAccountUI(user);
+    const loadingText = $('loadingText');
+    if(loadingText) loadingText.textContent = 'Loading your data...';
+    await CloudSync.init(user.uid);
+    const overlay = $('loadingOverlay');
+    if(overlay) overlay.classList.add('hidden');
+    // Non-blocking prefetch
+    try { prefetchTesterCount(); } catch(e){ console.warn('prefetchTesterCount', e); }
+  } catch(err){
+    console.error('startAppForUser failed:', err);
+    setSyncStatus('error', 'Load failed');
+    const overlay = $('loadingOverlay');
+    if(overlay) overlay.classList.add('hidden');
+    toast(err.message || 'Failed to load data', 'error');
+  }
+}
+
 /* ============================================================
    VERSION DISPLAY
    ============================================================ */
@@ -2655,46 +2788,53 @@ document.addEventListener('DOMContentLoaded', ()=>{
   renderAll();
   switchView('dashboard');
 
-  $('loadingText').textContent = 'Connecting to Firebase...';
-  auth.signInAnonymously()
-    .then(async (cred) => {
-      const userUID = cred.user.uid;
-      console.log('✅ Signed in anonymously:', userUID);
-      $('loadingText').textContent = 'Loading your data...';
-      await CloudSync.init(userUID);
-      $('loadingOverlay').classList.add('hidden');
-      // Prefetch tester badge in background (cached)
-      prefetchTesterCount();
-    })
-    .catch(err => {
+    $('loadingText').textContent = 'Connecting to Firebase...';
+
+  // Restore session (Google) or fall back to anonymous guest
+  let __authBootstrapped = false;
+  let __authSigningIn = false;
+  auth.onAuthStateChanged(async (user) => {
+    try {
+      if(!user){
+        // No session → guest (will re-enter this handler with a user)
+        if(__authSigningIn) return;
+        __authSigningIn = true;
+        try {
+          await auth.signInAnonymously();
+        } finally {
+          __authSigningIn = false;
+        }
+        return;
+      }
+      // Avoid double-init on the anonymous follow-up from above
+      if(__authBootstrapped && CloudSync.uid === user.uid){
+        updateAccountUI(user);
+        return;
+      }
+      __authBootstrapped = true;
+      console.log('✅ Auth session:', user.isAnonymous ? 'anonymous' : (user.email || user.uid));
+      await startAppForUser(user);
+    } catch(err) {
       console.error('❌ Auth failed:', err);
       setSyncStatus('error', 'Auth failed');
-
       const msgMap = {
         'auth/unauthorized-domain': `Domain <b>${location.hostname}</b> is not authorized in Firebase Console.<br>Go to: Authentication → Settings → Authorized domains → Add domain.`,
-        'auth/operation-not-allowed': 'Anonymous sign-in is not enabled.<br>Go to: Firebase Console → Authentication → Sign-in method → Anonymous → Enable.',
+        'auth/operation-not-allowed': 'Sign-in method not enabled.<br>Enable Anonymous and/or Google in Firebase Console → Authentication → Sign-in method.',
         'auth/network-request-failed': 'Could not reach Firebase. Check your internet or disable adblock.',
         'auth/invalid-api-key': 'Firebase API key is invalid.'
       };
       const friendly = msgMap[err.code] || `Error: ${err.code || err.message}`;
-
       $('loadingText').innerHTML = `
         <div style="max-width:420px;text-align:center;color:#ef4444;font-weight:600;margin-bottom:8px">
           Failed to connect to Firebase
         </div>
         <div style="max-width:420px;text-align:center;color:var(--text-secondary);font-size:12.5px;line-height:1.6">
           ${friendly}
-        </div>
-        <button onclick="location.reload()" style="margin-top:16px;padding:8px 16px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">
-          Try Again
-        </button>
-      `;
-    });
-
-  window.addEventListener('online', ()=>{
-    if(CloudSync.uid) setSyncStatus('syncing', 'Reconnecting');
+        </div>`;
+    }
   });
-  window.addEventListener('offline', ()=> setSyncStatus('offline', 'Offline'));
+
+  applyAppVersion();
 
   // PWA service worker
   if('serviceWorker' in navigator){

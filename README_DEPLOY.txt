@@ -1,24 +1,34 @@
-Zahir ERP Update Manager — v4.14.0
-===================================
+Zahir ERP Update Manager — v4.15.2 (stable rebuild)
+====================================================
 
-BARU di v4.14.0
----------------
-Tester Queue dipisah per Category di sidebar:
-  - Front End
-  - Backend
-  - Design
-  - Other  (issue tanpa category / category lain)
+Berisi:
+- v4.15.0 Google Sign-In (cross-device sync)
+- v4.15.1 Colorful UI
+- v4.15.2 Hardened auth (null-safe, no double sign-in race)
 
-Mapping category Redmine (case-insensitive):
-  Front End  ← "Front End", "Frontend", "FE", "front-end"
-  Backend    ← "Backend", "Back End", "BE", "server"
-  Design     ← "Design", "UI", "UX", "UI/UX", "figma"
-  Other      ← selain di atas / kosong
+CARA DEPLOY AMAN
+----------------
+1. Backup dulu (opsional):
+   git status
+   git stash   # jika ada perubahan lokal yang belum commit
 
-API Redmine sekarang mengirim field category.
+2. Extract zip ini, copy SEMUA file ke root repo
+   (timpa index.html, js/app.js, css/style.css, api/*)
 
-CARA DEPLOY
------------
-1. Copy file ke root repo (timpa yang sama nama)
-2. git add . && git commit -m "v4.14.0: tester queue by category" && git push
-3. Tunggu Vercel → hard refresh (Ctrl+Shift+R)
+3. Cek ukuran file (penting!):
+   - js/app.js harus ~100 KB (bukan 1-3 KB)
+   - index.html ~48 KB
+
+4. Commit & push:
+   git add index.html js/app.js css/style.css api/redmine.js api/redmine-projects.js manifest.json sw.js
+   git commit -m "v4.15.2: stable rebuild Google Sign-In + colorful UI"
+   git pull --rebase origin main
+   git push origin main
+
+5. Tunggu Vercel 1-2 menit → Ctrl+Shift+R
+
+6. Firebase Console (sekali saja):
+   Authentication → Sign-in method → Enable Google
+   Authorized domains → erp-update-list.vercel.app
+
+7. Di app: Settings → Sign in with Google
