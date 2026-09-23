@@ -5,25 +5,38 @@
 
 const REDMINE_BASE = 'https://pjm.zahironline.com';
 
+async function fetchStatusesWithRetry(apiKey, attempts = 3) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const response = await fetch(`${REDMINE_BASE}/issue_statuses.json`, {
+        method: 'GET',
+        headers: {
+          'X-Redmine-API-Key': apiKey,
+          'Accept': 'application/json',
+          'User-Agent': 'Zahir-ERP-Update-Manager/1.0'
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.issue_statuses || [];
+      }
+      lastErr = new Error(`Failed to load issue statuses (${response.status})`);
+      // Retry on 502/503/504
+      if (![502, 503, 504].includes(response.status)) throw lastErr;
+    } catch (e) {
+      lastErr = e;
+    }
+    await new Promise(r => setTimeout(r, 400 * (i + 1)));
+  }
+  throw lastErr || new Error('Failed to load issue statuses');
+}
+
 async function resolveStatusId(apiKey, statusName) {
   if (!statusName) return null;
   const needle = String(statusName).toLowerCase().trim();
 
-  const response = await fetch(`${REDMINE_BASE}/issue_statuses.json`, {
-    method: 'GET',
-    headers: {
-      'X-Redmine-API-Key': apiKey,
-      'Accept': 'application/json',
-      'User-Agent': 'Zahir-ERP-Update-Manager/1.0'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load issue statuses (${response.status})`);
-  }
-
-  const data = await response.json();
-  const statuses = data.issue_statuses || [];
+  const statuses = await fetchStatusesWithRetry(apiKey);
 
   // Exact match first, then partial (contains)
   let found = statuses.find(s => (s.name || '').toLowerCase() === needle);

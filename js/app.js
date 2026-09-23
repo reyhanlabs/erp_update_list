@@ -7,9 +7,9 @@
    Bump this every time you deploy a meaningful change.
    Format: MAJOR.MINOR.PATCH
    ============================================================ */
-const APP_VERSION = '4.16.0';
+const APP_VERSION = '4.16.1';
 const APP_VERSION_DATE = '2026-09-23';   // YYYY-MM-DD
-const APP_VERSION_NOTE = 'Login page on open with Google Sign-In';
+const APP_VERSION_NOTE = 'Resilient Redmine status lookup for Tester Queue';
 
 /* Plan list filter state */
 window.__planFilter = window.__planFilter || 'all';
@@ -1677,6 +1677,18 @@ const TESTER_CAT_LABELS = {
 
 window.__testerCategory = window.__testerCategory || 'frontend';
 
+const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
+
+function getCachedRftStatusId(){
+  try { return localStorage.getItem(RFT_STATUS_CACHE_KEY) || ''; } catch(_){ return ''; }
+}
+function setCachedRftStatusId(id, name){
+  try {
+    if(id) localStorage.setItem(RFT_STATUS_CACHE_KEY, String(id));
+    if(name) localStorage.setItem(RFT_STATUS_CACHE_KEY + '_name', name);
+  } catch(_){}
+}
+
 function normalizeTesterCategory(name){
   const s = String(name || '').toLowerCase().trim();
   if(!s) return 'other';
@@ -1823,13 +1835,14 @@ function renderTesterList(){
 
   const all = window.__testerIssues || [];
   if(!all.length){
-    el.innerHTML = emptyState(ICON.check, 'No testing queue', 'No issues with status Ready for Testing in this project.');
+    el.innerHTML = emptyState(ICON.check, 'No testing queue', 'No issues with status Ready for Testing in this project. If this looks wrong, click Refresh — Redmine may have been temporarily unavailable.');
     return;
   }
 
   const list = getFilteredTesterIssues();
   if(!list.length){
-    el.innerHTML = emptyState(ICON.inbox, 'No results', 'Try changing the search keywords or assignee filter.', [
+    const catLabel = (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[window.__testerCategory]) || window.__testerCategory || 'this category';
+    el.innerHTML = emptyState(ICON.inbox, `No issues in ${catLabel}`, `There are ${all.length} Ready for Testing issue(s) total, but none in this category.`, [
       { label: 'Clear search', action: "$('testerSearch').value=''; renderTesterList();" }
     ]);
     return;
@@ -1948,20 +1961,44 @@ async function loadTesterReminder(force){
 
   try {
     const params = new URLSearchParams();
-    params.set('status_name', 'Ready for Testing');
+    const cachedSid = getCachedRftStatusId();
+    if(cachedSid){
+      params.set('status_id', cachedSid);
+    } else {
+      params.set('status_name', 'Ready for Testing');
+    }
     params.set('project_id', pid);
     params.set('limit', '100');
     params.set('sort', 'updated_on:desc');
     const path = `/api/redmine?${params.toString()}`;
 
-    const { data, fromCache } = await fetchRedmine(path, { force: !!force });
+    let data, fromCache;
+    try {
+      ({ data, fromCache } = await fetchRedmine(path, { force: !!force }));
+    } catch(firstErr){
+      // If cached status_id failed / stale, retry once via status_name
+      if(cachedSid){
+        const p2 = new URLSearchParams();
+        p2.set('status_name', 'Ready for Testing');
+        p2.set('project_id', pid);
+        p2.set('limit', '100');
+        p2.set('sort', 'updated_on:desc');
+        ({ data, fromCache } = await fetchRedmine(`/api/redmine?${p2.toString()}`, { force: true }));
+      } else {
+        throw firstErr;
+      }
+    }
+
+    if(data.resolved_status?.id){
+      setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
+    }
 
     const issues = data.issues || [];
     window.__testerIssues = issues;
     window.__testerAssigneeFilter = 'all';
     window.__testerMeta = {
       fromCache: !!fromCache,
-      statusName: data.resolved_status?.name || 'Ready for Testing'
+      statusName: data.resolved_status?.name || localStorage.getItem(RFT_STATUS_CACHE_KEY + '_name') || 'Ready for Testing'
     };
 
     if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName;
@@ -2000,11 +2037,14 @@ async function prefetchTesterCount(){
     const pid = getSelectedProjectId();
     if(!pid) return;
     const params = new URLSearchParams();
-    params.set('status_name', 'Ready for Testing');
+    const cachedSid = getCachedRftStatusId();
+    if(cachedSid) params.set('status_id', cachedSid);
+    else params.set('status_name', 'Ready for Testing');
     params.set('project_id', pid);
     params.set('limit', '100');
     params.set('sort', 'updated_on:desc');
     const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+    if(data.resolved_status?.id) setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
     const issues = data.issues || [];
     window.__testerIssues = issues;
     window.__testerMeta = {
