@@ -1942,7 +1942,6 @@ function updateNotifToggleUI(){
   }
 }
 
-async 
 function toggleNotifPanel(ev){
   if(ev){ ev.stopPropagation(); }
   const panel = $('notifPanel');
