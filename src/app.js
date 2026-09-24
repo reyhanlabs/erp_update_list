@@ -1954,7 +1954,7 @@ function closeNotifPanel(){
   const panel = $('notifPanel');
   if(panel) panel.classList.add('hidden');
 }
-function toggleTesterNotifications(){
+async function toggleTesterNotifications(){
   if(typeof Notification === 'undefined'){
     toast('This browser does not support notifications', 'error');
     return;
