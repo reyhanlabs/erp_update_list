@@ -1884,6 +1884,7 @@ function updateNewIssueIndicators(){
   const totalNew = Object.values(counts).reduce((a,b)=>a+b,0);
   const badge = $('testerCountBadge');
   if(badge) badge.classList.toggle('badge-new', totalNew > 0);
+  try { updateNotifToggleUI(); } catch(_){}
 }
 
 
@@ -1912,6 +1913,8 @@ function saveLastNotifiedIds(set){
 function updateNotifToggleUI(){
   const btn = $('btnToggleTesterNotif');
   const status = $('testerNotifStatus');
+  const bell = $('btnNotifBell');
+  const dot = $('notifBellDot');
   const on = isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted';
   if(btn){
     btn.textContent = on ? 'Disable notifications' : 'Enable notifications';
@@ -1924,14 +1927,34 @@ function updateNotifToggleUI(){
     } else if(Notification.permission === 'denied'){
       status.textContent = 'Blocked by browser — allow in site settings';
     } else if(on){
-      status.textContent = 'On — checks about every 3 minutes while this tab is open';
+      status.textContent = 'On — checks every ~3 min while this tab is open';
     } else {
       status.textContent = 'Off';
     }
   }
+  if(bell) bell.classList.toggle('is-on', on);
+  // Dot = notifications ON and there are unseen new issues
+  if(dot){
+    const counts = (typeof countNewByCategory === 'function') ? countNewByCategory() : {};
+    const totalNew = Object.values(counts).reduce((a,b)=>a+b, 0);
+    const showDot = on && totalNew > 0;
+    dot.classList.toggle('hidden', !showDot);
+  }
 }
 
-async function toggleTesterNotifications(){
+async 
+function toggleNotifPanel(ev){
+  if(ev){ ev.stopPropagation(); }
+  const panel = $('notifPanel');
+  if(!panel) return;
+  panel.classList.toggle('hidden');
+  updateNotifToggleUI();
+}
+function closeNotifPanel(){
+  const panel = $('notifPanel');
+  if(panel) panel.classList.add('hidden');
+}
+function toggleTesterNotifications(){
   if(typeof Notification === 'undefined'){
     toast('This browser does not support notifications', 'error');
     return;
@@ -3330,7 +3353,7 @@ function exposeAppGlobals(){
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
-    toggleTesterNotifications,
+    toggleTesterNotifications, toggleNotifPanel, closeNotifPanel,
     CloudSync
   };
   Object.keys(map).forEach(k => {
@@ -3346,6 +3369,10 @@ export async function startApp(){
     if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
       startTesterNotifPoll();
     }
+    document.addEventListener('click', (e) => {
+      const wrap = $('notifBellWrap');
+      if(wrap && !wrap.contains(e.target)) closeNotifPanel();
+    });
   } catch(_){}
 
   // Formerly DOMContentLoaded handler

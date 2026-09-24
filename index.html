@@ -173,6 +173,25 @@
         <span class="label" id="syncLabel">Syncing</span>
       </div>
 
+      <div class="notif-bell-wrap" id="notifBellWrap">
+        <button type="button" class="notif-bell-btn" id="btnNotifBell" onclick="toggleNotifPanel(event)" title="Notifications" aria-label="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-bell-dot hidden" id="notifBellDot"></span>
+        </button>
+        <div class="notif-panel hidden" id="notifPanel">
+          <div class="notif-panel-head">Notifications</div>
+          <p class="notif-panel-desc">Alert when new <b>Ready for Testing</b> issues appear in Redmine.</p>
+          <p class="notif-panel-status" id="testerNotifStatus">Off</p>
+          <button type="button" class="btn btn-primary btn-sm" id="btnToggleTesterNotif" onclick="toggleTesterNotifications()">
+            Enable notifications
+          </button>
+          <p class="notif-panel-hint">Tab must stay open. Checks about every 3 minutes.</p>
+        </div>
+      </div>
+
       <div class="theme-switch" role="group" aria-label="Theme switcher">
         <button data-theme-set="light" title="Light mode" aria-label="Light mode">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -629,24 +648,6 @@
 
         <div class="card" style="margin-bottom:0">
           <div class="card-head">
-            <h3><span class="mark"></span> Notifications</h3>
-          </div>
-          <div class="card-body">
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
-              Get a browser notification when new <b>Ready for Testing</b> issues appear in Redmine.
-              The tab must stay open (or in background). Checks about every 3 minutes.
-            </p>
-            <div class="workspace-row">
-              <button type="button" class="btn btn-primary btn-sm" id="btnToggleTesterNotif" onclick="toggleTesterNotifications()">
-                Enable notifications
-              </button>
-            </div>
-            <p id="testerNotifStatus" style="font-size:12px;color:var(--text-tertiary);margin-top:10px;line-height:1.5">Off</p>
-          </div>
-        </div>
-
-        <div class="card" style="margin-bottom:0">
-          <div class="card-head">
             <h3><span class="mark"></span> Cloud Sync</h3>
             <span class="status-pill" id="cloudStatusPill">
               <span class="sp-dot"></span>
@@ -723,6 +724,10 @@
           </div>
           <div class="card-body">
             <div class="changelog" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.1</span>
+                <span class="cl-note">Notification bell in topbar</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.21.0</span>
                 <span class="cl-note">Browser notifications for new Ready for Testing issues</span>
