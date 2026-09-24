@@ -1847,7 +1847,15 @@ body.auth-locked .main{
 }
 [data-theme="dark"] .new-chip{background:rgba(239,68,68,.22);color:#fca5a5}
 .tester-tr.is-new td{background:rgba(239,68,68,.04)}
-.tester-tr.is-immediate td{box-shadow:inset 3px 0 0 #ef4444}
+.tester-tr.is-immediate td{border-color:transparent}
+.tester-tr.is-immediate td:first-child{
+  box-shadow:inset 3px 0 0 #ef4444;
+  border-left:none;
+}
+.tester-tr.is-immediate{
+  background:rgba(239,68,68,.03);
+}
+.tester-tr.is-immediate:hover{background:rgba(239,68,68,.06)}
 .tester-mcard.is-new{border-color:rgba(239,68,68,.35)}
 .tester-mcard.is-immediate{border-left:3px solid #ef4444}
 

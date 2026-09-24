@@ -3348,15 +3348,22 @@ function exposeAppGlobals(){
     setPlanFilter, renderPlans, renderSummaries, renderTesterList,
     loadTesterReminder, copyTesterList, openPlansWithSync, toggleSyncPanel,
     previewRedmineSync, syncFromRedmine, testRedmineConnection, onRedmineProjectChange,
-    onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate,
+    onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate, removeIssueRow,
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
     toggleTesterNotifications, toggleNotifPanel, closeNotifPanel,
+    // Plan cards
+    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, editPlan, deletePlan,
+    // Summaries
+    editSummary, deleteSummary, copySummary, quickSummary,
+    finishSyncAndShowPlans,
     CloudSync
   };
   Object.keys(map).forEach(k => {
-    try { window[k] = map[k]; } catch(e){ console.warn('expose failed', k, e); }
+    try {
+      if(typeof map[k] !== 'undefined') window[k] = map[k];
+    } catch(e){ console.warn('expose failed', k, e); }
   });
 }
 
