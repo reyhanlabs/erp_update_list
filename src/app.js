@@ -1771,6 +1771,8 @@ function openTesterCategory(cat){
   });
   renderTesterList();
   updateTesterCategoryBadges();
+  // Opening a category marks its issues as seen (clears red dots)
+  markCategoryIssuesSeen(key);
 }
 
 function updateTesterCategoryBadges(){
@@ -1790,6 +1792,7 @@ function updateTesterCategoryBadges(){
     const nav = document.querySelector(`.nav-item[data-tester-cat="${k}"]`);
     if(nav) nav.classList.toggle('has-queue', counts[k] > 0);
   });
+  updateNewIssueIndicators();
 
   // Badge in card = current category count
   const cat = window.__testerCategory || 'frontend';
@@ -1819,12 +1822,257 @@ function setTesterBadgeCount(n){
   });
 }
 
+
+/* ===== New-issue tracking (badge) ===== */
+const SEEN_ISSUES_KEY = 'erp_tester_seen_ids';
+function getSeenIssueIds(){
+  try {
+    const raw = localStorage.getItem(SEEN_ISSUES_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch(_){ return new Set(); }
+}
+function saveSeenIssueIds(set){
+  try {
+    // keep last 500 ids
+    const arr = Array.from(set).slice(-500);
+    localStorage.setItem(SEEN_ISSUES_KEY, JSON.stringify(arr));
+  } catch(_){}
+}
+function markCategoryIssuesSeen(cat){
+  const seen = getSeenIssueIds();
+  (window.__testerIssues || []).forEach(i => {
+    if(getIssueTesterCategory(i) === cat) seen.add(String(i.id));
+  });
+  saveSeenIssueIds(seen);
+  updateTesterCategoryBadges();
+  updateNewIssueIndicators();
+}
+function isNewIssue(issue){
+  const seen = getSeenIssueIds();
+  return !seen.has(String(issue.id));
+}
+function countNewByCategory(){
+  const seen = getSeenIssueIds();
+  const counts = { frontend:0, backend:0, design:0, other:0 };
+  (window.__testerIssues || []).forEach(i => {
+    if(!seen.has(String(i.id))){
+      counts[getIssueTesterCategory(i)]++;
+    }
+  });
+  return counts;
+}
+function updateNewIssueIndicators(){
+  const counts = countNewByCategory();
+  Object.keys(counts).forEach(k => {
+    const nav = document.querySelector(`.nav-item[data-tester-cat="${k}"]`);
+    if(!nav) return;
+    nav.classList.toggle('has-new', counts[k] > 0);
+    let dot = nav.querySelector('.nav-new-dot');
+    if(counts[k] > 0){
+      if(!dot){
+        dot = document.createElement('span');
+        dot.className = 'nav-new-dot';
+        dot.title = counts[k] + ' new';
+        nav.appendChild(dot);
+      }
+    } else if(dot){
+      dot.remove();
+    }
+  });
+  // Topbar pulse on tester card badge if any new
+  const totalNew = Object.values(counts).reduce((a,b)=>a+b,0);
+  const badge = $('testerCountBadge');
+  if(badge) badge.classList.toggle('badge-new', totalNew > 0);
+}
+
+
+/* ===== Browser notifications: new Ready for Testing ===== */
+const NOTIF_PREF_KEY = 'erp_tester_notif_enabled';
+const NOTIF_LAST_KEY = 'erp_tester_notif_last_ids';
+let __testerNotifTimer = null;
+
+function isTesterNotifEnabled(){
+  try { return localStorage.getItem(NOTIF_PREF_KEY) === '1'; } catch(_){ return false; }
+}
+
+function getLastNotifiedIds(){
+  try {
+    const raw = localStorage.getItem(NOTIF_LAST_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch(_){ return new Set(); }
+}
+function saveLastNotifiedIds(set){
+  try {
+    localStorage.setItem(NOTIF_LAST_KEY, JSON.stringify(Array.from(set).slice(-500)));
+  } catch(_){}
+}
+
+function updateNotifToggleUI(){
+  const btn = $('btnToggleTesterNotif');
+  const status = $('testerNotifStatus');
+  const on = isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  if(btn){
+    btn.textContent = on ? 'Disable notifications' : 'Enable notifications';
+    btn.classList.toggle('btn-primary', !on);
+    btn.classList.toggle('btn-secondary', on);
+  }
+  if(status){
+    if(typeof Notification === 'undefined'){
+      status.textContent = 'Not supported in this browser';
+    } else if(Notification.permission === 'denied'){
+      status.textContent = 'Blocked by browser — allow in site settings';
+    } else if(on){
+      status.textContent = 'On — checks about every 3 minutes while this tab is open';
+    } else {
+      status.textContent = 'Off';
+    }
+  }
+}
+
+async function toggleTesterNotifications(){
+  if(typeof Notification === 'undefined'){
+    toast('This browser does not support notifications', 'error');
+    return;
+  }
+  if(isTesterNotifEnabled()){
+    try { localStorage.setItem(NOTIF_PREF_KEY, '0'); } catch(_){}
+    stopTesterNotifPoll();
+    updateNotifToggleUI();
+    toast('Notifications disabled');
+    return;
+  }
+  let perm = Notification.permission;
+  if(perm === 'default'){
+    perm = await Notification.requestPermission();
+  }
+  if(perm !== 'granted'){
+    try { localStorage.setItem(NOTIF_PREF_KEY, '0'); } catch(_){}
+    updateNotifToggleUI();
+    toast('Permission denied — enable notifications for this site in the browser', 'error');
+    return;
+  }
+  try { localStorage.setItem(NOTIF_PREF_KEY, '1'); } catch(_){}
+  startTesterNotifPoll();
+  updateNotifToggleUI();
+  toast('Browser notifications enabled');
+  // Immediate check
+  checkTesterNotifications().catch(()=>{});
+}
+
+function notifyNewTesterIssues(issues){
+  if(!isTesterNotifEnabled()) return;
+  if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if(!issues || !issues.length) return;
+
+  const seen = getSeenIssueIds();
+  const last = getLastNotifiedIds();
+  const fresh = issues.filter(i => {
+    const id = String(i.id);
+    return !seen.has(id) && !last.has(id);
+  });
+  if(!fresh.length) return;
+
+  const title = fresh.length === 1
+    ? `Ready for Testing: #${fresh[0].id}`
+    : `${fresh.length} new Ready for Testing issues`;
+  const body = fresh.slice(0, 4).map(i => {
+    const sub = (i.subject || '').slice(0, 80);
+    return `#${i.id} ${sub}`;
+  }).join('\n');
+
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: '/icon.png',
+      badge: '/icon.png',
+      tag: 'erp-rft-queue',
+      renotify: true
+    });
+    n.onclick = () => {
+      try { window.focus(); } catch(_){}
+      // Open category with most new items
+      const counts = { frontend:0, backend:0, design:0, other:0 };
+      fresh.forEach(i => { counts[getIssueTesterCategory(i)]++; });
+      const best = Object.keys(counts).sort((a,b) => counts[b]-counts[a])[0] || 'frontend';
+      openTesterCategory(best);
+      n.close();
+    };
+  } catch(err){
+    console.warn('Notification failed', err);
+  }
+
+  fresh.forEach(i => last.add(String(i.id)));
+  saveLastNotifiedIds(last);
+}
+
+async function checkTesterNotifications(){
+  if(!isTesterNotifEnabled()) return;
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const pid = getSelectedProjectId();
+    if(!pid) return;
+
+    const params = new URLSearchParams();
+    const cachedSid = getCachedRftStatusId();
+    if(cachedSid) params.set('status_id', cachedSid);
+    else params.set('status_name', 'Ready for Testing');
+    params.set('project_id', pid);
+    params.set('limit', '100');
+    params.set('sort', 'updated_on:desc');
+
+    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+    if(data.resolved_status?.id) setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
+    const issues = data.issues || [];
+    // Keep global list in sync for badges
+    if(issues.length){
+      window.__testerIssues = issues;
+      updateTesterCategoryBadges();
+    }
+    notifyNewTesterIssues(issues);
+  } catch(err){
+    console.warn('checkTesterNotifications', err);
+  }
+}
+
+function startTesterNotifPoll(){
+  if(__testerNotifTimer) return;
+  // Every 3 minutes
+  __testerNotifTimer = setInterval(() => {
+    if(!isTesterNotifEnabled()) return;
+    // Skip if tab hidden for long stretch? still check — user asked for notif while away
+    checkTesterNotifications().catch(()=>{});
+  }, 3 * 60 * 1000);
+}
+
+function stopTesterNotifPoll(){
+  if(__testerNotifTimer){
+    clearInterval(__testerNotifTimer);
+    __testerNotifTimer = null;
+  }
+}
+
 function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
   const cat = window.__testerCategory || 'frontend';
+  const priFilter = ($('testerPriorityFilter')?.value || 'all');
 
   return (window.__testerIssues || []).filter(i => {
     if(getIssueTesterCategory(i) !== cat) return false;
+    if(priFilter !== 'all'){
+      const pc = priorityClass(i.priority?.name);
+      // map filter value to class suffix
+      const want = 'pri-' + priFilter;
+      // high filter also matches urgent class already in priorityClass
+      if(priFilter === 'high'){
+        if(pc !== 'pri-high') return false;
+      } else if(pc !== want){
+        return false;
+      }
+    }
     if(!q) return true;
     const hay = [
       i.id, i.subject, i.assigned_to?.name, i.priority?.name,
@@ -1860,8 +2108,9 @@ function renderTesterTableRows(list){
     const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
     const priority = issue.priority?.name || '—';
     const tracker = issue.tracker?.name || '—';
-    return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
-      <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
+    const isNew = isNewIssue(issue);
+    return `<tr class="tester-tr${isNew ? ' is-new' : ''}${priorityClass(issue.priority?.name)==='pri-immediate' ? ' is-immediate' : ''}" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a>${isNew ? '<span class="new-chip">NEW</span>' : ''}</td>
       <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${escapeHtml(issue.subject || '—')}</td>
       <td class="col-priority">${priorityBadge(priority)}</td>
       <td class="col-tracker">${escapeHtml(tracker)}</td>
@@ -1878,7 +2127,8 @@ function renderTesterTable(list){
     const priority = issue.priority?.name || '—';
     const tracker = issue.tracker?.name || '—';
     const assignee = issue.assigned_to?.name || 'Unassigned';
-    return `<a class="tester-mcard" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+    const isNew = isNewIssue(issue);
+    return `<a class="tester-mcard${isNew ? ' is-new' : ''}${priorityClass(issue.priority?.name)==='pri-immediate' ? ' is-immediate' : ''}" href="${escapeHtml(url)}" target="_blank" rel="noopener">
       <div class="tester-mcard-top">
         <span class="tester-mcard-id">#${issue.id}</span>
         <span class="tester-mcard-pri">${priorityBadge(priority)}</span>
@@ -1912,6 +2162,18 @@ function renderTesterTable(list){
   <div class="tester-cards tester-mobile">${cards}</div>`;
 }
 
+
+function testerLoadingSkeleton(){
+  const row = () => `<div class="skel-row">
+    <div class="skel skel-id"></div>
+    <div class="skel skel-line long"></div>
+    <div class="skel skel-pill"></div>
+  </div>`;
+  return `<div class="skel-wrap" aria-busy="true" aria-label="Loading">
+    <div class="skel-label">Loading Ready for Testing…</div>
+    ${row()}${row()}${row()}${row()}
+  </div>`;
+}
 function renderTesterList(){
   const el = $('testerReminder');
   if(!el) return;
@@ -2051,7 +2313,7 @@ async function loadTesterReminder(force){
     btn.textContent = force ? 'Refreshing…' : 'Loading…';
   }
   if(!window.__testerIssues.length || force){
-    el.innerHTML = `<div class="empty" style="padding:28px 16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">Loading Ready for Testing issues…</p></div>`;
+    el.innerHTML = testerLoadingSkeleton();
   }
 
   try {
@@ -2097,6 +2359,9 @@ async function loadTesterReminder(force){
       error: null
     };
     window.__testerLoadError = null;
+
+    // Browser notification for brand-new issues (if enabled)
+    try { notifyNewTesterIssues(issues); } catch(_){}
 
     if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName;
     setTesterBadgeCount(issues.length);
@@ -3065,6 +3330,7 @@ function exposeAppGlobals(){
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
+    toggleTesterNotifications,
     CloudSync
   };
   Object.keys(map).forEach(k => {
@@ -3074,6 +3340,14 @@ function exposeAppGlobals(){
 
 export async function startApp(){
   exposeAppGlobals();
+  // Restore notification preference
+  try {
+    updateNotifToggleUI();
+    if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+      startTesterNotifPoll();
+    }
+  } catch(_){}
+
   // Formerly DOMContentLoaded handler
   // Show version immediately
   applyAppVersion();

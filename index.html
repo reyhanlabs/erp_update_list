@@ -481,6 +481,13 @@
             </svg>
             <input type="text" id="testerSearch" placeholder="Search subject, assignee, #id, priority..." oninput="renderTesterList()"/>
           </div>
+          <select class="select" id="testerPriorityFilter" onchange="renderTesterList()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
           <select class="select" id="testerGroupBy" onchange="renderTesterList()">
             <option value="assignee">Group: Assignee</option>
             <option value="none">No grouping</option>
@@ -622,6 +629,24 @@
 
         <div class="card" style="margin-bottom:0">
           <div class="card-head">
+            <h3><span class="mark"></span> Notifications</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+              Get a browser notification when new <b>Ready for Testing</b> issues appear in Redmine.
+              The tab must stay open (or in background). Checks about every 3 minutes.
+            </p>
+            <div class="workspace-row">
+              <button type="button" class="btn btn-primary btn-sm" id="btnToggleTesterNotif" onclick="toggleTesterNotifications()">
+                Enable notifications
+              </button>
+            </div>
+            <p id="testerNotifStatus" style="font-size:12px;color:var(--text-tertiary);margin-top:10px;line-height:1.5">Off</p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
             <h3><span class="mark"></span> Cloud Sync</h3>
             <span class="status-pill" id="cloudStatusPill">
               <span class="sp-dot"></span>
@@ -698,6 +723,14 @@
           </div>
           <div class="card-body">
             <div class="changelog" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.0</span>
+                <span class="cl-note">Browser notifications for new Ready for Testing issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.20.0</span>
+                <span class="cl-note">Priority filter · new-issue sidebar dots · loading skeleton</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.19.2</span>
                 <span class="cl-note">Fix duplicate Tester list (table + cards both showing)</span>
