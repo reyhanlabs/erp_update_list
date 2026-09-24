@@ -1763,9 +1763,12 @@ body.auth-locked .main{
 /* ============================================================
    TESTER QUEUE — mobile cards + desktop table
    ============================================================ */
-.tester-mobile{display:none}
+/* Desktop: table only. Mobile: cards only. */
 .tester-desktop{display:block}
-.tester-cards{display:flex;flex-direction:column;gap:10px;padding:4px 0 8px}
+.tester-cards.tester-mobile{
+  display:none;
+  flex-direction:column;gap:10px;padding:4px 0 8px;
+}
 .tester-mcard{
   display:block;text-decoration:none;color:inherit;
   padding:14px 14px 12px;border-radius:14px;
@@ -1780,8 +1783,8 @@ body.auth-locked .main{
 .tester-mcard-meta{display:flex;flex-wrap:wrap;gap:8px 12px;font-size:11.5px;color:var(--text-tertiary)}
 @media(max-width:700px){
   .tester-desktop{display:none !important}
-  .tester-mobile{display:flex !important;flex-direction:column;gap:10px}
   .tester-table-wrap.tester-desktop{display:none !important}
+  .tester-cards.tester-mobile{display:flex !important}
 }
 
 /* Workspace card */
