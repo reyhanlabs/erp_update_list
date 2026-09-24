@@ -139,18 +139,105 @@ const CloudSync = {
   unsubPlans: null,
   unsubSummaries: null,
 
+  workspaceId: null,
+
   async init(uid){
     this.uid = uid;
-    this.plansRef = db.collection('users').doc(uid).collection('plans');
-    this.summariesRef = db.collection('users').doc(uid).collection('summaries');
     const uidEl = $('userUID');
     if(uidEl) uidEl.textContent = uid;
+
+    // Resolve shared workspace (team) or personal default
+    this.workspaceId = await this.resolveWorkspaceId(uid);
+    this.plansRef = db.collection('workspaces').doc(this.workspaceId).collection('plans');
+    this.summariesRef = db.collection('workspaces').doc(this.workspaceId).collection('summaries');
+
+    // One-time migrate from legacy users/{uid}/… if workspace is empty
+    await this.maybeMigrateLegacyUserData(uid);
+
+    const wsEl = $('workspaceIdLabel');
+    if(wsEl) wsEl.textContent = this.workspaceId;
 
     setSyncStatus('syncing', 'Syncing');
     await this.pullAll();
     this.subscribe();
     setSyncStatus('online', 'Synced');
     updateLastSync();
+  },
+
+  async resolveWorkspaceId(uid){
+    try {
+      const userRef = db.collection('users').doc(uid);
+      const snap = await userRef.get();
+      let ws = snap.exists ? (snap.data().workspaceId || null) : null;
+      if(!ws){
+        try { ws = localStorage.getItem('erp_workspace_id') || null; } catch(_){}
+      }
+      if(!ws) ws = uid; // personal workspace = uid
+      await userRef.set({
+        workspaceId: ws,
+        email: (auth.currentUser && auth.currentUser.email) || null,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      try { localStorage.setItem('erp_workspace_id', ws); } catch(_){}
+      return ws;
+    } catch(err){
+      console.warn('resolveWorkspaceId', err);
+      return uid;
+    }
+  },
+
+  async maybeMigrateLegacyUserData(uid){
+    try {
+      const [wsPlans, legacyPlans] = await Promise.all([
+        this.plansRef.limit(1).get(),
+        db.collection('users').doc(uid).collection('plans').limit(1).get()
+      ]);
+      if(!wsPlans.empty || legacyPlans.empty) return;
+      // Copy legacy personal data into workspace
+      const [allPlans, allSums] = await Promise.all([
+        db.collection('users').doc(uid).collection('plans').get(),
+        db.collection('users').doc(uid).collection('summaries').get()
+      ]);
+      const batch = db.batch();
+      allPlans.docs.forEach(d => batch.set(this.plansRef.doc(d.id), d.data(), { merge: true }));
+      allSums.docs.forEach(d => batch.set(this.summariesRef.doc(d.id), d.data(), { merge: true }));
+      await batch.commit();
+      console.log('Migrated legacy user data → workspace', this.workspaceId);
+      toast('Personal data moved into workspace');
+    } catch(err){
+      console.warn('legacy migrate skipped', err);
+    }
+  },
+
+  async joinWorkspace(code){
+    const id = String(code || '').trim();
+    if(!id){
+      toast('Enter a workspace code', 'error');
+      return;
+    }
+    if(!this.uid){
+      toast('Sign in first', 'error');
+      return;
+    }
+    setSyncStatus('syncing', 'Switching workspace');
+    try {
+      await db.collection('users').doc(this.uid).set({ workspaceId: id }, { merge: true });
+      try { localStorage.setItem('erp_workspace_id', id); } catch(_){}
+      // Re-bind listeners
+      if(this.unsubPlans) this.unsubPlans();
+      if(this.unsubSummaries) this.unsubSummaries();
+      await this.init(this.uid);
+      toast('Joined workspace: ' + id);
+    } catch(err){
+      console.error(err);
+      setSyncStatus('error', 'Workspace error');
+      toast(err.message || 'Could not join workspace', 'error');
+    }
+  },
+
+  async usePersonalWorkspace(){
+    if(!this.uid) return;
+    await this.joinWorkspace(this.uid);
   },
 
   async pullAll(){
@@ -1770,7 +1857,27 @@ function renderTesterTableRows(list){
 }
 
 function renderTesterTable(list){
-  return `<div class="tester-table-wrap">
+  const cards = list.map(issue => {
+    const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+    const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
+    const priority = issue.priority?.name || '—';
+    const tracker = issue.tracker?.name || '—';
+    const assignee = issue.assigned_to?.name || 'Unassigned';
+    return `<a class="tester-mcard" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+      <div class="tester-mcard-top">
+        <span class="tester-mcard-id">#${issue.id}</span>
+        <span class="tester-mcard-pri">${escapeHtml(priority)}</span>
+      </div>
+      <div class="tester-mcard-subject">${escapeHtml(issue.subject || '—')}</div>
+      <div class="tester-mcard-meta">
+        <span>${escapeHtml(assignee)}</span>
+        <span>${escapeHtml(tracker)}</span>
+        <span>${escapeHtml(updated)}</span>
+      </div>
+    </a>`;
+  }).join('');
+
+  return `<div class="tester-table-wrap tester-desktop">
     <table class="tester-table">
       <thead>
         <tr>
@@ -1786,16 +1893,29 @@ function renderTesterTable(list){
         ${renderTesterTableRows(list)}
       </tbody>
     </table>
-  </div>`;
+  </div>
+  <div class="tester-cards tester-mobile">${cards}</div>`;
 }
 
 function renderTesterList(){
   const el = $('testerReminder');
   if(!el) return;
 
+  // Error state must never look like "empty queue"
+  const loadErr = window.__testerLoadError || window.__testerMeta?.error;
+  if(loadErr){
+    el.innerHTML = emptyState(ICON.alert, loadErr.title || 'Redmine unavailable', loadErr.message || 'Could not load tester queue. Check Redmine or try again.', [
+      { label: 'Try again', action: 'loadTesterReminder(true)', primary: true },
+      { label: 'Open Sync', action: "openPlansWithSync()" }
+    ]);
+    return;
+  }
+
   const all = window.__testerIssues || [];
   if(!all.length){
-    el.innerHTML = emptyState(ICON.check, 'No testing queue', 'No issues with status Ready for Testing in this project. If this looks wrong, click Refresh — Redmine may have been temporarily unavailable.');
+    el.innerHTML = emptyState(ICON.check, 'No testing queue', 'No issues with status Ready for Testing in this project.', [
+      { label: 'Refresh', action: 'loadTesterReminder(true)', primary: true }
+    ]);
     return;
   }
 
@@ -1958,8 +2078,10 @@ async function loadTesterReminder(force){
     window.__testerAssigneeFilter = 'all';
     window.__testerMeta = {
       fromCache: !!fromCache,
-      statusName: data.resolved_status?.name || localStorage.getItem(RFT_STATUS_CACHE_KEY + '_name') || 'Ready for Testing'
+      statusName: data.resolved_status?.name || localStorage.getItem(RFT_STATUS_CACHE_KEY + '_name') || 'Ready for Testing',
+      error: null
     };
+    window.__testerLoadError = null;
 
     if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName;
     setTesterBadgeCount(issues.length);
@@ -1973,6 +2095,8 @@ async function loadTesterReminder(force){
   } catch(err){
     console.error('Tester reminder failed:', err);
     const friendly = err.friendly || { title: 'Failed to load', message: err.message };
+    window.__testerLoadError = friendly;
+    window.__testerMeta = { ...(window.__testerMeta||{}), error: friendly };
     setTesterBadgeCount(null);
     const badge = $('testerCountBadge');
     if(badge) badge.textContent = '!';
@@ -2901,6 +3025,21 @@ function applyAppVersion(){
 
 
 /** Expose functions used by HTML onclick/onchange (ES modules are not global) */
+
+function joinWorkspace(){
+  const input = $('workspaceCodeInput');
+  const code = input ? input.value.trim() : '';
+  return CloudSync.joinWorkspace(code);
+}
+function usePersonalWorkspace(){
+  return CloudSync.usePersonalWorkspace();
+}
+function copyWorkspaceId(){
+  const id = CloudSync.workspaceId || '';
+  if(!id){ toast('No workspace yet', 'error'); return; }
+  navigator.clipboard.writeText(id).then(()=>toast('Workspace code copied')).catch(()=>toast(id));
+}
+
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
@@ -2910,6 +3049,7 @@ function exposeAppGlobals(){
     onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate,
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
+    joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
     CloudSync
   };
   Object.keys(map).forEach(k => {

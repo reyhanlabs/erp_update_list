@@ -586,6 +586,42 @@
 
         <div class="card" style="margin-bottom:0">
           <div class="card-head">
+            <h3><span class="mark"></span> Team Workspace</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+              Share the same plans &amp; summaries with your team. Everyone who joins the same workspace code sees the same data.
+            </p>
+            <div class="info-tile" style="margin-bottom:12px">
+              <div class="info-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div class="info-tile-body">
+                <div class="info-tile-label">Current workspace</div>
+                <div class="info-tile-value workspace-code" id="workspaceIdLabel">—</div>
+              </div>
+            </div>
+            <div class="workspace-row">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copyWorkspaceId()">Copy code</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="usePersonalWorkspace()">Use personal</button>
+            </div>
+            <div class="workspace-row" style="margin-top:12px">
+              <input type="text" id="workspaceCodeInput" placeholder="Enter team workspace code" autocomplete="off"/>
+              <button type="button" class="btn btn-primary btn-sm" onclick="joinWorkspace()">Join</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-tertiary);margin-top:10px;line-height:1.5">
+              Tip: one person copies their code, teammates paste it and click Join.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
             <h3><span class="mark"></span> Cloud Sync</h3>
             <span class="status-pill" id="cloudStatusPill">
               <span class="sp-dot"></span>
@@ -662,6 +698,10 @@
           </div>
           <div class="card-body">
             <div class="changelog" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.0</span>
+                <span class="cl-note">Team workspace · Redmine error vs empty · mobile Tester cards</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.18.1</span>
                 <span class="cl-note">Fix Tester Queue sidebar clicks (Backend / Design / Other)</span>
