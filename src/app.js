@@ -1839,6 +1839,21 @@ function setTesterAssigneeFilter(name){ window.__testerAssigneeFilter = 'all'; r
 
 function renderTesterAssigneeChips(){ /* removed: assignee chips */ }
 
+
+function priorityClass(name){
+  const s = String(name || '').toLowerCase().trim();
+  if(!s || s === '—') return 'pri-none';
+  if(/immediate|critical|blocker/.test(s)) return 'pri-immediate';
+  if(/urgent|high|major/.test(s)) return 'pri-high';
+  if(/normal|medium/.test(s)) return 'pri-normal';
+  if(/low|minor|trivial/.test(s)) return 'pri-low';
+  return 'pri-none';
+}
+function priorityBadge(name){
+  const label = name || '—';
+  return `<span class="pri-badge ${priorityClass(label)}">${escapeHtml(label)}</span>`;
+}
+
 function renderTesterTableRows(list){
   return list.map(issue => {
     const url = `https://pjm.zahironline.com/issues/${issue.id}`;
@@ -1848,7 +1863,7 @@ function renderTesterTableRows(list){
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
       <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${escapeHtml(issue.subject || '—')}</td>
-      <td class="col-priority">${escapeHtml(priority)}</td>
+      <td class="col-priority">${priorityBadge(priority)}</td>
       <td class="col-tracker">${escapeHtml(tracker)}</td>
       <td class="col-updated">${escapeHtml(updated)}</td>
       <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open in Redmine">${ICON.externalLink}</a></td>
@@ -1866,7 +1881,7 @@ function renderTesterTable(list){
     return `<a class="tester-mcard" href="${escapeHtml(url)}" target="_blank" rel="noopener">
       <div class="tester-mcard-top">
         <span class="tester-mcard-id">#${issue.id}</span>
-        <span class="tester-mcard-pri">${escapeHtml(priority)}</span>
+        <span class="tester-mcard-pri">${priorityBadge(priority)}</span>
       </div>
       <div class="tester-mcard-subject">${escapeHtml(issue.subject || '—')}</div>
       <div class="tester-mcard-meta">
