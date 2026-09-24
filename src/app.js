@@ -3354,9 +3354,9 @@ function exposeAppGlobals(){
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
     toggleTesterNotifications, toggleNotifPanel, closeNotifPanel,
     // Plan cards
-    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, editPlan, deletePlan,
+    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, editPlan, deletePlan, savePlan,
     // Summaries
-    editSummary, deleteSummary, copySummary, quickSummary,
+    editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
     CloudSync
   };
