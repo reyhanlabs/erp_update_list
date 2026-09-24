@@ -2899,7 +2899,26 @@ function applyAppVersion(){
   console.log(`%c Zahir ERP Update Manager ${ver} `, 'background:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;font-weight:600', `· ${APP_VERSION_DATE} · ${APP_VERSION_NOTE}`);
 }
 
+
+/** Expose functions used by HTML onclick/onchange (ES modules are not global) */
+function exposeAppGlobals(){
+  const map = {
+    openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
+    setPlanFilter, renderPlans, renderSummaries, renderTesterList,
+    loadTesterReminder, copyTesterList, openPlansWithSync, toggleSyncPanel,
+    previewRedmineSync, syncFromRedmine, testRedmineConnection, onRedmineProjectChange,
+    onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate,
+    exportAll, importAll, wipeAll, copyUID,
+    signInWithGoogle, signOutAccount, continueAsGuest,
+    CloudSync
+  };
+  Object.keys(map).forEach(k => {
+    try { window[k] = map[k]; } catch(e){ console.warn('expose failed', k, e); }
+  });
+}
+
 export async function startApp(){
+  exposeAppGlobals();
   // Formerly DOMContentLoaded handler
   // Show version immediately
   applyAppVersion();
