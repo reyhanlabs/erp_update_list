@@ -570,7 +570,7 @@ const VIEW_META = {
   plans:     { title:'Update Plans', sub:'Manage plans & sync from Redmine', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
-  newissues:{ title:'New Issues', sub:'Status New · Zahir ERP One, Zahir ERP, Manufacturing', addBtn:false },
+  newissues:{ title:'New Issues', sub:'Filter by status · Zahir ERP One, Zahir ERP, Manufacturing', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -3379,9 +3379,14 @@ function resolveNewIssueProjectIds(){
   return result;
 }
 
+function getNewIssuesStatusName(){
+  const v = ($('newIssuesStatusFilter')?.value || 'New').trim();
+  return v || 'New';
+}
+
 async function fetchNewIssuesForProject(projectId){
   const params = new URLSearchParams();
-  params.set('status_name', 'New');
+  params.set('status_name', getNewIssuesStatusName());
   params.set('project_id', String(projectId));
   params.set('limit', '100');
   params.set('sort', 'updated_on:desc');
@@ -3429,6 +3434,8 @@ async function loadNewIssues(force){
     if(badge) badge.textContent = String(total);
     const totalBadge = $('newIssuesTotalBadge');
     if(totalBadge) totalBadge.textContent = String(total);
+    const statusLabel = $('newIssuesStatusLabel');
+    if(statusLabel) statusLabel.textContent = 'Status: ' + getNewIssuesStatusName();
 
     renderNewIssues();
   } catch(err){
@@ -3502,7 +3509,16 @@ function getNewIssuesDateRange(){
 function getFilteredNewIssues(issues){
   const q = ($('newIssuesSearch')?.value || '').toLowerCase().trim();
   const range = getNewIssuesDateRange();
+  const priFilter = ($('newIssuesPriorityFilter')?.value || 'all');
   let list = issues || [];
+
+  if(priFilter !== 'all'){
+    list = list.filter(i => {
+      const pc = (typeof priorityClass === 'function') ? priorityClass(i.priority?.name) : '';
+      if(priFilter === 'high') return pc === 'pri-high';
+      return pc === ('pri-' + priFilter);
+    });
+  }
 
   if(range && (range.from || range.to)){
     list = list.filter(i => {
@@ -3621,7 +3637,8 @@ function buildNewIssueLinksText(key){
   if(!block) return '';
   const issues = getFilteredNewIssues(block.issues || []);
   const title = block.projectName || block.label || key;
-  let text = `${title} — New (${issues.length})\n`;
+  const st = getNewIssuesStatusName();
+  let text = `${title} — ${st} (${issues.length})\n`;
   issues.forEach(i => {
     text += `https://pjm.zahironline.com/issues/${i.id}\n`;
   });

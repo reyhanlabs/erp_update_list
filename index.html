@@ -543,7 +543,7 @@
             <span class="badge badge-cyan" id="newIssuesTotalBadge" style="margin-left:8px">—</span>
           </h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <span class="meta-chip" style="font-size:11.5px">Status: New</span>
+            <span class="meta-chip" style="font-size:11.5px" id="newIssuesStatusLabel">Status: New</span>
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyAllNewIssueLinks()">
               Copy all links
             </button>
@@ -560,6 +560,22 @@
             </svg>
             <input type="text" id="newIssuesSearch" placeholder="Search subject, #id, priority..." oninput="renderNewIssues()"/>
           </div>
+          <select class="select" id="newIssuesStatusFilter" onchange="loadNewIssues(true)">
+            <option value="New" selected>Status: New</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Ready for Testing">Ready for Testing</option>
+            <option value="Feedback">Feedback</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+          <select class="select" id="newIssuesPriorityFilter" onchange="renderNewIssues()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
           <select class="select" id="newIssuesDateFilter" onchange="renderNewIssues()">
             <option value="all">Date: All</option>
             <option value="today">Today</option>
@@ -781,6 +797,14 @@
           </div>
           <div class="card-body">
             <div class="changelog" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.3</span>
+                <span class="cl-note">New Issues: priority filter</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.2</span>
+                <span class="cl-note">New Issues: status filter</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.22.1</span>
                 <span class="cl-note">New Issues: date filter + sort Immediate first</span>
