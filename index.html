@@ -600,9 +600,10 @@
             <option value="low">Low</option>
           </select>
           <select class="select" id="testerGroupBy" onchange="renderTesterList()">
+            <option value="project" selected>Group: Project</option>
             <option value="assignee">Group: Assignee</option>
-            <option value="none">No grouping</option>
             <option value="priority">Group: Priority</option>
+            <option value="none">No grouping</option>
           </select>
         </div>
         <div class="card-body tight" id="testerReminder">
@@ -1002,6 +1003,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.4</span>
+                <span class="cl-note">Tester Queue group by project</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.25.3</span>
                 <span class="cl-note">Fix Tester Queue fromCache error</span>

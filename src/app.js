@@ -2253,7 +2253,7 @@ function renderTesterList(){
     return;
   }
 
-  const groupBy = $('testerGroupBy')?.value || 'assignee';
+  const groupBy = $('testerGroupBy')?.value || 'project';
   const cacheNote = window.__testerMeta?.fromCache
     ? `<div class="tester-cache-note">📦 From cache · click Refresh for latest data</div>`
     : '';
@@ -2265,14 +2265,33 @@ function renderTesterList(){
 
   const groups = {};
   list.forEach(i => {
-    const key = groupBy === 'priority'
-      ? (i.priority?.name || 'No priority')
-      : formatAssignee(i.assigned_to);
+    let key;
+    if(groupBy === 'priority') key = i.priority?.name || 'No priority';
+    else if(groupBy === 'project') key = i._projectLabel || i.project?.name || 'Unknown project';
+    else key = formatAssignee(i.assigned_to);
     if(!groups[key]) groups[key] = [];
     groups[key].push(i);
   });
 
-  const keys = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length || a.localeCompare(b));
+  // Prefer stable project order when grouping by project
+  const projectOrder = ['Zahir ERP', 'Zahir ERP One', 'Zahir MRP'];
+  const keys = Object.keys(groups).sort((a,b) => {
+    if(groupBy === 'project'){
+      const ia = projectOrder.findIndex(p => a.toLowerCase().includes(p.toLowerCase().replace('zahir ','')) || a === p);
+      const ib = projectOrder.findIndex(p => b.toLowerCase().includes(p.toLowerCase().replace('zahir ','')) || b === p);
+      // Better: exact match index
+      const rank = (name) => {
+        const n = name.toLowerCase();
+        if(/^zahir\s*erp$/i.test(name.trim()) || n === 'zahir erp') return 0;
+        if(/erp\s*one/i.test(n)) return 1;
+        if(/mrp/i.test(n)) return 2;
+        return 50;
+      };
+      const ra = rank(a), rb = rank(b);
+      if(ra !== rb) return ra - rb;
+    }
+    return groups[b].length - groups[a].length || a.localeCompare(b);
+  });
 
   el.innerHTML = cacheNote + keys.map(key => `
     <div class="tester-group">
@@ -2305,9 +2324,10 @@ async function copyTesterList(){
   } else {
     const groups = {};
     list.forEach(i => {
-      const key = groupBy === 'priority'
-        ? (i.priority?.name || 'No priority')
-        : formatAssignee(i.assigned_to);
+      let key;
+      if(groupBy === 'priority') key = i.priority?.name || 'No priority';
+      else if(groupBy === 'project') key = i._projectLabel || i.project?.name || 'Unknown project';
+      else key = formatAssignee(i.assigned_to);
       if(!groups[key]) groups[key] = [];
       groups[key].push(i);
     });
