@@ -2117,6 +2117,24 @@ function setTesterAssigneeFilter(name){ window.__testerAssigneeFilter = 'all'; r
 function renderTesterAssigneeChips(){ /* removed: assignee chips */ }
 
 
+
+function formatAssignee(assigned){
+  if(!assigned) return 'Unassigned';
+  // Prefer display name; strip trailing "@login" if Redmine/name field embeds it
+  let name = String(assigned.name || '').trim();
+  let login = String(assigned.login || '').trim();
+  if(name){
+    // "Yarfik Ardiansyah @yarfikardiansyah" → "Yarfik Ardiansyah"
+    const m = name.match(/^(.*?)\s+@[\w.-]+$/);
+    if(m) name = m[1].trim();
+    // pure @login as name
+    if(name.startsWith('@')) name = name.slice(1);
+    return name || login || 'Unassigned';
+  }
+  if(login) return login.startsWith('@') ? login.slice(1) : login;
+  return 'Unassigned';
+}
+
 function priorityClass(name){
   const s = String(name || '').toLowerCase().trim();
   if(!s || s === '—') return 'pri-none';
@@ -2155,7 +2173,7 @@ function renderTesterTable(list){
     const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0, 10)) : '—';
     const priority = issue.priority?.name || '—';
     const tracker = issue.tracker?.name || '—';
-    const assignee = issue.assigned_to?.name || 'Unassigned';
+    const assignee = formatAssignee(issue.assigned_to);
     const isNew = isNewIssue(issue);
     return `<a class="tester-mcard${isNew ? ' is-new' : ''}${priorityClass(issue.priority?.name)==='pri-immediate' ? ' is-immediate' : ''}" href="${escapeHtml(url)}" target="_blank" rel="noopener">
       <div class="tester-mcard-top">
@@ -2248,7 +2266,7 @@ function renderTesterList(){
   list.forEach(i => {
     const key = groupBy === 'priority'
       ? (i.priority?.name || 'No priority')
-      : (i.assigned_to?.name || 'Unassigned');
+      : formatAssignee(i.assigned_to);
     if(!groups[key]) groups[key] = [];
     groups[key].push(i);
   });
@@ -2280,7 +2298,7 @@ async function copyTesterList(){
   if(groupBy === 'none'){
     list.forEach((i, idx) => {
       text += `${idx+1}. #${i.id} — ${i.subject || ''}\n`;
-      text += `   ${i.assigned_to?.name || 'Unassigned'}${i.priority?.name ? ' · '+i.priority.name : ''}\n`;
+      text += `   ${formatAssignee(i.assigned_to)}${i.priority?.name ? ' · '+i.priority.name : ''}\n`;
       text += `   https://pjm.zahironline.com/issues/${i.id}\n\n`;
     });
   } else {
@@ -2288,7 +2306,7 @@ async function copyTesterList(){
     list.forEach(i => {
       const key = groupBy === 'priority'
         ? (i.priority?.name || 'No priority')
-        : (i.assigned_to?.name || 'Unassigned');
+        : formatAssignee(i.assigned_to);
       if(!groups[key]) groups[key] = [];
       groups[key].push(i);
     });
@@ -3812,8 +3830,8 @@ async function loadActiveWork(force){
       const ra = (typeof prioritySortRank === 'function') ? prioritySortRank(a.priority?.name) : 0;
       const rb = (typeof prioritySortRank === 'function') ? prioritySortRank(b.priority?.name) : 0;
       if(ra !== rb) return ra - rb;
-      const aa = (a.assigned_to?.name || 'zzz').toLowerCase();
-      const bb = (b.assigned_to?.name || 'zzz').toLowerCase();
+      const aa = formatAssignee(a.assigned_to).toLowerCase();
+      const bb = formatAssignee(b.assigned_to).toLowerCase();
       return aa.localeCompare(bb);
     });
     sortPri(progressAll);
@@ -3920,7 +3938,7 @@ function renderActiveWorkTable(list){
   }
   const rows = list.map(issue => {
     const url = `https://pjm.zahironline.com/issues/${issue.id}`;
-    const assignee = issue.assigned_to?.name || 'Unassigned';
+    const assignee = formatAssignee(issue.assigned_to);
     const pri = issue.priority?.name || '—';
     const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
     const proj = issue._projectLabel || '—';
@@ -3956,7 +3974,7 @@ function renderActiveWorkGrouped(list){
   list.forEach(i => {
     const key = groupBy === 'project'
       ? (i._projectLabel || 'Unknown project')
-      : (i.assigned_to?.name || 'Unassigned');
+      : formatAssignee(i.assigned_to);
     if(!groups[key]) groups[key] = [];
     groups[key].push(i);
   });
@@ -4032,7 +4050,7 @@ async function copyActiveWorkLinks(which){
   if(!list.length){ toast('No links to copy', 'error'); return; }
   let text = `${label} (${list.length})\n`;
   list.forEach(i => {
-    const who = i.assigned_to?.name || 'Unassigned';
+    const who = formatAssignee(i.assigned_to);
     text += `#${i.id} [${who}] ${i.subject || ''}\nhttps://pjm.zahironline.com/issues/${i.id}\n`;
   });
   try {
