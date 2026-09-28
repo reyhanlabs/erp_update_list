@@ -4422,6 +4422,53 @@ async function createPlanFromWhatNext(){
   }
 }
 
+
+async function refreshDashAttention(){
+  const set = (id, v) => { const el = $(id); if(el) el.textContent = v; };
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const targets = (typeof resolveNewIssueProjectIds === 'function') ? resolveNewIssueProjectIds() : [];
+    let immediate = 0;
+    let stuck = 0;
+    let deploy = 0;
+
+    await Promise.all(targets.map(async (t) => {
+      if(!t.projectId) return;
+      try {
+        const params = new URLSearchParams();
+        params.set('status_name', 'New');
+        params.set('project_id', String(t.projectId));
+        params.set('limit', '100');
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+        (data.issues || []).forEach(i => {
+          const pc = (typeof priorityClass === 'function') ? priorityClass(i.priority?.name) : '';
+          if(pc === 'pri-immediate') immediate++;
+        });
+      } catch(_){}
+      try {
+        const r = await fetchIssuesByStatusName(t.projectId, ['In Progress', 'On Progress', 'Progress'], false);
+        (r.issues || []).forEach(i => {
+          const days = (typeof daysSince === 'function') ? daysSince(i.updated_on || i.created_on) : 0;
+          if(days >= 7) stuck++;
+        });
+      } catch(_){}
+      try {
+        const r = await fetchIssuesByStatusName(t.projectId, ['On Deploy', 'Ondeploy', 'Deploy'], false);
+        deploy += (r.issues || []).length;
+      } catch(_){}
+    }));
+
+    set('attImmediateNew', String(immediate));
+    set('attStuckProgress', String(stuck));
+    set('attOnDeploy', String(deploy));
+    window.__dashAttention = { immediate, stuck, deploy, at: Date.now() };
+  } catch(err){
+    console.warn('refreshDashAttention', err);
+  }
+}
+
 function openWhatNextView(){
   switchView('whatnext');
   loadWhatNext(false);
@@ -4545,7 +4592,9 @@ function exposeAppGlobals(){
   };
   Object.keys(map).forEach(k => {
     try {
-      if(typeof map[k] !== 'undefined') window[k] = map[k];
+      if(typeof map[k] === 'function' || (map[k] && typeof map[k] === 'object')) {
+        window[k] = map[k];
+      }
     } catch(e){ console.warn('expose failed', k, e); }
   });
 }
