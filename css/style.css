@@ -2001,3 +2001,16 @@ button.dash-new-stat:hover{transform:translateY(-1px);box-shadow:var(--shadow-md
   font-size:12px;font-weight:600;color:var(--text-secondary);
 }
 .badge-violet{background:rgba(139,92,246,.12);color:#7c3aed;border:1px solid rgba(139,92,246,.25)}
+
+.dash-attention{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;
+}
+@media(max-width:900px){.dash-attention{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.dash-attention{grid-template-columns:1fr}}
+.dash-att-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;box-shadow:var(--shadow-sm);
+}
+.dash-att-label{font-size:11.5px;color:var(--text-tertiary);font-weight:600;margin-bottom:6px}
+.dash-att-value{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.dash-att-action{display:flex;flex-direction:column;gap:8px;justify-content:center}

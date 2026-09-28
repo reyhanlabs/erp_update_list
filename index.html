@@ -351,6 +351,26 @@
         </button>
       </div>
 
+      <div class="dash-section-label">Needs attention today</div>
+      <div class="dash-attention" id="dashAttention">
+        <div class="dash-att-card">
+          <div class="dash-att-label">Immediate · New</div>
+          <div class="dash-att-value" id="attImmediateNew">—</div>
+        </div>
+        <div class="dash-att-card">
+          <div class="dash-att-label">Stuck In Progress (&gt;7d)</div>
+          <div class="dash-att-value" id="attStuckProgress">—</div>
+        </div>
+        <div class="dash-att-card">
+          <div class="dash-att-label">On Deploy</div>
+          <div class="dash-att-value" id="attOnDeploy">—</div>
+        </div>
+        <div class="dash-att-card dash-att-action">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openWhatNextView()">What Next</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openActiveWorkView()">Active Work</button>
+        </div>
+      </div>
+
       <div class="dash-actions">
         <button type="button" class="dash-action-btn" onclick="switchView('plans'); openAddModal()">
           <span class="da-icon blue">+</span>
@@ -722,6 +742,7 @@
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <span class="meta-chip" style="font-size:11.5px">Ranked New issues · do these first</span>
             <button type="button" class="btn btn-secondary btn-sm" onclick="copyWhatNextList()">Copy top list</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="createPlanFromWhatNext()">Create plan from top</button>
             <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshWhatNext" onclick="loadWhatNext(true)">Refresh</button>
           </div>
         </div>
@@ -888,6 +909,23 @@
 
         <div class="card" style="margin-bottom:0">
           <div class="card-head">
+            <h3><span class="mark"></span> Telegram</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+              Send briefings to a Telegram chat. Set <code>TELEGRAM_BOT_TOKEN</code> in Vercel env, then save your Chat ID here.
+            </p>
+            <div class="workspace-row">
+              <input type="text" id="telegramChatId" placeholder="Chat ID (e.g. -100123… or @channel)" />
+              <button type="button" class="btn btn-secondary btn-sm" onclick="saveTelegramChatId()">Save</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="sendTelegramBriefing()">Send briefing</button>
+            </div>
+            <p id="telegramStatus" style="font-size:12px;color:var(--text-tertiary);margin-top:10px">Chat ID not set</p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
             <h3><span class="mark"></span> Cloud Sync</h3>
             <span class="status-pill" id="cloudStatusPill">
               <span class="sp-dot"></span>
@@ -964,6 +1002,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.0</span>
+                <span class="cl-note">Tester multi-project · auto-refresh · plan from What Next · Telegram</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.24.0</span>
                 <span class="cl-note">What Next — ranked New issues to work first</span>

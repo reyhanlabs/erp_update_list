@@ -2335,6 +2335,60 @@ async function copyTesterList(){
   }
 }
 
+
+function resolveTesterProjectIds(){
+  // Ready for Testing from: selected project + Zahir ERP One + Zahir MRP
+  const projects = RedmineState.projects || [];
+  const ids = [];
+  const seen = new Set();
+  const add = (id, label) => {
+    if(!id || seen.has(String(id))) return;
+    seen.add(String(id));
+    ids.push({ id: String(id), label });
+  };
+  const selected = getSelectedProjectId();
+  if(selected){
+    const p = projects.find(x => String(x.id) === String(selected));
+    add(selected, p?.name || 'Selected project');
+  }
+  const one = projects.find(p => /zahir\s*erp\s*one/i.test(p.name || ''));
+  if(one) add(one.id, one.name);
+  const mrp = projects.find(p => /zahir\s*mrp|\bmrp\b/i.test(p.name || ''));
+  if(mrp) add(mrp.id, mrp.name);
+  return ids;
+}
+
+async function fetchRftForProject(projectId, force){
+  const cachedSid = getCachedRftStatusId();
+  const params = new URLSearchParams();
+  if(cachedSid) params.set('status_id', cachedSid);
+  else params.set('status_name', 'Ready for Testing');
+  params.set('project_id', String(projectId));
+  params.set('limit', '100');
+  params.set('sort', 'updated_on:desc');
+  try {
+    const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
+    if(data.resolved_status?.id){
+      setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
+    }
+    return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
+  } catch(firstErr){
+    if(cachedSid){
+      const p2 = new URLSearchParams();
+      p2.set('status_name', 'Ready for Testing');
+      p2.set('project_id', String(projectId));
+      p2.set('limit', '100');
+      p2.set('sort', 'updated_on:desc');
+      const { data, fromCache } = await fetchRedmine(`/api/redmine?${p2.toString()}`, { force: true });
+      if(data.resolved_status?.id){
+        setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
+      }
+      return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
+    }
+    throw firstErr;
+  }
+}
+
 async function loadTesterReminder(force){
   const el = $('testerReminder');
   const statusLabel = $('testerStatusLabel');
@@ -2347,9 +2401,9 @@ async function loadTesterReminder(force){
     }
   } catch(_){ /* ignore */ }
 
-  const pid = getSelectedProjectId();
-  if(!pid){
-    el.innerHTML = emptyState(ICON.inbox, 'Select a project first', 'Open Sync from Redmine, pick a project, then refresh here.', [
+  const targets = resolveTesterProjectIds();
+  if(!targets.length){
+    el.innerHTML = emptyState(ICON.inbox, 'No projects available', 'Open Sync from Redmine to load projects (ERP, ERP One, MRP).', [
       { label: 'Open Sync', action: "openPlansWithSync()" }
     ]);
     setTesterBadgeCount(null);
@@ -2365,45 +2419,31 @@ async function loadTesterReminder(force){
   }
 
   try {
-    const params = new URLSearchParams();
-    const cachedSid = getCachedRftStatusId();
-    if(cachedSid){
-      params.set('status_id', cachedSid);
-    } else {
-      params.set('status_name', 'Ready for Testing');
-    }
-    params.set('project_id', pid);
-    params.set('limit', '100');
-    params.set('sort', 'updated_on:desc');
-    const path = `/api/redmine?${params.toString()}`;
-
-    let data, fromCache;
-    try {
-      ({ data, fromCache } = await fetchRedmine(path, { force: !!force }));
-    } catch(firstErr){
-      // If cached status_id failed / stale, retry once via status_name
-      if(cachedSid){
-        const p2 = new URLSearchParams();
-        p2.set('status_name', 'Ready for Testing');
-        p2.set('project_id', pid);
-        p2.set('limit', '100');
-        p2.set('sort', 'updated_on:desc');
-        ({ data, fromCache } = await fetchRedmine(`/api/redmine?${p2.toString()}`, { force: true }));
-      } else {
-        throw firstErr;
+    const merged = [];
+    let anyCache = false;
+    let statusName = 'Ready for Testing';
+    await Promise.all(targets.map(async (t) => {
+      try {
+        const r = await fetchRftForProject(t.id, force);
+        if(r.fromCache) anyCache = true;
+        if(r.statusName) statusName = r.statusName;
+        (r.issues || []).forEach(i => {
+          merged.push({ ...i, _projectId: t.id, _projectLabel: t.label });
+        });
+      } catch(err){
+        console.warn('RFT fetch failed', t.label, err);
       }
-    }
-
-    if(data.resolved_status?.id){
-      setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
-    }
-
-    const issues = data.issues || [];
+    }));
+    // Dedupe by issue id
+    const byId = new Map();
+    merged.forEach(i => { if(!byId.has(i.id)) byId.set(i.id, i); });
+    const issues = Array.from(byId.values());
     window.__testerIssues = issues;
     window.__testerAssigneeFilter = 'all';
     window.__testerMeta = {
-      fromCache: !!fromCache,
-      statusName: data.resolved_status?.name || localStorage.getItem(RFT_STATUS_CACHE_KEY + '_name') || 'Ready for Testing',
+      fromCache: anyCache && !force,
+      statusName: statusName || localStorage.getItem(RFT_STATUS_CACHE_KEY + '_name') || 'Ready for Testing',
+      projects: targets.map(t => t.label).join(', '),
       error: null
     };
     window.__testerLoadError = null;
@@ -4339,11 +4379,135 @@ async function copyWhatNextList(){
   }
 }
 
+
+async function createPlanFromWhatNext(){
+  const list = getFilteredWhatNext();
+  if(!list.length){
+    toast('No ranked issues to add', 'error');
+    return;
+  }
+  const top = list.slice(0, 15);
+  const today = new Date();
+  const iso = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const lines = top.map(i => {
+    const url = `https://pjm.zahironline.com/issues/${i.id}`;
+    const desc = (i.subject || '').trim();
+    return desc ? `${url} ${desc}` : url;
+  });
+  const data = {
+    title: `What Next · ${iso}`,
+    date: iso,
+    issues: lines.join('\n'),
+    note: `Auto-created from What Next (${top.length} issues). Score-ranked New backlog.`
+  };
+  try {
+    await CloudSync.addPlan(data);
+    toast('Plan created from top What Next');
+    switchView('plans');
+  } catch(err){
+    console.error(err);
+    toast(err.message || 'Failed to create plan', 'error');
+  }
+}
+
 function openWhatNextView(){
   switchView('whatnext');
   loadWhatNext(false);
 }
 
+
+
+/* ===== Background auto-refresh ===== */
+const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+let __autoRefreshTimer = null;
+
+function startBackgroundAutoRefresh(){
+  if(__autoRefreshTimer) return;
+  __autoRefreshTimer = setInterval(() => {
+    if(document.hidden) return;
+    try {
+      if(currentView === 'newissues') loadNewIssues(false);
+      else if(currentView === 'activework') loadActiveWork(false);
+      else if(currentView === 'whatnext') loadWhatNext(false);
+      else if(currentView === 'tester') loadTesterReminder(false);
+      else if(currentView === 'dashboard'){
+        refreshDashNewIssueCounts();
+        refreshDashAttention();
+      }
+    } catch(e){ console.warn('auto-refresh', e); }
+  }, AUTO_REFRESH_MS);
+}
+
+
+const TG_CHAT_KEY = 'erp_telegram_chat_id';
+
+function loadTelegramChatId(){
+  try {
+    const v = localStorage.getItem(TG_CHAT_KEY) || '';
+    const input = $('telegramChatId');
+    if(input) input.value = v;
+    const st = $('telegramStatus');
+    if(st) st.textContent = v ? ('Chat ID: ' + v) : 'Chat ID not set';
+  } catch(_){}
+}
+
+function saveTelegramChatId(){
+  const v = ($('telegramChatId')?.value || '').trim();
+  try { localStorage.setItem(TG_CHAT_KEY, v); } catch(_){}
+  loadTelegramChatId();
+  toast(v ? 'Telegram Chat ID saved' : 'Chat ID cleared');
+}
+
+function buildTelegramBriefing(){
+  const att = window.__dashAttention || {};
+  const wn = (window.__whatNextList || []).slice(0, 8);
+  let text = '📋 *Zahir ERP — Daily briefing*\n\n';
+  text += `🔴 Immediate New: ${att.immediate ?? '—'}\n`;
+  text += `⏳ Stuck In Progress (>7d): ${att.stuck ?? '—'}\n`;
+  text += `🚀 On Deploy: ${att.deploy ?? '—'}\n\n`;
+  if(wn.length){
+    text += '*What Next (top)*\n';
+    wn.forEach((i, idx) => {
+      text += `${idx+1}. #${i.id} [${i.priority?.name||'—'}] ${i.subject||''}\n`;
+      text += `https://pjm.zahironline.com/issues/${i.id}\n`;
+    });
+  }
+  return text;
+}
+
+async function sendTelegramBriefing(){
+  const chatId = ($('telegramChatId')?.value || localStorage.getItem(TG_CHAT_KEY) || '').trim();
+  if(!chatId){
+    toast('Set Telegram Chat ID in Settings first', 'error');
+    switchView('settings');
+    return;
+  }
+  // Ensure we have some data
+  try {
+    if(!(window.__whatNextList||[]).length) await loadWhatNext(false);
+    if(!window.__dashAttention) await refreshDashAttention();
+  } catch(_){}
+
+  const text = buildTelegramBriefing();
+  try {
+    const r = await fetch('/api/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId, text })
+    });
+    const data = await r.json().catch(() => ({}));
+    if(!r.ok){
+      // Fallback: copy + open share
+      try { await navigator.clipboard.writeText(text); } catch(_){}
+      toast(data.error || 'Telegram send failed — text copied', 'error');
+      return;
+    }
+    toast('Briefing sent to Telegram');
+  } catch(err){
+    try { await navigator.clipboard.writeText(text); } catch(_){}
+    toast('Send failed — briefing copied to clipboard', 'error');
+  }
+}
 
 function exposeAppGlobals(){
   const map = {
@@ -4363,7 +4527,8 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList,
+    openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId,
     CloudSync
   };
   Object.keys(map).forEach(k => {
@@ -4375,6 +4540,9 @@ function exposeAppGlobals(){
 
 export async function startApp(){
   exposeAppGlobals();
+  try { startBackgroundAutoRefresh(); } catch(_){}
+  try { loadTelegramChatId(); } catch(_){}
+
   // Restore notification preference
   try {
     updateNotifToggleUI();
