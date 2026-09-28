@@ -406,14 +406,20 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
    CONTENT — the only scrollable area
    ============================================================ */
 .content{
-  padding:28px;
-  max-width:920px;
+  padding:24px 28px 32px;
+  max-width:1320px;
   width:100%;
   margin:0 auto;
   flex:1;
   overflow-y:auto;
   overflow-x:hidden;
   scroll-behavior:smooth;
+}
+@media(min-width:1600px){
+  .content{max-width:1480px;padding:24px 36px 36px}
+}
+@media(max-width:1100px){
+  .content{max-width:100%;padding:20px 20px 28px}
 }
 .view{display:none;overflow:visible}
 .view.active{display:block;animation:viewIn var(--dur-slow) var(--ease)}
