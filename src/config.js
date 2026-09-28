@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.23.0';
+export const APP_VERSION = '4.23.1';
 export const APP_VERSION_DATE = '2026-09-28';
-export const APP_VERSION_NOTE = 'Active Work (In Progress + On Deploy) · scrollable What\'s New';
+export const APP_VERSION_NOTE = 'Active Work: status, priority, date filters's New';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

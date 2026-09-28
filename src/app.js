@@ -3842,14 +3842,76 @@ async function loadActiveWork(force){
   }
 }
 
+function getActiveWorkDateRange(){
+  const mode = ($('activeWorkDateFilter')?.value) || 'all';
+  const fromEl = $('activeWorkDateFrom');
+  const toEl = $('activeWorkDateTo');
+  if(fromEl && toEl){
+    const show = mode === 'custom';
+    fromEl.style.display = show ? '' : 'none';
+    toEl.style.display = show ? '' : 'none';
+  }
+  if(mode === 'all') return null;
+  const today = new Date();
+  const iso = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+  if(mode === 'today'){
+    const t = iso(today);
+    return { from: t, to: t };
+  }
+  if(mode === '7d'){
+    const a = new Date(today); a.setDate(a.getDate()-6);
+    return { from: iso(a), to: iso(today) };
+  }
+  if(mode === '30d'){
+    const a = new Date(today); a.setDate(a.getDate()-29);
+    return { from: iso(a), to: iso(today) };
+  }
+  if(mode === 'custom'){
+    return {
+      from: (fromEl && fromEl.value) || null,
+      to: (toEl && toEl.value) || null
+    };
+  }
+  return null;
+}
+
 function filterActiveWorkList(list){
   const q = ($('activeWorkSearch')?.value || '').toLowerCase().trim();
-  if(!q) return list;
-  return list.filter(i => {
-    const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i._projectLabel, i._statusLabel]
-      .map(x => String(x||'').toLowerCase()).join(' ');
-    return hay.includes(q);
-  });
+  const priFilter = ($('activeWorkPriorityFilter')?.value || 'all');
+  const range = getActiveWorkDateRange();
+  let out = list || [];
+
+  if(priFilter !== 'all'){
+    out = out.filter(i => {
+      const pc = (typeof priorityClass === 'function') ? priorityClass(i.priority?.name) : '';
+      if(priFilter === 'high') return pc === 'pri-high';
+      return pc === ('pri-' + priFilter);
+    });
+  }
+
+  if(range && (range.from || range.to)){
+    out = out.filter(i => {
+      const day = (typeof parseIssueDay === 'function') ? parseIssueDay(i) : ((i.created_on || i.updated_on || '').slice(0,10) || null);
+      if(!day) return false;
+      if(range.from && day < range.from) return false;
+      if(range.to && day > range.to) return false;
+      return true;
+    });
+  }
+
+  if(q){
+    out = out.filter(i => {
+      const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i._projectLabel, i._statusLabel]
+        .map(x => String(x||'').toLowerCase()).join(' ');
+      return hay.includes(q);
+    });
+  }
+  return out;
 }
 
 function renderActiveWorkTable(list){
@@ -3920,10 +3982,15 @@ function renderActiveWork(){
     return;
   }
   const data = window.__activeWorkData || { progress: [], deploy: [] };
+  const statusFilter = ($('activeWorkStatusFilter')?.value) || 'all';
   const progress = filterActiveWorkList(data.progress || []);
   const deploy = filterActiveWorkList(data.deploy || []);
+  const showProgress = statusFilter === 'all' || statusFilter === 'progress';
+  const showDeploy = statusFilter === 'all' || statusFilter === 'deploy';
 
-  el.innerHTML = `
+  let html = '';
+  if(showProgress){
+    html += `
     <div class="new-proj-block">
       <div class="new-proj-head">
         <div class="new-proj-title">
@@ -3935,7 +4002,10 @@ function renderActiveWork(){
         </div>
       </div>
       ${renderActiveWorkGrouped(progress)}
-    </div>
+    </div>`;
+  }
+  if(showDeploy){
+    html += `
     <div class="new-proj-block">
       <div class="new-proj-head">
         <div class="new-proj-title">
@@ -3948,6 +4018,11 @@ function renderActiveWork(){
       </div>
       ${renderActiveWorkGrouped(deploy)}
     </div>`;
+  }
+  if(!html){
+    html = emptyState(ICON.inbox, 'No section selected', 'Pick a status filter to show issues.');
+  }
+  el.innerHTML = html;
 }
 
 async function copyActiveWorkLinks(which){

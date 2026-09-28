@@ -668,6 +668,27 @@
             </svg>
             <input type="text" id="activeWorkSearch" placeholder="Search assignee, subject, #id..." oninput="renderActiveWork()"/>
           </div>
+          <select class="select" id="activeWorkStatusFilter" onchange="renderActiveWork()">
+            <option value="all">Status: All</option>
+            <option value="progress">In Progress</option>
+            <option value="deploy">On Deploy</option>
+          </select>
+          <select class="select" id="activeWorkPriorityFilter" onchange="renderActiveWork()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="select" id="activeWorkDateFilter" onchange="renderActiveWork()">
+            <option value="all">Date: All</option>
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="custom">Custom range…</option>
+          </select>
+          <input type="date" id="activeWorkDateFrom" class="select" style="display:none;min-width:140px" onchange="renderActiveWork()" title="From"/>
+          <input type="date" id="activeWorkDateTo" class="select" style="display:none;min-width:140px" onchange="renderActiveWork()" title="To"/>
           <select class="select" id="activeWorkGroupBy" onchange="renderActiveWork()">
             <option value="assignee">Group: Assignee</option>
             <option value="project">Group: Project</option>
@@ -885,6 +906,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.1</span>
+                <span class="cl-note">Active Work: status, priority, date filters</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.23.0</span>
                 <span class="cl-note">Active Work (In Progress + On Deploy) · scrollable What's New</span>
