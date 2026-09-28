@@ -3444,14 +3444,95 @@ async function loadNewIssues(force){
   }
 }
 
+function prioritySortRank(name){
+  const c = (typeof priorityClass === 'function') ? priorityClass(name) : '';
+  if(c === 'pri-immediate') return 0;
+  if(c === 'pri-high') return 1;
+  if(c === 'pri-normal') return 2;
+  if(c === 'pri-low') return 3;
+  return 4;
+}
+
+function parseIssueDay(issue){
+  // Prefer created_on, fallback updated_on
+  const raw = issue.created_on || issue.updated_on || '';
+  if(!raw) return null;
+  const d = raw.slice(0, 10); // YYYY-MM-DD
+  return d || null;
+}
+
+function getNewIssuesDateRange(){
+  const mode = ($('newIssuesDateFilter')?.value) || 'all';
+  const fromEl = $('newIssuesDateFrom');
+  const toEl = $('newIssuesDateTo');
+  if(fromEl && toEl){
+    const show = mode === 'custom';
+    fromEl.style.display = show ? '' : 'none';
+    toEl.style.display = show ? '' : 'none';
+  }
+  if(mode === 'all') return null;
+  const today = new Date();
+  const iso = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+  if(mode === 'today'){
+    const t = iso(today);
+    return { from: t, to: t };
+  }
+  if(mode === '7d'){
+    const a = new Date(today); a.setDate(a.getDate()-6);
+    return { from: iso(a), to: iso(today) };
+  }
+  if(mode === '30d'){
+    const a = new Date(today); a.setDate(a.getDate()-29);
+    return { from: iso(a), to: iso(today) };
+  }
+  if(mode === 'custom'){
+    return {
+      from: (fromEl && fromEl.value) || null,
+      to: (toEl && toEl.value) || null
+    };
+  }
+  return null;
+}
+
 function getFilteredNewIssues(issues){
   const q = ($('newIssuesSearch')?.value || '').toLowerCase().trim();
-  if(!q) return issues || [];
-  return (issues || []).filter(i => {
-    const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i.tracker?.name]
-      .map(x => String(x||'').toLowerCase()).join(' ');
-    return hay.includes(q);
+  const range = getNewIssuesDateRange();
+  let list = issues || [];
+
+  if(range && (range.from || range.to)){
+    list = list.filter(i => {
+      const day = parseIssueDay(i);
+      if(!day) return false;
+      if(range.from && day < range.from) return false;
+      if(range.to && day > range.to) return false;
+      return true;
+    });
+  }
+
+  if(q){
+    list = list.filter(i => {
+      const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i.tracker?.name]
+        .map(x => String(x||'').toLowerCase()).join(' ');
+      return hay.includes(q);
+    });
+  }
+
+  // Immediate first, then High, Normal, Low; within same priority by updated_on desc
+  list = [...list].sort((a, b) => {
+    const ra = prioritySortRank(a.priority?.name);
+    const rb = prioritySortRank(b.priority?.name);
+    if(ra !== rb) return ra - rb;
+    const ua = a.updated_on || a.created_on || '';
+    const ub = b.updated_on || b.created_on || '';
+    return ub.localeCompare(ua);
   });
+
+  return list;
 }
 
 function renderNewIssues(){
