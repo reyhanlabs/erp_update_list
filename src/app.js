@@ -572,6 +572,7 @@ const VIEW_META = {
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
   newissues:{ title:'New Issues', sub:'Filter by status · Zahir ERP One, Zahir ERP, Manufacturing', addBtn:false },
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
+  whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -4106,6 +4107,244 @@ function openActiveWorkView(){
 }
 
 
+
+/* ============================================================
+   WHAT NEXT — rank New issues by urgency (priority + age)
+   ============================================================ */
+window.__whatNextList = window.__whatNextList || [];
+window.__whatNextMeta = null;
+window.__whatNextError = null;
+
+function daysSince(iso){
+  if(!iso) return 0;
+  const t = Date.parse(iso);
+  if(!t) return 0;
+  return Math.max(0, Math.floor((Date.now() - t) / 86400000));
+}
+
+function scoreWhatNextIssue(issue){
+  // Higher score = do sooner
+  const pri = (typeof priorityClass === 'function') ? priorityClass(issue.priority?.name) : '';
+  let score = 30;
+  let reasons = [];
+
+  if(pri === 'pri-immediate'){ score += 100; reasons.push('Immediate'); }
+  else if(pri === 'pri-high'){ score += 70; reasons.push('High priority'); }
+  else if(pri === 'pri-normal'){ score += 35; reasons.push('Normal'); }
+  else if(pri === 'pri-low'){ score += 10; reasons.push('Low'); }
+  else { score += 25; reasons.push('Unranked priority'); }
+
+  const createdDays = daysSince(issue.created_on);
+  const updatedDays = daysSince(issue.updated_on);
+  const ageDays = Math.max(createdDays, updatedDays);
+  // Waiting longer → higher urgency (cap 40 pts)
+  const agePts = Math.min(40, ageDays * 2);
+  score += agePts;
+  if(ageDays >= 14) reasons.push(ageDays + 'd waiting');
+  else if(ageDays >= 7) reasons.push(ageDays + 'd old');
+  else if(ageDays >= 3) reasons.push(ageDays + 'd');
+
+  const assignee = (typeof formatAssignee === 'function') ? formatAssignee(issue.assigned_to) : (issue.assigned_to?.name || '');
+  if(!issue.assigned_to || assignee === 'Unassigned'){
+    score += 5;
+    reasons.push('Unassigned');
+  }
+
+  return { score, reasons, ageDays };
+}
+
+async function loadWhatNext(force){
+  const el = $('whatNextBody');
+  const btn = $('btnRefreshWhatNext');
+  const hasMem = (window.__whatNextList || []).length > 0;
+
+  if(!force && hasMem){
+    renderWhatNext();
+    const age = window.__whatNextMeta ? (Date.now() - (window.__whatNextMeta.at || 0)) : Infinity;
+    if(age < 8 * 60 * 1000) return;
+  } else if(!hasMem){
+    if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  }
+  if(btn) btn.disabled = true;
+
+  try {
+    if(!RedmineState.loaded){
+      await loadRedmineProjects();
+    }
+    const targets = resolveNewIssueProjectIds();
+    const all = [];
+
+    await Promise.all(targets.map(async (t) => {
+      if(!t.projectId) return;
+      try {
+        // Always status New for prioritization backlog
+        const params = new URLSearchParams();
+        params.set('status_name', 'New');
+        params.set('project_id', String(t.projectId));
+        params.set('limit', '100');
+        params.set('sort', 'updated_on:desc');
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
+        (data.issues || []).forEach(i => {
+          const scored = scoreWhatNextIssue(i);
+          all.push({
+            ...i,
+            _projectKey: t.key,
+            _projectLabel: t.projectName || t.label,
+            _score: scored.score,
+            _reasons: scored.reasons,
+            _ageDays: scored.ageDays
+          });
+        });
+      } catch(err){
+        console.warn('WhatNext fetch', t.label, err);
+      }
+    }));
+
+    all.sort((a, b) => b._score - a._score || (a.id - b.id));
+    window.__whatNextList = all;
+    window.__whatNextError = null;
+    window.__whatNextMeta = { at: Date.now(), total: all.length };
+
+    const c = $('countWhatNext');
+    if(c) c.textContent = String(all.length);
+    const b = $('whatNextTotalBadge');
+    if(b) b.textContent = String(all.length);
+
+    renderWhatNext();
+  } catch(err){
+    console.error(err);
+    if(hasMem){
+      renderWhatNext();
+      toast('Refresh failed — showing cached ranking', 'error');
+    } else {
+      window.__whatNextError = err.friendly || { title: 'Failed to load', message: err.message };
+      if(el){
+        el.innerHTML = emptyState(ICON.alert, window.__whatNextError.title || 'Failed', window.__whatNextError.message || '', [
+          { label: 'Try again', action: 'loadWhatNext(true)', primary: true }
+        ]);
+      }
+    }
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+function getFilteredWhatNext(){
+  let list = window.__whatNextList || [];
+  const q = ($('whatNextSearch')?.value || '').toLowerCase().trim();
+  const proj = ($('whatNextProjectFilter')?.value) || 'all';
+  const pri = ($('whatNextPriorityFilter')?.value) || 'all';
+  const limit = parseInt(($('whatNextLimit')?.value) || '20', 10);
+
+  if(proj !== 'all'){
+    list = list.filter(i => i._projectKey === proj);
+  }
+  if(pri !== 'all'){
+    list = list.filter(i => {
+      const pc = (typeof priorityClass === 'function') ? priorityClass(i.priority?.name) : '';
+      if(pri === 'high') return pc === 'pri-high';
+      return pc === ('pri-' + pri);
+    });
+  }
+  if(q){
+    list = list.filter(i => {
+      const hay = [i.id, i.subject, i._projectLabel, i.priority?.name, formatAssignee(i.assigned_to)]
+        .map(x => String(x||'').toLowerCase()).join(' ');
+      return hay.includes(q);
+    });
+  }
+  // already sorted by score
+  if(limit > 0) list = list.slice(0, limit);
+  return list;
+}
+
+function renderWhatNext(){
+  const el = $('whatNextBody');
+  if(!el) return;
+
+  if(window.__whatNextError && !(window.__whatNextList||[]).length){
+    el.innerHTML = emptyState(ICON.alert, window.__whatNextError.title || 'Error', window.__whatNextError.message || '', [
+      { label: 'Try again', action: 'loadWhatNext(true)', primary: true }
+    ]);
+    return;
+  }
+
+  const list = getFilteredWhatNext();
+  if(!list.length){
+    el.innerHTML = emptyState(ICON.inbox, 'No issues to rank', 'No New issues match the current filters.', [
+      { label: 'Refresh', action: 'loadWhatNext(true)', primary: true }
+    ]);
+    return;
+  }
+
+  const rows = list.map((issue, idx) => {
+    const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+    const pri = issue.priority?.name || '—';
+    const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
+    const rank = idx + 1;
+    const rankClass = rank <= 3 ? 'wn-rank wn-rank-top' : 'wn-rank';
+    const reasons = (issue._reasons || []).map(r => `<span class="wn-chip">${escapeHtml(r)}</span>`).join('');
+    const assignee = formatAssignee(issue.assigned_to);
+    return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      <td class="col-rank"><span class="${rankClass}">${rank}</span></td>
+      <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
+      <td class="col-subject">
+        <div class="wn-subject">${escapeHtml(issue.subject || '—')}</div>
+        <div class="wn-reasons">${reasons}</div>
+      </td>
+      <td class="col-priority">${priHtml}</td>
+      <td class="col-assignee-show">${escapeHtml(assignee)}</td>
+      <td class="col-tracker">${escapeHtml(issue._projectLabel || '—')}</td>
+      <td class="col-score" title="Urgency score">${issue._score}</td>
+      <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="wn-legend">
+      Ranked by <b>priority</b> (Immediate first) + <b>waiting time</b> + unassigned boost.
+      Higher score = work on sooner.
+    </div>
+    <div class="tester-table-wrap">
+      <table class="tester-table">
+        <thead><tr>
+          <th class="col-rank">#</th>
+          <th class="col-id">Issue</th>
+          <th class="col-subject">Description</th>
+          <th class="col-priority">Priority</th>
+          <th class="col-assignee-show">Assignee</th>
+          <th class="col-tracker">Project</th>
+          <th class="col-score">Score</th>
+          <th class="col-open"></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function copyWhatNextList(){
+  const list = getFilteredWhatNext();
+  if(!list.length){ toast('Nothing to copy', 'error'); return; }
+  let text = `What Next — prioritized New issues (${list.length})\n\n`;
+  list.forEach((i, idx) => {
+    text += `${idx+1}. #${i.id} [${i.priority?.name || '—'}] ${i.subject || ''}\n`;
+    text += `   ${i._projectLabel || ''} · score ${i._score} · ${(i._reasons||[]).join(', ')}\n`;
+    text += `   https://pjm.zahironline.com/issues/${i.id}\n\n`;
+  });
+  try {
+    await navigator.clipboard.writeText(text.trim());
+    toast('Top list copied');
+  } catch(_){
+    toast('Copy failed', 'error');
+  }
+}
+
+function openWhatNextView(){
+  switchView('whatnext');
+  loadWhatNext(false);
+}
+
+
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
@@ -4124,6 +4363,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
+    openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList,
     CloudSync
   };
   Object.keys(map).forEach(k => {
