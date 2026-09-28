@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
   try {
     const url = new URL('https://pjm.zahironline.com/projects.json');
-    url.searchParams.set('limit', '100');
+    url.searchParams.set('limit', '200');
     url.searchParams.set('sort', 'name');
 
     const response = await fetch(url.toString(), {

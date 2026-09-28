@@ -2357,59 +2357,69 @@ async function copyTesterList(){
 
 
 function resolveTesterProjectIds(){
-  // Always pull RFT from: Zahir ERP, Zahir ERP One, Manufacturing, MRP
+  // Hard targets from Redmine (id + identifier + name fallbacks)
+  // Live API: Zahir ERP #75, Manufacturing #113, ERP One #119
   const projects = RedmineState.projects || [];
   const ids = [];
   const seen = new Set();
   const add = (id, label) => {
-    if(!id || seen.has(String(id))) return;
-    seen.add(String(id));
-    ids.push({ id: String(id), label: label || String(id) });
+    if(id == null || id === '') return;
+    const sid = String(id);
+    if(seen.has(sid)) return;
+    seen.add(sid);
+    ids.push({ id: sid, label: label || sid });
   };
-  const nameOf = (p) => String(p?.name || '').trim();
+  const findBy = (pred) => projects.find(pred);
 
-  // 1) Zahir ERP (exact — not One / Manufacturing / MRP / …)
-  const erp = projects.find(p => {
-    const s = nameOf(p);
-    if(/one|manufactur|mfg|\bmrp\b|point|pos|payroll|mobile/i.test(s)) return false;
-    return /^zahir\s*erp$/i.test(s);
-  });
-  if(erp) add(erp.id, erp.name);
+  const TARGETS = [
+    {
+      label: 'Zahir ERP',
+      match: (p) =>
+        p.id === 75 ||
+        p.identifier === 'custom-special-module' ||
+        (/^zahir\s*erp$/i.test(String(p.name||'').trim()) &&
+          !/one|manufactur|mfg|mrp/i.test(p.name||''))
+    },
+    {
+      label: 'Zahir ERP One',
+      match: (p) =>
+        p.id === 119 ||
+        p.identifier === 'zahir-erp-one' ||
+        /erp\s*one/i.test(p.name||'') ||
+        /zahir-erp-one/i.test(p.identifier||'')
+    },
+    {
+      label: 'Zahir ERP Manufacturing',
+      match: (p) =>
+        p.id === 113 ||
+        p.identifier === 'zahir-erp-manufacturing' ||
+        /manufactur/i.test(p.name||'') ||
+        /manufactur/i.test(p.identifier||'')
+    }
+  ];
 
-  // 2) Zahir ERP One (flexible)
-  const one = projects.find(p => {
-    const s = nameOf(p);
-    return /erp\s*one/i.test(s) || /one/i.test(s) && /zahir/i.test(s) && /erp/i.test(s);
-  });
-  if(one) add(one.id, one.name);
+  for(const t of TARGETS){
+    const found = findBy(t.match);
+    if(found) add(found.id, found.name || t.label);
+    else {
+      // Still try hardcoded id even if list incomplete
+      if(t.label === 'Zahir ERP') add(75, t.label);
+      if(t.label === 'Zahir ERP One') add(119, t.label);
+      if(t.label === 'Zahir ERP Manufacturing') add(113, t.label);
+    }
+  }
 
-  // 3) Zahir ERP Manufacturing
-  const mfg = projects.find(p => /manufactur|mfg/i.test(nameOf(p)));
-  if(mfg) add(mfg.id, mfg.name);
-
-  // 4) Zahir MRP (separate product, if present)
-  const mrp = projects.find(p => {
-    const s = nameOf(p);
-    if(/manufactur/i.test(s)) return false;
-    return /zahir\s*mrp|\bmrp\b/i.test(s);
-  });
-  if(mrp) add(mrp.id, mrp.name);
-
-  // Fallback: selected sync project
+  // Selected sync project as extra
   const selected = getSelectedProjectId();
   if(selected){
     const p = projects.find(x => String(x.id) === String(selected));
-    add(selected, p?.name || 'Selected project');
+    add(selected, p?.name || 'Selected');
   }
 
-  if(!ids.length && projects.length){
-    // Last resort: any project with Zahir in the name
-    projects.filter(p => /zahir/i.test(nameOf(p))).slice(0, 5).forEach(p => add(p.id, p.name));
-  }
-
-  console.info('[tester] projects resolved', ids.map(x => x.label + ' #' + x.id));
+  console.info('[tester] projects resolved', ids);
   return ids;
 }
+
 
 async function fetchRftForProject(projectId, force){
   const cachedSid = getCachedRftStatusId();
@@ -3469,14 +3479,29 @@ function copyWorkspaceId(){
    NEW ISSUES — status "New" from 3 Zahir projects
    ============================================================ */
 const NEW_ISSUE_PROJECTS = [
-  { key: 'erp-one', label: 'Zahir ERP One', match: (n) => /zahir\s*erp\s*one/i.test(n) },
-  { key: 'erp', label: 'Zahir ERP', match: (n) => {
-      const s = String(n||'').trim();
-      if (/one|manufactur|mfg|point|pos|payroll|mobile/i.test(s)) return false;
-      return /^zahir\s*erp$/i.test(s);
+  { key: 'erp-one', label: 'Zahir ERP One', id: 119, identifier: 'zahir-erp-one',
+    match: (p) => {
+      if(typeof p === 'string') return /erp\s*one/i.test(p);
+      return p.id === 119 || p.identifier === 'zahir-erp-one' || /erp\s*one/i.test(p.name||'');
     }
   },
-  { key: 'mfg', label: 'Zahir ERP Manufacturing', match: (n) => /manufactur/i.test(n) }
+  { key: 'erp', label: 'Zahir ERP', id: 75, identifier: 'custom-special-module',
+    match: (p) => {
+      if(typeof p === 'string') {
+        const s = String(p||'').trim();
+        if (/one|manufactur|mfg|point|pos|payroll|mobile/i.test(s)) return false;
+        return /^zahir\s*erp$/i.test(s);
+      }
+      return p.id === 75 || p.identifier === 'custom-special-module' ||
+        (/^zahir\s*erp$/i.test(String(p.name||'').trim()) && !/one|manufactur|mfg/i.test(p.name||''));
+    }
+  },
+  { key: 'mfg', label: 'Zahir ERP Manufacturing', id: 113, identifier: 'zahir-erp-manufacturing',
+    match: (p) => {
+      if(typeof p === 'string') return /manufactur/i.test(p);
+      return p.id === 113 || p.identifier === 'zahir-erp-manufacturing' || /manufactur/i.test(p.name||'');
+    }
+  }
 ];
 
 window.__newIssuesByProject = window.__newIssuesByProject || {};
@@ -3488,13 +3513,16 @@ function resolveNewIssueProjectIds(){
   const result = [];
   const used = new Set();
   for(const def of NEW_ISSUE_PROJECTS){
-    const found = projects.find(p => def.match(p.name || '') && !used.has(p.id));
+    let found = projects.find(p => def.match(p) && !used.has(p.id));
+    if(!found && def.id && !used.has(def.id)){
+      found = { id: def.id, name: def.label, identifier: def.identifier };
+    }
     if(found) used.add(found.id);
     result.push({
       key: def.key,
       label: def.label,
       projectId: found ? found.id : null,
-      projectName: found ? found.name : null
+      projectName: found ? (found.name || def.label) : null
     });
   }
   return result;
