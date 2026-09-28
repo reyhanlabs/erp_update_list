@@ -2490,11 +2490,13 @@ async function loadTesterReminder(force){
         const r = await fetchRftForProject(t.id, force);
         if(r.fromCache) anyCache = true;
         if(r.statusName) statusName = r.statusName;
+        const n = (r.issues || []).length;
+        console.info('[tester] RFT', t.label, '#'+t.id, '→', n, 'issues', r.fromCache ? '(cache)' : '(live)');
         (r.issues || []).forEach(i => {
           merged.push({ ...i, _projectId: t.id, _projectLabel: t.label });
         });
       } catch(err){
-        console.warn('RFT fetch failed', t.label, err);
+        console.warn('[tester] RFT fetch failed', t.label, '#'+t.id, err);
       }
     }));
     // Dedupe by issue id
@@ -4628,9 +4630,10 @@ async function sendTelegramBriefing(){
     });
     const data = await r.json().catch(() => ({}));
     if(!r.ok){
-      // Fallback: copy + open share
       try { await navigator.clipboard.writeText(text); } catch(_){}
-      toast(data.error || 'Telegram send failed — text copied', 'error');
+      const detail = data.hint || data.error || data.description || ('HTTP ' + r.status);
+      toast('Telegram: ' + detail + ' — text copied', 'error');
+      console.warn('[telegram]', r.status, data);
       return;
     }
     toast('Briefing sent to Telegram');

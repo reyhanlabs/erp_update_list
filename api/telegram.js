@@ -13,28 +13,40 @@ export default async function handler(req, res) {
   if (!token) {
     return res.status(500).json({
       error: 'TELEGRAM_BOT_TOKEN not configured',
-      hint: 'Add TELEGRAM_BOT_TOKEN in Vercel env, then redeploy.'
+      hint: 'Vercel → Settings → Environment Variables → add TELEGRAM_BOT_TOKEN → Redeploy'
     });
   }
 
   try {
-    const { chatId, text } = req.body || {};
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (_) { body = {}; }
+    }
+    const chatId = body?.chatId;
+    const text = body?.text;
     if (!chatId || !text) {
       return res.status(400).json({ error: 'chatId and text required' });
     }
-    const body = String(text).slice(0, 4000);
+
+    const msg = String(text).slice(0, 4000);
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: chatId,
-        text: body,
+        text: msg,
         disable_web_page_preview: true
       })
     });
-    const data = await r.json();
+    const data = await r.json().catch(() => ({}));
     if (!r.ok || !data.ok) {
-      return res.status(502).json({ error: data.description || 'Telegram API error', data });
+      const desc = data.description || 'Telegram API error';
+      let hint = desc;
+      if (/unauthorized/i.test(desc)) hint = 'Bot token invalid — check TELEGRAM_BOT_TOKEN';
+      if (/chat not found/i.test(desc)) hint = 'Chat ID wrong, or bot not added to the group / not started with /start';
+      if (/blocked/i.test(desc)) hint = 'Bot was blocked by the user';
+      if (/parse/i.test(desc)) hint = 'Message format error';
+      return res.status(502).json({ error: desc, hint, data });
     }
     return res.status(200).json({ ok: true });
   } catch (err) {
