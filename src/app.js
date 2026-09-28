@@ -2471,7 +2471,7 @@ async function loadTesterReminder(force){
     renderTesterAssigneeChips();
     renderTesterList();
 
-    if(force && !fromCache) toast('Tester queue updated');
+    if(force && !anyCache) toast('Tester queue updated');
   } catch(err){
     console.error('Tester reminder failed:', err);
     const friendly = err.friendly || { title: 'Failed to load', message: err.message };
@@ -2498,22 +2498,25 @@ async function prefetchTesterCount(){
     if(!RedmineState.loaded){
       await loadRedmineProjects();
     }
-    const pid = getSelectedProjectId();
-    if(!pid) return;
-    const params = new URLSearchParams();
-    const cachedSid = getCachedRftStatusId();
-    if(cachedSid) params.set('status_id', cachedSid);
-    else params.set('status_name', 'Ready for Testing');
-    params.set('project_id', pid);
-    params.set('limit', '100');
-    params.set('sort', 'updated_on:desc');
-    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
-    if(data.resolved_status?.id) setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
-    const issues = data.issues || [];
+    const targets = resolveTesterProjectIds();
+    if(!targets.length) return;
+    const merged = [];
+    let statusName = 'Ready for Testing';
+    await Promise.all(targets.map(async (t) => {
+      try {
+        const r = await fetchRftForProject(t.id, false);
+        if(r.statusName) statusName = r.statusName;
+        (r.issues || []).forEach(i => merged.push({ ...i, _projectId: t.id, _projectLabel: t.label }));
+      } catch(_){}
+    }));
+    const byId = new Map();
+    merged.forEach(i => { if(!byId.has(i.id)) byId.set(i.id, i); });
+    const issues = Array.from(byId.values());
     window.__testerIssues = issues;
     window.__testerMeta = {
       fromCache: true,
-      statusName: data.resolved_status?.name || 'Ready for Testing'
+      statusName,
+      projects: targets.map(t => t.label).join(', ')
     };
     setTesterBadgeCount(issues.length);
     updateTesterCategoryBadges();
