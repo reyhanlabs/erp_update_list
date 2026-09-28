@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.25.0';
+export const APP_VERSION = '4.25.1';
 export const APP_VERSION_DATE = '2026-09-28';
-export const APP_VERSION_NOTE = 'Multi-project Tester · auto-refresh · plan from What Next · Telegram';
+export const APP_VERSION_NOTE = 'Tester Queue always includes Zahir ERP + One + MRP';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

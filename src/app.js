@@ -2337,7 +2337,7 @@ async function copyTesterList(){
 
 
 function resolveTesterProjectIds(){
-  // Ready for Testing from: selected project + Zahir ERP One + Zahir MRP
+  // Always: Zahir ERP + Zahir ERP One + Zahir MRP (+ selected if different)
   const projects = RedmineState.projects || [];
   const ids = [];
   const seen = new Set();
@@ -2346,15 +2346,27 @@ function resolveTesterProjectIds(){
     seen.add(String(id));
     ids.push({ id: String(id), label });
   };
+
+  // Core three projects
+  const erp = projects.find(p => {
+    const s = String(p.name || '').trim();
+    if(/one|manufactur|mfg|mrp|point|pos|payroll|mobile/i.test(s)) return false;
+    return /^zahir\s*erp$/i.test(s);
+  });
+  if(erp) add(erp.id, erp.name);
+
+  const one = projects.find(p => /zahir\s*erp\s*one/i.test(p.name || ''));
+  if(one) add(one.id, one.name);
+
+  const mrp = projects.find(p => /zahir\s*mrp|\bmrp\b/i.test(p.name || ''));
+  if(mrp) add(mrp.id, mrp.name);
+
+  // Also include currently selected sync project if not already in the list
   const selected = getSelectedProjectId();
   if(selected){
     const p = projects.find(x => String(x.id) === String(selected));
     add(selected, p?.name || 'Selected project');
   }
-  const one = projects.find(p => /zahir\s*erp\s*one/i.test(p.name || ''));
-  if(one) add(one.id, one.name);
-  const mrp = projects.find(p => /zahir\s*mrp|\bmrp\b/i.test(p.name || ''));
-  if(mrp) add(mrp.id, mrp.name);
   return ids;
 }
 
