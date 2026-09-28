@@ -1594,7 +1594,7 @@ function applyStatusParam(params, statusVal){
    REDMINE CACHE + ERROR HANDLING
    ============================================================ */
 const RedmineCache = {
-  TTL_MS: 2 * 60 * 1000, // 2 minutes
+  TTL_MS: 8 * 60 * 1000, // 8 minutes — fewer Redmine round-trips
   _mem: new Map(),
 
   key(url){ return String(url); },
@@ -3408,20 +3408,33 @@ function getNewIssuesStatusName(){
   return v || 'New';
 }
 
-async function fetchNewIssuesForProject(projectId){
+async function fetchNewIssuesForProject(projectId, force = false){
   const params = new URLSearchParams();
   params.set('status_name', getNewIssuesStatusName());
   params.set('project_id', String(projectId));
   params.set('limit', '100');
   params.set('sort', 'updated_on:desc');
-  const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+  const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
   return { issues: data.issues || [], fromCache: !!fromCache, resolved: data.resolved_status };
 }
 
 async function loadNewIssues(force){
   const el = $('newIssuesBody');
   const btn = $('btnRefreshNewIssues');
-  if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  const hasMem = !!(window.__newIssuesByProject && Object.keys(window.__newIssuesByProject).length);
+
+  // Stale-while-revalidate: show last data instantly when not forcing
+  if(!force && hasMem){
+    renderNewIssues();
+    const meta = window.__newIssuesMeta;
+    const age = meta ? (Date.now() - (meta.at || 0)) : Infinity;
+    // If fresher than 8 min, skip network
+    if(age < 8 * 60 * 1000){
+      return;
+    }
+  } else if(!hasMem){
+    if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  }
   if(btn) btn.disabled = true;
 
   try {
@@ -3431,6 +3444,7 @@ async function loadNewIssues(force){
     const targets = resolveNewIssueProjectIds();
     const byProject = {};
     let total = 0;
+    let anyFromCache = false;
 
     await Promise.all(targets.map(async (t) => {
       if(!t.projectId){
@@ -3438,8 +3452,9 @@ async function loadNewIssues(force){
         return;
       }
       try {
-        const { issues, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId);
-        byProject[t.key] = { ...t, issues, fromCache, statusName: resolved?.name || 'New', error: null };
+        const { issues, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId, !!force);
+        if(fromCache) anyFromCache = true;
+        byProject[t.key] = { ...t, issues, fromCache, statusName: resolved?.name || getNewIssuesStatusName(), error: null };
         total += issues.length;
       } catch(err){
         console.error('New issues fetch failed', t.label, err);
@@ -3452,23 +3467,31 @@ async function loadNewIssues(force){
 
     window.__newIssuesByProject = byProject;
     window.__newIssuesError = null;
-    window.__newIssuesMeta = { total, at: Date.now() };
+    window.__newIssuesMeta = { total, at: Date.now(), fromCache: anyFromCache && !force };
 
     const badge = $('countNewIssues');
     if(badge) badge.textContent = String(total);
     const totalBadge = $('newIssuesTotalBadge');
     if(totalBadge) totalBadge.textContent = String(total);
     const statusLabel = $('newIssuesStatusLabel');
-    if(statusLabel) statusLabel.textContent = 'Status: ' + getNewIssuesStatusName();
+    if(statusLabel){
+      statusLabel.textContent = 'Status: ' + getNewIssuesStatusName() + (anyFromCache && !force ? ' · cached' : '');
+    }
 
     renderNewIssues();
   } catch(err){
     console.error(err);
-    window.__newIssuesError = err.friendly || { title: 'Failed to load', message: err.message };
-    if(el){
-      el.innerHTML = emptyState(ICON.alert, window.__newIssuesError.title || 'Failed', window.__newIssuesError.message || '', [
-        { label: 'Try again', action: 'loadNewIssues(true)', primary: true }
-      ]);
+    // Keep showing stale data if we have it
+    if(hasMem){
+      renderNewIssues();
+      toast('Refresh failed — showing cached data', 'error');
+    } else {
+      window.__newIssuesError = err.friendly || { title: 'Failed to load', message: err.message };
+      if(el){
+        el.innerHTML = emptyState(ICON.alert, window.__newIssuesError.title || 'Failed', window.__newIssuesError.message || '', [
+          { label: 'Try again', action: 'loadNewIssues(true)', primary: true }
+        ]);
+      }
     }
   } finally {
     if(btn) btn.disabled = false;
@@ -3761,7 +3784,7 @@ const ACTIVE_WORK_STATUSES = [
 window.__activeWorkData = window.__activeWorkData || { progress: [], deploy: [] };
 window.__activeWorkError = null;
 
-async function fetchIssuesByStatusName(projectId, statusNames){
+async function fetchIssuesByStatusName(projectId, statusNames, force = false){
   let lastErr = null;
   for(const name of statusNames){
     try {
@@ -3770,7 +3793,7 @@ async function fetchIssuesByStatusName(projectId, statusNames){
       params.set('project_id', String(projectId));
       params.set('limit', '100');
       params.set('sort', 'updated_on:desc');
-      const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+      const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
       // If resolved status exists or issues returned, accept
       if((data.issues && data.issues.length) || data.resolved_status){
         return { issues: data.issues || [], statusName: data.resolved_status?.name || name };
@@ -3786,7 +3809,17 @@ async function fetchIssuesByStatusName(projectId, statusNames){
 async function loadActiveWork(force){
   const el = $('activeWorkBody');
   const btn = $('btnRefreshActiveWork');
-  if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  const hasMem = !!(window.__activeWorkData && ((window.__activeWorkData.progress||[]).length || (window.__activeWorkData.deploy||[]).length || window.__activeWorkMeta));
+
+  if(!force && hasMem){
+    renderActiveWork();
+    const age = window.__activeWorkMeta ? (Date.now() - (window.__activeWorkMeta.at || 0)) : Infinity;
+    if(age < 8 * 60 * 1000){
+      return;
+    }
+  } else if(!hasMem){
+    if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  }
   if(btn) btn.disabled = true;
 
   try {
@@ -3801,7 +3834,7 @@ async function loadActiveWork(force){
       if(!t.projectId) return;
       // In Progress
       try {
-        const r = await fetchIssuesByStatusName(t.projectId, ACTIVE_WORK_STATUSES[0].names);
+        const r = await fetchIssuesByStatusName(t.projectId, ACTIVE_WORK_STATUSES[0].names, !!force);
         r.issues.forEach(i => progressAll.push({
           ...i,
           _projectKey: t.key,
@@ -3813,7 +3846,7 @@ async function loadActiveWork(force){
       }
       // On Deploy
       try {
-        const r = await fetchIssuesByStatusName(t.projectId, ACTIVE_WORK_STATUSES[1].names);
+        const r = await fetchIssuesByStatusName(t.projectId, ACTIVE_WORK_STATUSES[1].names, !!force);
         r.issues.forEach(i => deployAll.push({
           ...i,
           _projectKey: t.key,
@@ -3839,6 +3872,7 @@ async function loadActiveWork(force){
 
     window.__activeWorkData = { progress: progressAll, deploy: deployAll };
     window.__activeWorkError = null;
+    window.__activeWorkMeta = { at: Date.now(), total: progressAll.length + deployAll.length };
 
     const total = progressAll.length + deployAll.length;
     const c = $('countActiveWork');
@@ -3849,11 +3883,16 @@ async function loadActiveWork(force){
     renderActiveWork();
   } catch(err){
     console.error(err);
-    window.__activeWorkError = err.friendly || { title: 'Failed to load', message: err.message };
-    if(el){
-      el.innerHTML = emptyState(ICON.alert, window.__activeWorkError.title || 'Failed', window.__activeWorkError.message || '', [
-        { label: 'Try again', action: 'loadActiveWork(true)', primary: true }
-      ]);
+    if(hasMem){
+      renderActiveWork();
+      toast('Refresh failed — showing cached data', 'error');
+    } else {
+      window.__activeWorkError = err.friendly || { title: 'Failed to load', message: err.message };
+      if(el){
+        el.innerHTML = emptyState(ICON.alert, window.__activeWorkError.title || 'Failed', window.__activeWorkError.message || '', [
+          { label: 'Try again', action: 'loadActiveWork(true)', primary: true }
+        ]);
+      }
     }
   } finally {
     if(btn) btn.disabled = false;
