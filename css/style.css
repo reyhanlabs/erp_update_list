@@ -1197,6 +1197,14 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 .changelog{display:flex;flex-direction:column;gap:6px}
+.changelog-scroll{
+  max-height:220px; /* ~5 items */
+  overflow-y:auto;
+  padding-right:4px;
+  scrollbar-width:thin;
+}
+.changelog-scroll::-webkit-scrollbar{width:6px}
+.changelog-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
 .changelog-item{
   display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;
   font-size:13px;padding:8px 10px;border-radius:10px;
@@ -1937,3 +1945,27 @@ body.auth-locked .main{
   display:flex;align-items:center;gap:8px;font-weight:650;font-size:13.5px;color:var(--text);
 }
 .new-proj-actions{display:flex;gap:8px;align-items:center}
+
+
+/* Dashboard New-issue project cards */
+.dash-section-label{
+  font-size:12px;font-weight:650;color:var(--text-secondary);
+  letter-spacing:.02em;margin:4px 0 10px;text-transform:uppercase;
+}
+.stats-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+@media(max-width:900px){.stats-grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.stats-grid-3{grid-template-columns:1fr}}
+button.dash-new-stat{
+  border:none;text-align:left;cursor:pointer;width:100%;
+  font:inherit;color:inherit;
+}
+button.dash-new-stat:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
+.stat-hint{font-size:11px;color:var(--text-tertiary);margin-top:4px}
+.stat.cyan{/* reuse palette */
+  background:linear-gradient(135deg,rgba(6,182,212,.1),var(--surface));
+  border:1px solid rgba(6,182,212,.18);
+}
+
+.tester-table .col-assignee-show{
+  white-space:nowrap;font-weight:600;color:var(--text);min-width:120px;max-width:180px;
+}

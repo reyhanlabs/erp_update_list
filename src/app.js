@@ -571,6 +571,7 @@ const VIEW_META = {
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
   newissues:{ title:'New Issues', sub:'Filter by status · Zahir ERP One, Zahir ERP, Manufacturing', addBtn:false },
+  activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -609,6 +610,9 @@ function switchView(view){
     }
   });
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
+  if(view === 'dashboard'){
+    try { refreshDashNewIssueCounts(); } catch(_){}
+  }
   const meta = VIEW_META[view] || VIEW_META.dashboard;
   $('pageTitle').textContent = meta.title;
   $('pageSubtitle').textContent = meta.sub;
@@ -1468,6 +1472,8 @@ function renderSummaries(){
    DASHBOARD / COUNTS
    ============================================================ */
 function refreshCounts(){
+  // Fire-and-forget dashboard New counts
+  try { refreshDashNewIssueCounts(); } catch(_){}
   const plans = State.plans.all();
   const sums = State.summaries.all();
 
@@ -3674,9 +3680,297 @@ async function copyAllNewIssueLinks(){
   }
 }
 
+
+async function refreshDashNewIssueCounts(){
+  const ids = {
+    'erp-one': 'statNewErpOne',
+    'erp': 'statNewErp',
+    'mfg': 'statNewMfg'
+  };
+  // Show loading
+  Object.values(ids).forEach(id => {
+    const el = $(id);
+    if(el && (el.textContent === '—' || el.textContent === '')) el.textContent = '…';
+  });
+
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const targets = resolveNewIssueProjectIds();
+    await Promise.all(targets.map(async (t) => {
+      const el = $(ids[t.key]);
+      if(!el) return;
+      if(!t.projectId){
+        el.textContent = '—';
+        return;
+      }
+      try {
+        // Force status New for dashboard cards (not the UI filter)
+        const params = new URLSearchParams();
+        params.set('status_name', 'New');
+        params.set('project_id', String(t.projectId));
+        params.set('limit', '100');
+        params.set('sort', 'updated_on:desc');
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+        const n = (data.issues || []).length;
+        el.textContent = String(n);
+      } catch(err){
+        console.warn('dash new count', t.key, err);
+        el.textContent = '!';
+      }
+    }));
+  } catch(err){
+    console.warn('refreshDashNewIssueCounts', err);
+  }
+}
+
 function openNewIssuesView(){
   switchView('newissues');
   loadNewIssues(false);
+}
+
+
+
+/* ============================================================
+   ACTIVE WORK — In Progress + On Deploy across 3 projects
+   ============================================================ */
+const ACTIVE_WORK_STATUSES = [
+  { key: 'progress', label: 'In Progress', names: ['In Progress', 'On Progress', 'Progress'] },
+  { key: 'deploy', label: 'On Deploy', names: ['On Deploy', 'Ondeploy', 'On deploy', 'Deploy'] }
+];
+
+window.__activeWorkData = window.__activeWorkData || { progress: [], deploy: [] };
+window.__activeWorkError = null;
+
+async function fetchIssuesByStatusName(projectId, statusNames){
+  let lastErr = null;
+  for(const name of statusNames){
+    try {
+      const params = new URLSearchParams();
+      params.set('status_name', name);
+      params.set('project_id', String(projectId));
+      params.set('limit', '100');
+      params.set('sort', 'updated_on:desc');
+      const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+      // If resolved status exists or issues returned, accept
+      if((data.issues && data.issues.length) || data.resolved_status){
+        return { issues: data.issues || [], statusName: data.resolved_status?.name || name };
+      }
+    } catch(err){
+      lastErr = err;
+    }
+  }
+  if(lastErr) throw lastErr;
+  return { issues: [], statusName: statusNames[0] };
+}
+
+async function loadActiveWork(force){
+  const el = $('activeWorkBody');
+  const btn = $('btnRefreshActiveWork');
+  if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  if(btn) btn.disabled = true;
+
+  try {
+    if(!RedmineState.loaded){
+      await loadRedmineProjects();
+    }
+    const targets = resolveNewIssueProjectIds();
+    const progressAll = [];
+    const deployAll = [];
+
+    await Promise.all(targets.map(async (t) => {
+      if(!t.projectId) return;
+      // In Progress
+      try {
+        const r = await fetchIssuesByStatusName(t.projectId, ACTIVE_WORK_STATUSES[0].names);
+        r.issues.forEach(i => progressAll.push({
+          ...i,
+          _projectKey: t.key,
+          _projectLabel: t.projectName || t.label,
+          _statusLabel: r.statusName || 'In Progress'
+        }));
+      } catch(err){
+        console.warn('In Progress fetch', t.label, err);
+      }
+      // On Deploy
+      try {
+        const r = await fetchIssuesByStatusName(t.projectId, ACTIVE_WORK_STATUSES[1].names);
+        r.issues.forEach(i => deployAll.push({
+          ...i,
+          _projectKey: t.key,
+          _projectLabel: t.projectName || t.label,
+          _statusLabel: r.statusName || 'On Deploy'
+        }));
+      } catch(err){
+        console.warn('On Deploy fetch', t.label, err);
+      }
+    }));
+
+    // Sort Immediate first within each list
+    const sortPri = (arr) => arr.sort((a,b) => {
+      const ra = (typeof prioritySortRank === 'function') ? prioritySortRank(a.priority?.name) : 0;
+      const rb = (typeof prioritySortRank === 'function') ? prioritySortRank(b.priority?.name) : 0;
+      if(ra !== rb) return ra - rb;
+      const aa = (a.assigned_to?.name || 'zzz').toLowerCase();
+      const bb = (b.assigned_to?.name || 'zzz').toLowerCase();
+      return aa.localeCompare(bb);
+    });
+    sortPri(progressAll);
+    sortPri(deployAll);
+
+    window.__activeWorkData = { progress: progressAll, deploy: deployAll };
+    window.__activeWorkError = null;
+
+    const total = progressAll.length + deployAll.length;
+    const c = $('countActiveWork');
+    if(c) c.textContent = String(total);
+    const b = $('activeWorkTotalBadge');
+    if(b) b.textContent = String(total);
+
+    renderActiveWork();
+  } catch(err){
+    console.error(err);
+    window.__activeWorkError = err.friendly || { title: 'Failed to load', message: err.message };
+    if(el){
+      el.innerHTML = emptyState(ICON.alert, window.__activeWorkError.title || 'Failed', window.__activeWorkError.message || '', [
+        { label: 'Try again', action: 'loadActiveWork(true)', primary: true }
+      ]);
+    }
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+function filterActiveWorkList(list){
+  const q = ($('activeWorkSearch')?.value || '').toLowerCase().trim();
+  if(!q) return list;
+  return list.filter(i => {
+    const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i._projectLabel, i._statusLabel]
+      .map(x => String(x||'').toLowerCase()).join(' ');
+    return hay.includes(q);
+  });
+}
+
+function renderActiveWorkTable(list){
+  if(!list.length){
+    return `<div class="empty" style="padding:16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">No issues</p></div>`;
+  }
+  const rows = list.map(issue => {
+    const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+    const assignee = issue.assigned_to?.name || 'Unassigned';
+    const pri = issue.priority?.name || '—';
+    const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
+    const proj = issue._projectLabel || '—';
+    return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
+      <td class="col-subject">${escapeHtml(issue.subject || '—')}</td>
+      <td class="col-assignee-show">${escapeHtml(assignee)}</td>
+      <td class="col-priority">${priHtml}</td>
+      <td class="col-tracker">${escapeHtml(proj)}</td>
+      <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
+    </tr>`;
+  }).join('');
+  return `<div class="tester-table-wrap">
+    <table class="tester-table">
+      <thead><tr>
+        <th class="col-id">Issue</th>
+        <th class="col-subject">Description</th>
+        <th class="col-assignee-show">Assignee</th>
+        <th class="col-priority">Priority</th>
+        <th class="col-tracker">Project</th>
+        <th class="col-open"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function renderActiveWorkGrouped(list){
+  const groupBy = ($('activeWorkGroupBy')?.value) || 'assignee';
+  if(groupBy === 'none') return renderActiveWorkTable(list);
+
+  const groups = {};
+  list.forEach(i => {
+    const key = groupBy === 'project'
+      ? (i._projectLabel || 'Unknown project')
+      : (i.assigned_to?.name || 'Unassigned');
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(i);
+  });
+  const keys = Object.keys(groups).sort((a,b) => groups[b].length - groups[a].length || a.localeCompare(b));
+  return keys.map(key => `
+    <div class="tester-group">
+      <div class="tester-group-head">
+        <span class="tester-group-title">${escapeHtml(key)}</span>
+        <span class="badge badge-amber">${groups[key].length}</span>
+      </div>
+      ${renderActiveWorkTable(groups[key])}
+    </div>
+  `).join('');
+}
+
+function renderActiveWork(){
+  const el = $('activeWorkBody');
+  if(!el) return;
+  if(window.__activeWorkError){
+    el.innerHTML = emptyState(ICON.alert, window.__activeWorkError.title || 'Error', window.__activeWorkError.message || '', [
+      { label: 'Try again', action: 'loadActiveWork(true)', primary: true }
+    ]);
+    return;
+  }
+  const data = window.__activeWorkData || { progress: [], deploy: [] };
+  const progress = filterActiveWorkList(data.progress || []);
+  const deploy = filterActiveWorkList(data.deploy || []);
+
+  el.innerHTML = `
+    <div class="new-proj-block">
+      <div class="new-proj-head">
+        <div class="new-proj-title">
+          <span>In Progress</span>
+          <span class="badge badge-amber">${progress.length}</span>
+        </div>
+        <div class="new-proj-actions">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyActiveWorkLinks('progress')" ${!progress.length?'disabled':''}>Copy links</button>
+        </div>
+      </div>
+      ${renderActiveWorkGrouped(progress)}
+    </div>
+    <div class="new-proj-block">
+      <div class="new-proj-head">
+        <div class="new-proj-title">
+          <span>On Deploy</span>
+          <span class="badge badge-cyan">${deploy.length}</span>
+        </div>
+        <div class="new-proj-actions">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyActiveWorkLinks('deploy')" ${!deploy.length?'disabled':''}>Copy links</button>
+        </div>
+      </div>
+      ${renderActiveWorkGrouped(deploy)}
+    </div>`;
+}
+
+async function copyActiveWorkLinks(which){
+  const data = window.__activeWorkData || { progress: [], deploy: [] };
+  const list = filterActiveWorkList(which === 'deploy' ? data.deploy : data.progress);
+  const label = which === 'deploy' ? 'On Deploy' : 'In Progress';
+  if(!list.length){ toast('No links to copy', 'error'); return; }
+  let text = `${label} (${list.length})\n`;
+  list.forEach(i => {
+    const who = i.assigned_to?.name || 'Unassigned';
+    text += `#${i.id} [${who}] ${i.subject || ''}\nhttps://pjm.zahironline.com/issues/${i.id}\n`;
+  });
+  try {
+    await navigator.clipboard.writeText(text.trim());
+    toast('Links copied');
+  } catch(_){
+    toast('Copy failed', 'error');
+  }
+}
+
+function openActiveWorkView(){
+  switchView('activework');
+  loadActiveWork(false);
 }
 
 
@@ -3696,7 +3990,8 @@ function exposeAppGlobals(){
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
-    openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks,
+    openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
+    openActiveWorkView, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     CloudSync
   };
   Object.keys(map).forEach(k => {

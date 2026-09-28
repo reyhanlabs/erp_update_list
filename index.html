@@ -144,6 +144,16 @@
       <span class="label">Status New</span>
       <span class="count" id="countNewIssues">0</span>
     </button>
+    <button class="nav-item" data-view="activework" onclick="openActiveWorkView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span class="label">Active Work</span>
+      <span class="count" id="countActiveWork">0</span>
+    </button>
 
     <div class="nav-section">System</div>
     <button class="nav-item" data-view="settings">
@@ -289,6 +299,49 @@
           </div>
           <div class="stat-value" id="statNeedsSummary">0</div>
         </div>
+      </div>
+
+      <div class="dash-section-label">New issues by project</div>
+      <div class="stats-grid stats-grid-3" id="dashNewIssuesGrid">
+        <button type="button" class="stat cyan dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </span>
+            Zahir ERP One
+          </div>
+          <div class="stat-value" id="statNewErpOne">—</div>
+          <div class="stat-hint">Status New</div>
+        </button>
+        <button type="button" class="stat blue dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18"/>
+              </svg>
+            </span>
+            Zahir ERP
+          </div>
+          <div class="stat-value" id="statNewErp">—</div>
+          <div class="stat-hint">Status New</div>
+        </button>
+        <button type="button" class="stat violet dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>
+              </svg>
+            </span>
+            Manufacturing
+          </div>
+          <div class="stat-value" id="statNewMfg">—</div>
+          <div class="stat-hint">Status New</div>
+        </button>
       </div>
 
       <div class="dash-actions">
@@ -594,6 +647,41 @@
       </div>
     </section>
 
+    <!-- ACTIVE WORK: In Progress + On Deploy -->
+    <section class="view" id="view-activework">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark" style="background:linear-gradient(135deg,#f59e0b,#ef4444)"></span>
+            Active Work
+            <span class="badge badge-amber" id="activeWorkTotalBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshActiveWork" onclick="loadActiveWork(true)">Refresh</button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="activeWorkSearch" placeholder="Search assignee, subject, #id..." oninput="renderActiveWork()"/>
+          </div>
+          <select class="select" id="activeWorkGroupBy" onchange="renderActiveWork()">
+            <option value="assignee">Group: Assignee</option>
+            <option value="project">Group: Project</option>
+            <option value="none">No grouping</option>
+          </select>
+        </div>
+        <div class="card-body tight" id="activeWorkBody">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load In Progress &amp; On Deploy issues…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SETTINGS -->
     <section class="view" id="view-settings">
       <div class="card">
@@ -796,7 +884,15 @@
             <h3><span class="mark"></span> What's New</h3>
           </div>
           <div class="card-body">
-            <div class="changelog" id="changelogList">
+            <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.0</span>
+                <span class="cl-note">Active Work (In Progress + On Deploy) · scrollable What's New</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.4</span>
+                <span class="cl-note">Dashboard: New issues count per project</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.22.3</span>
                 <span class="cl-note">New Issues: priority filter</span>
