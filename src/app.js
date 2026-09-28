@@ -2357,36 +2357,57 @@ async function copyTesterList(){
 
 
 function resolveTesterProjectIds(){
-  // Always: Zahir ERP + Zahir ERP One + Zahir MRP (+ selected if different)
+  // Always pull RFT from: Zahir ERP, Zahir ERP One, Manufacturing, MRP
   const projects = RedmineState.projects || [];
   const ids = [];
   const seen = new Set();
   const add = (id, label) => {
     if(!id || seen.has(String(id))) return;
     seen.add(String(id));
-    ids.push({ id: String(id), label });
+    ids.push({ id: String(id), label: label || String(id) });
   };
+  const nameOf = (p) => String(p?.name || '').trim();
 
-  // Core three projects
+  // 1) Zahir ERP (exact — not One / Manufacturing / MRP / …)
   const erp = projects.find(p => {
-    const s = String(p.name || '').trim();
-    if(/one|manufactur|mfg|mrp|point|pos|payroll|mobile/i.test(s)) return false;
+    const s = nameOf(p);
+    if(/one|manufactur|mfg|\bmrp\b|point|pos|payroll|mobile/i.test(s)) return false;
     return /^zahir\s*erp$/i.test(s);
   });
   if(erp) add(erp.id, erp.name);
 
-  const one = projects.find(p => /zahir\s*erp\s*one/i.test(p.name || ''));
+  // 2) Zahir ERP One (flexible)
+  const one = projects.find(p => {
+    const s = nameOf(p);
+    return /erp\s*one/i.test(s) || /one/i.test(s) && /zahir/i.test(s) && /erp/i.test(s);
+  });
   if(one) add(one.id, one.name);
 
-  const mrp = projects.find(p => /zahir\s*mrp|\bmrp\b/i.test(p.name || ''));
+  // 3) Zahir ERP Manufacturing
+  const mfg = projects.find(p => /manufactur|mfg/i.test(nameOf(p)));
+  if(mfg) add(mfg.id, mfg.name);
+
+  // 4) Zahir MRP (separate product, if present)
+  const mrp = projects.find(p => {
+    const s = nameOf(p);
+    if(/manufactur/i.test(s)) return false;
+    return /zahir\s*mrp|\bmrp\b/i.test(s);
+  });
   if(mrp) add(mrp.id, mrp.name);
 
-  // Also include currently selected sync project if not already in the list
+  // Fallback: selected sync project
   const selected = getSelectedProjectId();
   if(selected){
     const p = projects.find(x => String(x.id) === String(selected));
     add(selected, p?.name || 'Selected project');
   }
+
+  if(!ids.length && projects.length){
+    // Last resort: any project with Zahir in the name
+    projects.filter(p => /zahir/i.test(nameOf(p))).slice(0, 5).forEach(p => add(p.id, p.name));
+  }
+
+  console.info('[tester] projects resolved', ids.map(x => x.label + ' #' + x.id));
   return ids;
 }
 
@@ -2552,10 +2573,10 @@ async function loadRedmineProjects(){
   if(RedmineState.loaded && RedmineState.projects.length) return;
 
   const sel = $('syncProject');
-  if(!sel) return;
-
-  sel.innerHTML = '<option value="">Loading projects…</option>';
-  sel.disabled = true;
+  if(sel){
+    sel.innerHTML = '<option value="">Loading projects…</option>';
+    sel.disabled = true;
+  }
 
   try {
     const r = await fetch('/api/redmine-projects');
@@ -2565,7 +2586,7 @@ async function loadRedmineProjects(){
 
     const projects = (data.projects || []).filter(p => p.status === 1);
     if(!projects.length){
-      sel.innerHTML = '<option value="">No active projects found</option>';
+      if(sel) sel.innerHTML = '<option value="">No active projects found</option>';
       return;
     }
 
