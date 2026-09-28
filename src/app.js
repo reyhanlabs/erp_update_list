@@ -570,6 +570,7 @@ const VIEW_META = {
   plans:     { title:'Update Plans', sub:'Manage plans & sync from Redmine', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
+  newissues:{ title:'New Issues', sub:'Status New · Zahir ERP One, Zahir ERP, Manufacturing', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -3342,6 +3343,245 @@ function copyWorkspaceId(){
   navigator.clipboard.writeText(id).then(()=>toast('Workspace code copied')).catch(()=>toast(id));
 }
 
+
+/* ============================================================
+   NEW ISSUES — status "New" from 3 Zahir projects
+   ============================================================ */
+const NEW_ISSUE_PROJECTS = [
+  { key: 'erp-one', label: 'Zahir ERP One', match: (n) => /zahir\s*erp\s*one/i.test(n) },
+  { key: 'erp', label: 'Zahir ERP', match: (n) => {
+      const s = String(n||'').trim();
+      if (/one|manufactur|mfg|point|pos|payroll|mobile/i.test(s)) return false;
+      return /^zahir\s*erp$/i.test(s);
+    }
+  },
+  { key: 'mfg', label: 'Zahir ERP Manufacturing', match: (n) => /manufactur/i.test(n) }
+];
+
+window.__newIssuesByProject = window.__newIssuesByProject || {};
+window.__newIssuesError = null;
+window.__newIssuesMeta = null;
+
+function resolveNewIssueProjectIds(){
+  const projects = RedmineState.projects || [];
+  const result = [];
+  const used = new Set();
+  for(const def of NEW_ISSUE_PROJECTS){
+    const found = projects.find(p => def.match(p.name || '') && !used.has(p.id));
+    if(found) used.add(found.id);
+    result.push({
+      key: def.key,
+      label: def.label,
+      projectId: found ? found.id : null,
+      projectName: found ? found.name : null
+    });
+  }
+  return result;
+}
+
+async function fetchNewIssuesForProject(projectId){
+  const params = new URLSearchParams();
+  params.set('status_name', 'New');
+  params.set('project_id', String(projectId));
+  params.set('limit', '100');
+  params.set('sort', 'updated_on:desc');
+  const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+  return { issues: data.issues || [], fromCache: !!fromCache, resolved: data.resolved_status };
+}
+
+async function loadNewIssues(force){
+  const el = $('newIssuesBody');
+  const btn = $('btnRefreshNewIssues');
+  if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
+  if(btn) btn.disabled = true;
+
+  try {
+    if(!RedmineState.loaded){
+      await loadRedmineProjects();
+    }
+    const targets = resolveNewIssueProjectIds();
+    const byProject = {};
+    let total = 0;
+
+    await Promise.all(targets.map(async (t) => {
+      if(!t.projectId){
+        byProject[t.key] = { ...t, issues: [], error: 'Project not found in Redmine' };
+        return;
+      }
+      try {
+        const { issues, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId);
+        byProject[t.key] = { ...t, issues, fromCache, statusName: resolved?.name || 'New', error: null };
+        total += issues.length;
+      } catch(err){
+        console.error('New issues fetch failed', t.label, err);
+        byProject[t.key] = {
+          ...t, issues: [],
+          error: (err.friendly && err.friendly.message) || err.message || 'Failed to load'
+        };
+      }
+    }));
+
+    window.__newIssuesByProject = byProject;
+    window.__newIssuesError = null;
+    window.__newIssuesMeta = { total, at: Date.now() };
+
+    const badge = $('countNewIssues');
+    if(badge) badge.textContent = String(total);
+    const totalBadge = $('newIssuesTotalBadge');
+    if(totalBadge) totalBadge.textContent = String(total);
+
+    renderNewIssues();
+  } catch(err){
+    console.error(err);
+    window.__newIssuesError = err.friendly || { title: 'Failed to load', message: err.message };
+    if(el){
+      el.innerHTML = emptyState(ICON.alert, window.__newIssuesError.title || 'Failed', window.__newIssuesError.message || '', [
+        { label: 'Try again', action: 'loadNewIssues(true)', primary: true }
+      ]);
+    }
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+function getFilteredNewIssues(issues){
+  const q = ($('newIssuesSearch')?.value || '').toLowerCase().trim();
+  if(!q) return issues || [];
+  return (issues || []).filter(i => {
+    const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i.tracker?.name]
+      .map(x => String(x||'').toLowerCase()).join(' ');
+    return hay.includes(q);
+  });
+}
+
+function renderNewIssues(){
+  const el = $('newIssuesBody');
+  if(!el) return;
+
+  if(window.__newIssuesError){
+    el.innerHTML = emptyState(ICON.alert, window.__newIssuesError.title || 'Error', window.__newIssuesError.message || '', [
+      { label: 'Try again', action: 'loadNewIssues(true)', primary: true }
+    ]);
+    return;
+  }
+
+  const by = window.__newIssuesByProject || {};
+  const order = NEW_ISSUE_PROJECTS.map(p => p.key);
+  if(!order.some(k => by[k])){
+    el.innerHTML = emptyState(ICON.inbox, 'No data yet', 'Click Refresh to load New issues from Redmine.', [
+      { label: 'Refresh', action: 'loadNewIssues(true)', primary: true }
+    ]);
+    return;
+  }
+
+  el.innerHTML = order.map(key => {
+    const block = by[key];
+    if(!block) return '';
+    const issues = getFilteredNewIssues(block.issues || []);
+    const title = block.projectName || block.label;
+    const head = `
+      <div class="new-proj-head">
+        <div class="new-proj-title">
+          <span>${escapeHtml(title)}</span>
+          <span class="badge badge-cyan">${issues.length}</span>
+          ${block.projectId ? `<span class="meta-chip" style="font-size:11px">#${block.projectId}</span>` : ''}
+        </div>
+        <div class="new-proj-actions">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="copyNewIssueLinks('${key}')" ${!issues.length ? 'disabled' : ''}>
+            Copy links
+          </button>
+        </div>
+      </div>`;
+
+    if(block.error){
+      return `<div class="new-proj-block">${head}
+        <div class="empty" style="padding:16px"><p style="margin:0;color:#ef4444;font-size:13px">${escapeHtml(block.error)}</p></div>
+      </div>`;
+    }
+    if(!issues.length){
+      return `<div class="new-proj-block">${head}
+        <div class="empty" style="padding:16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">No New issues</p></div>
+      </div>`;
+    }
+
+    const rows = issues.map(issue => {
+      const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+      const pri = issue.priority?.name || '—';
+      const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0,10)) : '—';
+      const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
+      return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+        <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
+        <td class="col-subject">${escapeHtml(issue.subject || '—')}</td>
+        <td class="col-priority">${priHtml}</td>
+        <td class="col-updated">${escapeHtml(updated)}</td>
+        <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="new-proj-block">${head}
+      <div class="tester-table-wrap">
+        <table class="tester-table">
+          <thead><tr>
+            <th class="col-id">Issue</th>
+            <th class="col-subject">Description</th>
+            <th class="col-priority">Priority</th>
+            <th class="col-updated">Updated</th>
+            <th class="col-open"></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function buildNewIssueLinksText(key){
+  const block = (window.__newIssuesByProject || {})[key];
+  if(!block) return '';
+  const issues = getFilteredNewIssues(block.issues || []);
+  const title = block.projectName || block.label || key;
+  let text = `${title} — New (${issues.length})\n`;
+  issues.forEach(i => {
+    text += `https://pjm.zahironline.com/issues/${i.id}\n`;
+  });
+  return text.trim();
+}
+
+async function copyNewIssueLinks(key){
+  const text = buildNewIssueLinksText(key);
+  if(!text || !text.includes('http')){
+    toast('No links to copy', 'error');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Links copied');
+  } catch(_){
+    toast('Copy failed', 'error');
+  }
+}
+
+async function copyAllNewIssueLinks(){
+  const order = NEW_ISSUE_PROJECTS.map(p => p.key);
+  const parts = order.map(k => buildNewIssueLinksText(k)).filter(t => t.includes('http'));
+  if(!parts.length){
+    toast('No links to copy', 'error');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(parts.join('\n\n'));
+    toast('All project links copied');
+  } catch(_){
+    toast('Copy failed', 'error');
+  }
+}
+
+function openNewIssuesView(){
+  switchView('newissues');
+  loadNewIssues(false);
+}
+
+
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
@@ -3358,6 +3598,7 @@ function exposeAppGlobals(){
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
+    openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks,
     CloudSync
   };
   Object.keys(map).forEach(k => {

@@ -1921,3 +1921,19 @@ body.auth-locked .main{
 .notif-panel-status{font-size:12px;color:var(--text-tertiary);margin:0 0 12px}
 .notif-panel-hint{font-size:11px;color:var(--text-tertiary);margin:10px 0 0;line-height:1.4}
 .notif-panel .btn{width:100%}
+
+
+/* New Issues — per project blocks */
+.new-proj-block{
+  border-bottom:1px solid var(--line);
+  padding-bottom:8px;margin-bottom:8px;
+}
+.new-proj-block:last-child{border-bottom:none;margin-bottom:0}
+.new-proj-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px 10px;flex-wrap:wrap;
+}
+.new-proj-title{
+  display:flex;align-items:center;gap:8px;font-weight:650;font-size:13.5px;color:var(--text);
+}
+.new-proj-actions{display:flex;gap:8px;align-items:center}

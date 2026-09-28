@@ -133,6 +133,18 @@
       <span class="count" id="countTesterOther">0</span>
     </button>
 
+    <div class="nav-section">New Issues</div>
+    <button class="nav-item" data-view="newissues" onclick="openNewIssuesView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      <span class="label">Status New</span>
+      <span class="count" id="countNewIssues">0</span>
+    </button>
+
     <div class="nav-section">System</div>
     <button class="nav-item" data-view="settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -521,6 +533,42 @@
       </div>
     </section>
 
+    <!-- NEW ISSUES (status New across 3 projects) -->
+    <section class="view" id="view-newissues">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark" style="background:linear-gradient(135deg,#3b82f6,#06b6d4)"></span>
+            New Issues
+            <span class="badge badge-cyan" id="newIssuesTotalBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="meta-chip" style="font-size:11.5px">Status: New</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyAllNewIssueLinks()">
+              Copy all links
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshNewIssues" onclick="loadNewIssues(true)">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="newIssuesSearch" placeholder="Search subject, #id, priority..." oninput="renderNewIssues()"/>
+          </div>
+        </div>
+        <div class="card-body tight" id="newIssuesBody">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load New issues…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SETTINGS -->
     <section class="view" id="view-settings">
       <div class="card">
@@ -724,6 +772,10 @@
           </div>
           <div class="card-body">
             <div class="changelog" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.0</span>
+                <span class="cl-note">New Issues — status New from 3 projects + copy links</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.21.6</span>
                 <span class="cl-note">Wider content body — less empty side space</span>
