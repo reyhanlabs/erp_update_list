@@ -119,16 +119,39 @@ function inferCategoryFromText(text){
 function parseIssueLines(text){
   return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line => {
     const { url, description, category } = parseIssueLine(line);
-    // Strong subject prefix (FE-/BE-) wins over a stale/wrong stored label
-    const inferred = inferCategoryFromText(description) || inferCategoryFromText(line);
-    let cat = category || inferred || '';
-    if(inferred && category && inferred !== category){
-      // Prefer FE/BE prefix over a generic stored Design/Other
-      if(inferred === 'Front End' || inferred === 'Backend') cat = inferred;
-    }
-    return { url, description, category: cat, number: extractIssueNumber(url) };
+    const number = extractIssueNumber(url);
+    const cat = resolveIssueCategory(number, category, description);
+    return { url, description, category: cat, number };
   });
 }
+
+/** Cache Redmine category by issue id — filled whenever issues are fetched */
+function rememberIssueCategories(issues){
+  if(!window.__issueCategoryById) window.__issueCategoryById = {};
+  (issues || []).forEach(i => {
+    if(!i || i.id == null) return;
+    const name = i.category?.name;
+    if(name && String(name).trim()){
+      window.__issueCategoryById[String(i.id)] = String(name).trim();
+    }
+  });
+}
+
+function resolveIssueCategory(number, storedCategory, description){
+  // 1) Explicit value stored on the plan line (from sync)
+  if(storedCategory && String(storedCategory).trim()){
+    return String(storedCategory).trim();
+  }
+  // 2) Live cache from any Redmine fetch (authoritative field)
+  const id = number != null ? String(number) : '';
+  if(id && window.__issueCategoryById && window.__issueCategoryById[id]){
+    return window.__issueCategoryById[id];
+  }
+  // 3) Weak fallback: only FE/BE/Design prefix at start of subject
+  return inferCategoryFromText(description) || '';
+}
+
+
 
 
 /* ICON imported from ./icons.js */
@@ -801,16 +824,22 @@ function openAddModal(event){
    ============================================================ */
 window.__expandedPlans = window.__expandedPlans || new Set();
 
-function togglePlanCard(planId, event){
+async function togglePlanCard(planId, event){
   if(event){
     event.stopPropagation();
   }
   if(window.__expandedPlans.has(planId)){
     window.__expandedPlans.delete(planId);
-  } else {
-    window.__expandedPlans.add(planId);
+    renderPlans();
+    return;
   }
-  renderPlans();
+  window.__expandedPlans.add(planId);
+  renderPlans(); // expand immediately
+  const plan = State.plans.get(planId);
+  if(plan){
+    const updated = await enrichPlanIssueCategories(plan);
+    if(updated) renderPlans(); // refresh labels from Redmine category cache
+  }
 }
 
 /* ============================================================
@@ -1274,6 +1303,39 @@ function planDateTone(dateStr){
   if(!m) return 0;
   const n = parseInt(m[1], 10) * 372 + parseInt(m[2], 10) * 31 + parseInt(m[3], 10);
   return Math.abs(n) % 6;
+}
+
+
+async function enrichPlanIssueCategories(plan){
+  if(!plan) return false;
+  const parsed = parseIssueLines(plan.issues);
+  const missing = parsed.filter(p => p.number && !p.category);
+  if(!missing.length) return false;
+
+  // Try cache first after a light multi-status pull is not always available —
+  // use currently selected project + open statuses if needed.
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const targets = typeof resolveTesterProjectIds === 'function' ? resolveTesterProjectIds() : [];
+    const ids = targets.length ? targets : [{ id: getSelectedProjectId(), label: 'Selected' }];
+    await Promise.all(ids.filter(t => t && t.id).map(async (t) => {
+      try {
+        const params = new URLSearchParams();
+        params.set('status_id', '*');
+        params.set('project_id', String(t.id));
+        params.set('limit', '100');
+        params.set('sort', 'updated_on:desc');
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: false });
+        rememberIssueCategories(data.issues || []);
+      } catch(_){}
+    }));
+    return true;
+  } catch(err){
+    console.warn('enrichPlanIssueCategories', err);
+    return false;
+  }
 }
 
 function renderPlanCard(d){
@@ -2798,6 +2860,7 @@ async function fetchRftForProject(projectId, force){
     if(data.resolved_status?.id){
       setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
     }
+    rememberIssueCategories(data.issues || []);
     return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
   } catch(firstErr){
     if(cachedSid){
@@ -2810,7 +2873,8 @@ async function fetchRftForProject(projectId, force){
       if(data.resolved_status?.id){
         setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
       }
-      return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
+      rememberIssueCategories(data.issues || []);
+    return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
     }
     throw firstErr;
   }
@@ -3307,6 +3371,7 @@ async function syncFromRedmine(event){
     const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: true });
 
     const issues = data.issues || [];
+    rememberIssueCategories(issues);
     if (!issues.length) {
       setRedmineStatus('success', 'No issues');
       showSyncResult('info', `No new issues for this date range.`);
