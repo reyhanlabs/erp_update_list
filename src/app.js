@@ -2423,7 +2423,10 @@ async function toggleTesterNotifications(){
   try { localStorage.setItem(NOTIF_PREF_KEY, '1'); } catch(_){}
   startTesterNotifPoll();
     // Lightweight sidebar counts (limit=1 per project)
-    setTimeout(() => { prefetchNewIssueCounts().catch(()=>{}); }, 2500);
+    setTimeout(() => {
+      prefetchNewIssueCounts().catch(()=>{});
+      prefetchActiveWorkCounts().catch(()=>{});
+    }, 2500);
   updateNotifToggleUI();
   toast('Browser notifications enabled');
   // Immediate check
@@ -4479,6 +4482,46 @@ async function refreshDashNewIssueCounts(){
 
 
 /** Lightweight New Issues badge — limit=1 per project, use total_count */
+
+/** Lightweight Active Work badge — limit=1 per status × project */
+async function prefetchActiveWorkCounts(){
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const targets = typeof resolveNewIssueProjectIds === 'function' ? resolveNewIssueProjectIds() : [];
+    if(!targets.length) return;
+
+    let progress = 0;
+    let deploy = 0;
+
+    await Promise.all(targets.map(async (t) => {
+      if(!t.projectId) return;
+      const statuses = (typeof ACTIVE_WORK_STATUSES !== 'undefined') ? ACTIVE_WORK_STATUSES : [];
+      for(const st of statuses){
+        const name = (st.names && st.names[0]) || st.label;
+        if(!name) continue;
+        try {
+          const params = new URLSearchParams();
+          params.set('status_name', name);
+          params.set('project_id', String(t.projectId));
+          params.set('limit', '1');
+          const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: false });
+          const n = (typeof data.total_count === 'number') ? data.total_count : (data.issues || []).length;
+          if(st.key === 'progress') progress += n;
+          else if(st.key === 'deploy') deploy += n;
+        } catch(_){}
+      }
+    }));
+
+    const total = progress + deploy;
+    const c = $('countActiveWork');
+    if(c) c.textContent = String(total);
+  } catch(err){
+    console.warn('prefetchActiveWorkCounts', err);
+  }
+}
+
 async function prefetchNewIssueCounts(){
   try {
     if(!RedmineState.loaded){
@@ -5333,7 +5376,10 @@ export async function startApp(){
     // Always poll RFT for accurate sidebar counts + Telegram alerts
     startTesterNotifPoll();
     // Lightweight sidebar counts (limit=1 per project)
-    setTimeout(() => { prefetchNewIssueCounts().catch(()=>{}); }, 2500);
+    setTimeout(() => {
+      prefetchNewIssueCounts().catch(()=>{});
+      prefetchActiveWorkCounts().catch(()=>{});
+    }, 2500);
     document.addEventListener('click', (e) => {
       const wrap = $('notifBellWrap');
       if(wrap && !wrap.contains(e.target)) closeNotifPanel();
