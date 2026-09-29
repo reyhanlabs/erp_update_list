@@ -388,3 +388,52 @@ Personal use. © Reyhan Labs
 - **Repo**: [github.com/reyhanlabs/erp_update_list](https://github.com/reyhanlabs/erp_update_list)
 - **Live**: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 - **Firebase Console**: [console.firebase.google.com/project/erpupdate-f0b18](https://console.firebase.google.com/project/erpupdate-f0b18)
+
+## Development (v4.18+)
+
+```bash
+npm install
+npm run dev
+```
+
+## Production build
+
+```bash
+npm install
+npm run build
+```
+
+Vercel uses `vercel.json` → build output in `dist/`, API routes from `/api`.
+
+## Cron: RFT → Telegram (server-side)
+
+Notifies Telegram when new **Ready for Testing** issues appear — **no browser tab required**.
+
+### Env (Vercel → Settings → Environment Variables)
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `CRON_SECRET` | yes | Random string; cron auth |
+| `TELEGRAM_BOT_TOKEN` | yes | Same bot as in-app |
+| `TELEGRAM_CHAT_ID` | yes | Group/user chat id (from app Settings) |
+| `REDMINE_API_KEY` | yes | Already used by `/api/redmine` |
+
+### Firestore rules
+
+Publish rules so `system/rftTelegramState` is writable (see `FIRESTORE_RULES.md`).
+
+### Schedule
+
+`vercel.json` runs `/api/cron-rft-telegram` every 15 minutes.
+
+- **Vercel Pro**: cron every 15 min works.
+- **Hobby**: may only allow daily cron — use [cron-job.org](https://cron-job.org) to GET:
+  `https://YOUR_APP.vercel.app/api/cron-rft-telegram?secret=CRON_SECRET`
+
+### Manual test
+
+```bash
+curl "https://YOUR_APP.vercel.app/api/cron-rft-telegram?secret=YOUR_CRON_SECRET"
+```
+
+First call **seeds** baseline (no spam). Later calls notify only **new** RFT ids.

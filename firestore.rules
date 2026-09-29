@@ -1,25 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+    // Cron / system state (RFT Telegram baseline) — unauthenticated write via API key
+    // Doc path: system/rftTelegramState only used by server cron
+    match /system/{document} {
+      allow read, write: if true;
     }
 
-    // User profile (workspace membership, email)
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // Legacy personal collections (kept for migration)
-      match /plans/{planId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-      match /summaries/{summaryId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-    }
-
-    // Shared team workspaces — any signed-in user with the code can join
-    // (internal tool; tighten later with member lists if needed)
     match /workspaces/{workspaceId} {
       allow read, write: if request.auth != null;
 
