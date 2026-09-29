@@ -164,18 +164,30 @@ function resolveIssueTracker(number, storedTracker, description){
 
 /** Classify for summary sections: feature / enhancement / optimization / bug / other */
 function classifyIssueKind(trackerName, subject){
-  const t = String(trackerName || '').toLowerCase();
-  const s = String(subject || '').toLowerCase();
-  if(/bug|defect|hotfix/.test(t)) return 'bug';
-  if(/optim/.test(t)) return 'optimization';
-  if(/enhanc|improve/.test(t)) return 'enhancement';
-  if(/new\s*feature|^feature$|story|epic/.test(t)) return 'feature';
-  if(/\b(bug|error|fix|gagal|tidak\s*bisa|broken|crash)\b/.test(s)) return 'bug';
-  if(/\b(optimasi|optimization|perf(ormance)?)\b/.test(s)) return 'optimization';
-  if(/\b(enhance|enhancement|improvement|penyesuaian)\b/.test(s)) return 'enhancement';
-  if(/\b(new\s*feature|fitur\s*baru)\b/.test(s)) return 'feature';
-  if(/task|support|concept/.test(t)) return 'other';
-  return t ? 'other' : 'feature';
+  const t = String(trackerName || '').toLowerCase().trim();
+  const s = String(subject || '').toLowerCase().trim();
+
+  // --- Tracker name (authoritative when present) ---
+  if(t){
+    if(/bug|defect|hotfix|error/.test(t)) return 'bug';
+    if(/optim/.test(t)) return 'optimization';
+    if(/enhanc|improve/.test(t)) return 'enhancement';
+    if(/new\s*feature|feature|story|epic/.test(t)) return 'feature';
+    if(/task|support|concept|documentation|doc/.test(t)) return 'other';
+    // Unknown tracker name — still try subject, else other
+  }
+
+  // --- Subject heuristics (ID + EN) ---
+  if(/\b(bug|defect|error|fix|gagal|tidak\s*(bisa|muncul|tampil)|broken|crash|exception|eror)\b/.test(s)
+      || /^(fix|perbaiki|perbaikan)\b/.test(s)) return 'bug';
+  if(/\b(optimasi|optimization|performance|perf|percepat|ringan(kan)?)\b/.test(s)) return 'optimization';
+  if(/\b(enhance|enhancement|improvement|penyesuaian|sesuaikan|perbaiki\s*ui|ux)\b/.test(s)
+      || /^(penyesuaian|sesuaikan)\b/.test(s)) return 'enhancement';
+  if(/\b(new\s*feature|fitur\s*baru|penambahan|tambah(kan)?\s|implementasi)\b/.test(s)
+      || /^(tambah|penambahan|implementasi|fitur)\b/.test(s)) return 'feature';
+
+  // No signal → Other (do NOT dump everything into New Features)
+  return 'other';
 }
 
 const ISSUE_KIND_META = {
@@ -1385,34 +1397,38 @@ function planDateTone(dateStr){
 async function enrichPlanIssueCategories(plan){
   if(!plan) return false;
   const parsed = parseIssueLines(plan.issues);
-  const missing = parsed.filter(p => p.number && !p.category);
-  if(!missing.length) return false;
+  const ids = [...new Set(parsed.map(p => p.number).filter(Boolean).map(String))];
+  if(!ids.length) return false;
 
-  // Try cache first after a light multi-status pull is not always available —
-  // use currently selected project + open statuses if needed.
+  // Skip fetch if every id already has tracker in cache
+  const missing = ids.filter(id => !(window.__issueTrackerById && window.__issueTrackerById[id]));
+  if(!missing.length && ids.every(id => window.__issueCategoryById && window.__issueCategoryById[id])){
+    return true;
+  }
+
   try {
-    if(!RedmineState.loaded){
-      try { await loadRedmineProjects(); } catch(_){}
-    }
-    const targets = typeof resolveTesterProjectIds === 'function' ? resolveTesterProjectIds() : [];
-    const ids = targets.length ? targets : [{ id: getSelectedProjectId(), label: 'Selected' }];
-    await Promise.all(ids.filter(t => t && t.id).map(async (t) => {
+    // Redmine supports issue_id=1,2,3 — fetch in chunks of 50
+    const chunkSize = 50;
+    for(let i = 0; i < ids.length; i += chunkSize){
+      const chunk = ids.slice(i, i + chunkSize);
+      const params = new URLSearchParams();
+      params.set('issue_id', chunk.join(','));
+      params.set('status_id', '*');
+      params.set('limit', String(chunk.length));
       try {
-        const params = new URLSearchParams();
-        params.set('status_id', '*');
-        params.set('project_id', String(t.id));
-        params.set('limit', '100');
-        params.set('sort', 'updated_on:desc');
-        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: false });
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: true });
         rememberIssueCategories(data.issues || []);
-      } catch(_){}
-    }));
+      } catch(err){
+        console.warn('enrich chunk failed', err);
+      }
+    }
     return true;
   } catch(err){
     console.warn('enrichPlanIssueCategories', err);
     return false;
   }
 }
+
 
 function renderPlanCard(d){
   const parsed = parseIssueLines(d.issues);
@@ -1590,11 +1606,18 @@ function onPlanRefChange(){
   if(p && p.date && !$('summaryDate').value) $('summaryDate').value = p.date;
 }
 
-function autoGenerate(){
+async function autoGenerate(){
   const planId = $('summaryPlanRef').value;
   if(!planId){ toast('Please select an Update Plan first', 'error'); return; }
   const p = State.plans.get(planId);
   if(!p){ toast('Plan not found', 'error'); return; }
+
+  // Pull tracker/category from Redmine so grouping is accurate
+  try {
+    toast('Resolving issue types from Redmine…');
+    await enrichPlanIssueCategories(p);
+  } catch(e){ console.warn('enrich for summary', e); }
+
   const fe = $('summaryFe').value.trim() || 'V?.??.??.??????';
   const v2 = $('summaryV2').value.trim() || 'V?.??.??.??????';
   const v3 = $('summaryV3').value.trim();
@@ -2399,6 +2422,8 @@ async function toggleTesterNotifications(){
   }
   try { localStorage.setItem(NOTIF_PREF_KEY, '1'); } catch(_){}
   startTesterNotifPoll();
+    // Lightweight sidebar counts (limit=1 per project)
+    setTimeout(() => { prefetchNewIssueCounts().catch(()=>{}); }, 2500);
   updateNotifToggleUI();
   toast('Browser notifications enabled');
   // Immediate check
@@ -4452,6 +4477,45 @@ async function refreshDashNewIssueCounts(){
   }
 }
 
+
+/** Lightweight New Issues badge — limit=1 per project, use total_count */
+async function prefetchNewIssueCounts(){
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const targets = typeof resolveNewIssueProjectIds === 'function' ? resolveNewIssueProjectIds() : [];
+    if(!targets.length) return;
+    let total = 0;
+    await Promise.all(targets.map(async (t) => {
+      if(!t.projectId) return;
+      try {
+        const params = new URLSearchParams();
+        params.set('status_name', 'New');
+        params.set('project_id', String(t.projectId));
+        params.set('limit', '1');
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: false });
+        const n = (typeof data.total_count === 'number') ? data.total_count : (data.issues || []).length;
+        total += n;
+        // Keep dash cards in sync if present
+        const dashIds = { 'erp-one': 'statNewErpOne', 'erp': 'statNewErp', 'mfg': 'statNewMfg' };
+        const el = $(dashIds[t.key]);
+        if(el) el.textContent = String(n);
+      } catch(err){
+        console.warn('prefetchNewIssueCounts', t.key, err);
+      }
+    }));
+    const badge = $('countNewIssues');
+    if(badge) badge.textContent = String(total);
+    const wn = $('countWhatNext');
+    if(wn && (wn.textContent === '0' || wn.textContent === '—' || !wn.textContent)){
+      wn.textContent = String(total); // What Next ≈ New backlog
+    }
+  } catch(err){
+    console.warn('prefetchNewIssueCounts', err);
+  }
+}
+
 function openNewIssuesView(){
   switchView('newissues');
   loadNewIssues(false);
@@ -5268,6 +5332,8 @@ export async function startApp(){
     } catch(_){}
     // Always poll RFT for accurate sidebar counts + Telegram alerts
     startTesterNotifPoll();
+    // Lightweight sidebar counts (limit=1 per project)
+    setTimeout(() => { prefetchNewIssueCounts().catch(()=>{}); }, 2500);
     document.addEventListener('click', (e) => {
       const wrap = $('notifBellWrap');
       if(wrap && !wrap.contains(e.target)) closeNotifPanel();

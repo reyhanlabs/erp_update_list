@@ -88,7 +88,8 @@ export default async function handler(req, res) {
       offset,
       project_id,
       sort,
-      assigned_to_id
+      assigned_to_id,
+      issue_id
     } = req.query;
 
     let resolvedStatusId = status_id || null;
@@ -117,6 +118,7 @@ export default async function handler(req, res) {
     if (project_id)     url.searchParams.set('project_id', project_id);
     if (assigned_to_id) url.searchParams.set('assigned_to_id', assigned_to_id);
     if (sort)           url.searchParams.set('sort', sort);
+    if (issue_id)       url.searchParams.set('issue_id', issue_id);
 
     // Range builder — Redmine pakai sintaks "><from|to" (eksklusif)
     if (from || to) {
