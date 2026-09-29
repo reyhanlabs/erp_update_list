@@ -601,8 +601,106 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=> switchView(btn.dataset.view));
 });
 
+
+/* ============================================================
+   URL ROUTING — shareable deep links
+   Examples:
+     /?view=dashboard
+     /?view=tester&cat=frontend
+     /?view=newissues
+     /?view=activework
+     /?view=whatnext
+     /?view=plans
+     /?view=summaries
+     /?view=settings
+   ============================================================ */
+const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','settings']);
+const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
+let __applyingRoute = false; // prevent pushState loop
+
+function getRouteFromLocation(){
+  const params = new URLSearchParams(window.location.search || '');
+  // Support hash fallback: #/tester/frontend or #tester/frontend
+  let view = (params.get('view') || '').toLowerCase().trim();
+  let cat = (params.get('cat') || '').toLowerCase().trim();
+
+  const hash = (window.location.hash || '').replace(/^#\/?/, '').trim();
+  if(hash){
+    const parts = hash.split('/').filter(Boolean);
+    if(parts[0] && !view) view = parts[0].toLowerCase();
+    if(parts[1] && !cat) cat = parts[1].toLowerCase();
+  }
+
+  if(!VALID_VIEWS.has(view)) view = 'dashboard';
+  if(view === 'tester'){
+    if(!VALID_TESTER_CATS.has(cat)) cat = window.__testerCategory || 'all';
+  } else {
+    cat = '';
+  }
+  return { view, cat };
+}
+
+function buildRouteUrl(view, cat){
+  const params = new URLSearchParams();
+  params.set('view', view || 'dashboard');
+  if(view === 'tester' && cat) params.set('cat', cat);
+  const qs = params.toString();
+  return `${window.location.pathname}?${qs}`;
+}
+
+function syncUrlToRoute(view, cat, { replace = false } = {}){
+  if(__applyingRoute) return;
+  const url = buildRouteUrl(view, cat);
+  const current = window.location.pathname + window.location.search;
+  if(current === url) return;
+  try {
+    if(replace) history.replaceState({ view, cat }, '', url);
+    else history.pushState({ view, cat }, '', url);
+  } catch(err){
+    console.warn('syncUrlToRoute', err);
+  }
+}
+
+function applyRouteFromUrl({ replaceUrl = true } = {}){
+  const { view, cat } = getRouteFromLocation();
+  __applyingRoute = true;
+  try {
+    if(view === 'tester'){
+      // openTesterCategory will call switchView('tester')
+      if(typeof openTesterCategory === 'function'){
+        openTesterCategory(cat || 'all');
+      } else {
+        window.__testerCategory = cat || 'all';
+        switchView('tester');
+      }
+    } else if(view === 'newissues' && typeof openNewIssuesView === 'function'){
+      openNewIssuesView();
+    } else if(view === 'activework' && typeof openActiveWorkView === 'function'){
+      openActiveWorkView();
+    } else if(view === 'whatnext' && typeof openWhatNextView === 'function'){
+      openWhatNextView();
+    } else {
+      switchView(view);
+    }
+    if(replaceUrl) syncUrlToRoute(view, view === 'tester' ? (cat || window.__testerCategory || 'all') : '', { replace: true });
+  } finally {
+    __applyingRoute = false;
+  }
+}
+
+function initRouter(){
+  window.addEventListener('popstate', () => {
+    applyRouteFromUrl({ replaceUrl: false });
+  });
+}
+
 function switchView(view){
   currentView = view;
+  // Keep URL in sync for shareable links
+  try {
+    const cat = view === 'tester' ? (window.__testerCategory || 'all') : '';
+    syncUrlToRoute(view, cat);
+  } catch(_){}
   document.querySelectorAll('.nav-item').forEach(b => {
     if(view === 'tester' && b.dataset.testerCat){
       b.classList.toggle('active', b.dataset.testerCat === (window.__testerCategory || 'frontend'));
@@ -1777,6 +1875,7 @@ function openTesterCategory(cat){
   // Sync sidebar counts immediately from current multi-project list
   try { updateTesterCategoryBadges(); } catch(_){}
   switchView('tester');
+  try { syncUrlToRoute('tester', key); } catch(_){}
   // Re-apply active on the category button after switchView (it sets by data-view only)
   document.querySelectorAll('.nav-item[data-tester-cat]').forEach(b => {
     b.classList.toggle('active', b.dataset.testerCat === key);
@@ -4758,6 +4857,7 @@ function exposeAppGlobals(){
     openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    applyRouteFromUrl, syncUrlToRoute,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled,
     CloudSync
   };
@@ -4858,7 +4958,8 @@ export async function startApp(){
 
   setIssueLines([]);
   renderAll();
-  switchView('dashboard');
+  try { initRouter(); } catch(_){}
+  try { applyRouteFromUrl({ replaceUrl: true }); } catch(_){ switchView('dashboard'); }
 
     $('loadingText').textContent = 'Connecting to Firebase...';
 
