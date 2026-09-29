@@ -1846,6 +1846,27 @@ function normalizeTesterCategory(name){
   return 'other';
 }
 
+
+function getIssueProjectKey(issue){
+  if(!issue) return '';
+  if(issue._projectKey) return issue._projectKey;
+  const id = String(issue._projectId || issue.project?.id || '');
+  if(id === '75') return 'erp';
+  if(id === '119') return 'erp-one';
+  if(id === '113') return 'mfg';
+  const n = String(issue._projectLabel || issue.project?.name || '').toLowerCase();
+  if(/erp\s*one|\bone\b/.test(n) && /zahir|erp/.test(n)) return 'erp-one';
+  if(/manufactur|\bmfg\b/.test(n)) return 'mfg';
+  if(/\bmrp\b/.test(n)) return 'mrp';
+  if(/zahir\s*erp/.test(n) && !/one|manufactur|mfg|mrp/.test(n)) return 'erp';
+  return '';
+}
+
+function matchesProjectFilter(issue, filterVal){
+  if(!filterVal || filterVal === 'all') return true;
+  return getIssueProjectKey(issue) === filterVal;
+}
+
 function hasTesterCategory(issue){
   const name = issue?.category?.name;
   return !!(name && String(name).trim());
@@ -2273,11 +2294,13 @@ function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
   const cat = window.__testerCategory || 'all';
   const priFilter = ($('testerPriorityFilter')?.value || 'all');
+  const projFilter = ($('testerProjectFilter')?.value || 'all');
 
   return (window.__testerIssues || []).filter(i => {
     const issueCat = getIssueTesterCategory(i);
     if(issueCat === null) return false; // no Redmine category → hide
     if(cat !== 'all' && issueCat !== cat) return false;
+    if(!matchesProjectFilter(i, projFilter)) return false;
     if(priFilter !== 'all'){
       const pc = priorityClass(i.priority?.name);
       // map filter value to class suffix
@@ -3936,9 +3959,11 @@ function renderNewIssues(){
     return;
   }
 
+  const projFilter = ($('newIssuesProjectFilter')?.value || 'all');
   el.innerHTML = order.map(key => {
     const block = by[key];
     if(!block) return '';
+    if(projFilter !== 'all' && key !== projFilter) return '';
     const issues = getFilteredNewIssues(block.issues || []);
     const title = block.projectName || block.label;
     const head = `
@@ -4258,8 +4283,13 @@ function getActiveWorkDateRange(){
 function filterActiveWorkList(list){
   const q = ($('activeWorkSearch')?.value || '').toLowerCase().trim();
   const priFilter = ($('activeWorkPriorityFilter')?.value || 'all');
+  const projFilter = ($('activeWorkProjectFilter')?.value || 'all');
   const range = getActiveWorkDateRange();
   let out = list || [];
+
+  if(projFilter !== 'all'){
+    out = out.filter(i => matchesProjectFilter(i, projFilter));
+  }
 
   if(priFilter !== 'all'){
     out = out.filter(i => {
@@ -4554,7 +4584,7 @@ function getFilteredWhatNext(){
   const limit = parseInt(($('whatNextLimit')?.value) || '20', 10);
 
   if(proj !== 'all'){
-    list = list.filter(i => i._projectKey === proj);
+    list = list.filter(i => matchesProjectFilter(i, proj));
   }
   if(pri !== 'all'){
     list = list.filter(i => {

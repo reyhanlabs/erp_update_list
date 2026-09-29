@@ -600,6 +600,13 @@
             </svg>
             <input type="text" id="testerSearch" placeholder="Search subject, assignee, #id, priority..." oninput="renderTesterList()"/>
           </div>
+          <select class="select" id="testerProjectFilter" onchange="renderTesterList()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
           <select class="select" id="testerPriorityFilter" onchange="renderTesterList()">
             <option value="all">Priority: All</option>
             <option value="immediate">Immediate</option>
@@ -649,6 +656,13 @@
             </svg>
             <input type="text" id="newIssuesSearch" placeholder="Search subject, #id, priority..." oninput="renderNewIssues()"/>
           </div>
+          <select class="select" id="newIssuesProjectFilter" onchange="renderNewIssues()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
           <select class="select" id="newIssuesStatusFilter" onchange="loadNewIssues(true)">
             <option value="New" selected>Status: New</option>
             <option value="In Progress">In Progress</option>
@@ -709,6 +723,13 @@
             <option value="progress">In Progress</option>
             <option value="deploy">On Deploy</option>
           </select>
+          <select class="select" id="activeWorkProjectFilter" onchange="renderActiveWork()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
           <select class="select" id="activeWorkPriorityFilter" onchange="renderActiveWork()">
             <option value="all">Priority: All</option>
             <option value="immediate">Immediate</option>
@@ -765,9 +786,10 @@
           </div>
           <select class="select" id="whatNextProjectFilter" onchange="renderWhatNext()">
             <option value="all">Project: All</option>
-            <option value="erp-one">Zahir ERP One</option>
             <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
             <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
           </select>
           <select class="select" id="whatNextPriorityFilter" onchange="renderWhatNext()">
             <option value="all">Priority: All</option>
@@ -1015,6 +1037,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.27.1</span>
+                <span class="cl-note">Project filter on all issue lists</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.27.0</span>
                 <span class="cl-note">Shareable URLs per menu and tester category</span>
