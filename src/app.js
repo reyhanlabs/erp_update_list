@@ -1748,22 +1748,15 @@ function normalizeTesterCategory(name){
   return 'other';
 }
 
+function hasTesterCategory(issue){
+  const name = issue?.category?.name;
+  return !!(name && String(name).trim());
+}
+
+/** Map Redmine category → sidebar group. Returns null if no category (hidden). */
 function getIssueTesterCategory(issue){
-  // Prefer Redmine category when set
-  const fromCat = normalizeTesterCategory(issue?.category?.name);
-  if(issue?.category?.name) return fromCat;
-
-  // Many ERP One issues have category=null — infer from subject / tracker
-  const subject = String(issue?.subject || '');
-  const tracker = String(issue?.tracker?.name || '');
-  const hay = (subject + ' ' + tracker).toLowerCase();
-
-  if(/\b(front\s*-?end|frontend|\bfe\b|ui component|css|react|angular|vue)\b/.test(hay)) return 'frontend';
-  if(/\b(back\s*-?end|backend|\bbe\b|api|endpoint|server|database|sql)\b/.test(hay)) return 'backend';
-  if(/\b(design|desain|figma|mockup|ui\/?ux|wireframe)\b/.test(hay)) return 'design';
-
-  // Default uncategorized → Other (so they are never hidden)
-  return 'other';
+  if(!hasTesterCategory(issue)) return null; // no category → do not show
+  return normalizeTesterCategory(issue.category.name);
 }
 
 function openTesterCategory(cat){
@@ -1797,12 +1790,15 @@ function openTesterCategory(cat){
 function updateTesterCategoryBadges(){
   const issues = window.__testerIssues || [];
   const counts = { frontend:0, backend:0, design:0, other:0 };
+  let categorized = 0;
   issues.forEach(i => {
     const c = getIssueTesterCategory(i);
+    if(c === null) return; // skip uncategorized
     if(counts[c] !== undefined) counts[c]++;
     else counts.other++;
+    categorized++;
   });
-  counts.all = issues.length;
+  counts.all = categorized;
 
   const map = {
     all: 'countTesterAll',
@@ -1822,7 +1818,7 @@ function updateTesterCategoryBadges(){
 
   // Badge in card = current category count
   const cat = window.__testerCategory || 'all';
-  const n = cat === 'all' ? issues.length : (counts[cat] ?? 0);
+  const n = cat === 'all' ? (counts.all || 0) : (counts[cat] ?? 0);
   const badge = $('testerCountBadge');
   if(badge){
     badge.textContent = String(n);
@@ -1883,7 +1879,7 @@ function countNewByCategory(){
   const counts = { frontend:0, backend:0, design:0, other:0 };
   (window.__testerIssues || []).forEach(i => {
     if(!seen.has(String(i.id))){
-      counts[getIssueTesterCategory(i)]++;
+      { const c = getIssueTesterCategory(i); if(c) counts[c] = (counts[c]||0)+1; }
     }
   });
   return counts;
@@ -2054,7 +2050,7 @@ function notifyNewTesterIssues(issues){
       n.onclick = () => {
         try { window.focus(); } catch(_){}
         const counts = { frontend:0, backend:0, design:0, other:0 };
-        fresh.forEach(i => { counts[getIssueTesterCategory(i)] = (counts[getIssueTesterCategory(i)]||0)+1; });
+        fresh.forEach(i => { const c = getIssueTesterCategory(i); if(c) counts[c] = (counts[c]||0)+1; });
         const best = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0] || 'frontend';
         openTesterCategory(best);
       };
@@ -2180,7 +2176,9 @@ function getFilteredTesterIssues(){
   const priFilter = ($('testerPriorityFilter')?.value || 'all');
 
   return (window.__testerIssues || []).filter(i => {
-    if(cat !== 'all' && getIssueTesterCategory(i) !== cat) return false;
+    const issueCat = getIssueTesterCategory(i);
+    if(issueCat === null) return false; // no Redmine category → hide
+    if(cat !== 'all' && issueCat !== cat) return false;
     if(priFilter !== 'all'){
       const pc = priorityClass(i.priority?.name);
       // map filter value to class suffix
@@ -2336,12 +2334,12 @@ function renderTesterList(){
   const list = getFilteredTesterIssues();
   if(!list.length){
     const catLabel = (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[window.__testerCategory]) || window.__testerCategory || 'this category';
-    const otherCount = all.filter(i => getIssueTesterCategory(i) === 'other').length;
-    const hint = otherCount
-      ? `There are ${all.length} RFT issue(s) total. ${otherCount} without category are in Other (e.g. Zahir ERP One).`
+    const uncat = all.filter(i => getIssueTesterCategory(i) === null).length;
+    const hint = uncat
+      ? `There are ${all.length} RFT issue(s) total. ${uncat} without a Redmine category are hidden until categorized.`
       : `There are ${all.length} Ready for Testing issue(s) total, but none in this category.`;
     el.innerHTML = emptyState(ICON.inbox, `No issues in ${catLabel}`, hint, [
-      { label: 'Open Other', action: "openTesterCategory('other')" },
+      { label: 'Show All', action: "openTesterCategory('all')" },
       { label: 'Clear search', action: "$('testerSearch').value=''; renderTesterList();" }
     ]);
     return;
