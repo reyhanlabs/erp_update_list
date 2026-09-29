@@ -1049,9 +1049,15 @@ async function savePlan(e){
   const data = {
     title: $('planTitle').value.trim(),
     date: $('planDate').value,
+    projectKey: ($('planProject')?.value || '').trim(),
     issues: issues.join('\n'),
     note: $('planNote').value.trim()
   };
+  if(!data.projectKey){
+    toast('Please select a project', 'error');
+    btn.disabled = false;
+    return;
+  }
 
   try {
     if(id){
@@ -1074,6 +1080,7 @@ function resetPlanForm(){
   $('planForm').reset();
   $('planEditId').value = '';
   $('planDate').value = todayISO();
+  if($('planProject')) $('planProject').value = '';
   $('planModalTitle').textContent = 'Add Update Plan';
   setIssueLines([]);
 }
@@ -1135,10 +1142,32 @@ function planIsRedmine(plan){
   return (plan.note || '').toLowerCase().includes('synced from redmine');
 }
 
+
+function projectKeyLabel(key){
+  const map = {
+    'erp': 'Zahir ERP',
+    'erp-one': 'Zahir ERP One',
+    'mfg': 'Manufacturing',
+    'mrp': 'Zahir MRP'
+  };
+  return map[key] || (key ? String(key) : 'No project');
+}
+
+function getPlanProjectKey(plan){
+  if(!plan) return '';
+  if(plan.projectKey) return plan.projectKey;
+  const t = String(plan.title || '').toLowerCase();
+  if(/erp\s*one|\bone\b/.test(t) && /zahir|erp|one/.test(t)) return 'erp-one';
+  if(/manufactur|\bmfg\b/.test(t)) return 'mfg';
+  if(/\bmrp\b/.test(t)) return 'mrp';
+  return '';
+}
+
 function renderPlans(){
   const q = ($('planSearch')?.value || '').toLowerCase().trim();
   const sort = $('planSort')?.value || 'desc';
   const filter = window.__planFilter || 'all';
+  const projFilter = ($('planProjectFilter')?.value || 'all');
   let list = [...State.plans.all()];
 
   if(q){
@@ -1146,9 +1175,13 @@ function renderPlans(){
       (x.title||'').toLowerCase().includes(q) ||
       (x.date||'').includes(q) ||
       (x.issues||'').toLowerCase().includes(q) ||
-      (x.note||'').toLowerCase().includes(q)
+      (x.note||'').toLowerCase().includes(q) ||
+      projectKeyLabel(getPlanProjectKey(x)).toLowerCase().includes(q)
     );
   }
+
+  if(projFilter === 'none') list = list.filter(p => !getPlanProjectKey(p));
+  else if(projFilter !== 'all') list = list.filter(p => getPlanProjectKey(p) === projFilter);
 
   if(filter === 'no-summary') list = list.filter(p => !planHasSummary(p.id));
   else if(filter === 'has-summary') list = list.filter(p => planHasSummary(p.id));
@@ -1178,7 +1211,33 @@ function renderPlans(){
     return;
   }
 
-  el.innerHTML = `<div class="plan-list">` + list.map(d => renderPlanCard(d)).join('') + `</div>`;
+  // Group by project when showing all projects
+  if(projFilter === 'all' && list.length){
+    const groups = {};
+    list.forEach(p => {
+      const k = getPlanProjectKey(p) || 'none';
+      if(!groups[k]) groups[k] = [];
+      groups[k].push(p);
+    });
+    const order = ['erp','erp-one','mfg','mrp','none'];
+    const keys = Object.keys(groups).sort((a,b) => {
+      const ia = order.indexOf(a); const ib = order.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+    });
+    el.innerHTML = keys.map(k => `
+      <div class="new-proj-block" style="margin-bottom:16px">
+        <div class="new-proj-head" style="padding:8px 0">
+          <div class="new-proj-title">
+            <span>${escapeHtml(projectKeyLabel(k === 'none' ? '' : k))}</span>
+            <span class="badge badge-cyan">${groups[k].length}</span>
+          </div>
+        </div>
+        <div class="plan-list">${groups[k].map(d => renderPlanCard(d)).join('')}</div>
+      </div>
+    `).join('');
+  } else {
+    el.innerHTML = `<div class="plan-list">` + list.map(d => renderPlanCard(d)).join('') + `</div>`;
+  }
   restoreOpenCopyMenu();
 }
 
@@ -1312,6 +1371,7 @@ function renderPlanCard(d){
           <div class="plan-card-meta">
             <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
             <span class="meta-divider"></span>
+            <span class="badge badge-cyan">${escapeHtml(projectKeyLabel(getPlanProjectKey(d)))}</span>
             <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
             ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine</span>` : ''}
             ${linkedSummaries
@@ -1335,7 +1395,10 @@ function populatePlanDropdown(selected){
     new Date(b.date || (b.createdAt?.seconds*1000) || 0) - new Date(a.date || (a.createdAt?.seconds*1000) || 0)
   );
   sel.innerHTML = '<option value="">— Select a Plan —</option>' +
-    plans.map(p=>`<option value="${p.id}">${escapeHtml(p.title)} · ${escapeHtml(formatDate(p.date))}</option>`).join('');
+    plans.map(p=>{
+      const proj = projectKeyLabel(getPlanProjectKey(p));
+      return `<option value="${p.id}" data-project="${escapeHtml(getPlanProjectKey(p)||'')}">${escapeHtml(p.title)} · ${escapeHtml(proj)} · ${escapeHtml(formatDate(p.date))}</option>`;
+    }).join('');
   if(selected) sel.value = selected;
 }
 
@@ -1510,18 +1573,34 @@ function copySummary(id){
 }
 
 function renderSummaries(){
-  const q = ($('summarySearch').value || '').toLowerCase().trim();
-  const sort = $('summarySort').value;
+  const q = ($('summarySearch')?.value || '').toLowerCase().trim();
+  const sort = ($('summarySort')?.value) || 'desc';
+  const projFilter = ($('summaryProjectFilter')?.value || 'all');
   let list = [...State.summaries.all()];
 
+  if(projFilter !== 'all'){
+    list = list.filter(s => {
+      const plan = State.plans.get(s.planId);
+      const pk = getPlanProjectKey(plan);
+      if(projFilter === 'none') return !pk;
+      return pk === projFilter;
+    });
+  }
+
   if(q){
-    list = list.filter(x =>
-      (x.fe||'').toLowerCase().includes(q) ||
-      (x.v2||'').toLowerCase().includes(q) ||
-      (x.v3||'').toLowerCase().includes(q) ||
-      (x.date||'').includes(q) ||
-      (x.text||'').toLowerCase().includes(q)
-    );
+    list = list.filter(x => {
+      const plan = State.plans.get(x.planId);
+      const proj = projectKeyLabel(getPlanProjectKey(plan)).toLowerCase();
+      return (
+        (x.fe||'').toLowerCase().includes(q) ||
+        (x.v2||'').toLowerCase().includes(q) ||
+        (x.v3||'').toLowerCase().includes(q) ||
+        (x.date||'').includes(q) ||
+        (x.text||'').toLowerCase().includes(q) ||
+        proj.includes(q) ||
+        (plan?.title||'').toLowerCase().includes(q)
+      );
+    });
   }
   list.sort((a,b)=>{
     const ta = new Date(a.date || (a.createdAt?.seconds*1000) || 0).getTime();
@@ -4701,9 +4780,20 @@ async function createPlanFromWhatNext(){
     const desc = (i.subject || '').trim();
     return desc ? `${url} ${desc}` : url;
   });
+  // Infer project from What Next filter or majority of ranked issues
+  let projectKey = ($('whatNextProjectFilter')?.value || 'all');
+  if(projectKey === 'all'){
+    const tally = {};
+    top.forEach(i => {
+      const k = getIssueProjectKey(i);
+      if(k) tally[k] = (tally[k]||0)+1;
+    });
+    projectKey = Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0] || 'erp';
+  }
   const data = {
-    title: `What Next · ${iso}`,
+    title: `What Next · ${projectKeyLabel(projectKey)} · ${iso}`,
     date: iso,
+    projectKey,
     issues: lines.join('\n'),
     note: `Auto-created from What Next (${top.length} issues). Score-ranked New backlog.`
   };

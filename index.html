@@ -426,6 +426,14 @@
           </svg>
           <input type="text" id="planSearch" placeholder="Search title, issue, or date... (press /)" oninput="renderPlans()"/>
         </div>
+        <select class="select" id="planProjectFilter" onchange="renderPlans()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+            <option value="none">No project set</option>
+        </select>
         <select class="select" id="planSort" onchange="renderPlans()">
           <option value="desc">Newest first</option>
           <option value="asc">Oldest first</option>
@@ -565,6 +573,14 @@
           </svg>
           <input type="text" id="summarySearch" placeholder="Search version or content..." oninput="renderSummaries()"/>
         </div>
+        <select class="select" id="summaryProjectFilter" onchange="renderSummaries()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+            <option value="none">No project set</option>
+        </select>
         <select class="select" id="summarySort" onchange="renderSummaries()">
           <option value="desc">Newest first</option>
           <option value="asc">Oldest first</option>
@@ -1038,6 +1054,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.28.0</span>
+                <span class="cl-note">Plans &amp; Summaries per project</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.27.1</span>
                 <span class="cl-note">Project filter on all issue lists</span>
               </div>
@@ -1280,6 +1300,17 @@
             <label>Date <span class="req">*</span></label>
             <input class="input" type="date" id="planDate" required/>
           </div>
+        </div>
+        <div class="field">
+          <label>Project <span class="req">*</span></label>
+          <select class="input select" id="planProject" required style="background:var(--surface)">
+            <option value="">— Select project —</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Zahir ERP Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
+          <div class="field-hint">One plan belongs to one product line (ERP / One / Manufacturing / MRP).</div>
         </div>
 
         <div class="field">
