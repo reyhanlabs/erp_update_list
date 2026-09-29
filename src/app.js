@@ -106,20 +106,30 @@ function parseIssueLine(line){
 }
 
 function inferCategoryFromText(text){
+  // Only strong prefixes at the START of the subject — never match words mid-sentence
+  // (e.g. "…design…" must NOT become Design)
   const s = String(text || '').trim();
-  if(/^FE[\s\-–—:]/i.test(s) || /\bfront\s*-?end\b/i.test(s)) return 'Front End';
-  if(/^BE[\s\-–—:]/i.test(s) || /\bback\s*-?end\b/i.test(s)) return 'Backend';
-  if(/^DE[\s\-–—:]/i.test(s) || /\bdesign\b/i.test(s)) return 'Design';
+  if(!s) return '';
+  if(/^(FE|Front\s*-?\s*End)([\s\-–—:,.]|$)/i.test(s)) return 'Front End';
+  if(/^(BE|Back\s*-?\s*End)([\s\-–—:,.]|$)/i.test(s)) return 'Backend';
+  if(/^(DE|Design)([\s\-–—:,.]|$)/i.test(s)) return 'Design';
   return '';
 }
 
 function parseIssueLines(text){
   return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line => {
     const { url, description, category } = parseIssueLine(line);
-    const cat = category || inferCategoryFromText(description) || inferCategoryFromText(line);
+    // Strong subject prefix (FE-/BE-) wins over a stale/wrong stored label
+    const inferred = inferCategoryFromText(description) || inferCategoryFromText(line);
+    let cat = category || inferred || '';
+    if(inferred && category && inferred !== category){
+      // Prefer FE/BE prefix over a generic stored Design/Other
+      if(inferred === 'Front End' || inferred === 'Backend') cat = inferred;
+    }
     return { url, description, category: cat, number: extractIssueNumber(url) };
   });
 }
+
 
 /* ICON imported from ./icons.js */
 /* ============================================================
