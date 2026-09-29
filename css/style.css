@@ -2025,3 +2025,19 @@ button.dash-new-stat:hover{transform:translateY(-1px);box-shadow:var(--shadow-md
 .dash-att-label{font-size:11.5px;color:var(--text-tertiary);font-weight:600;margin-bottom:6px}
 .dash-att-value{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-.02em}
 .dash-att-action{display:flex;flex-direction:column;gap:8px;justify-content:center}
+
+
+/* Plan issue category chips */
+.plan-issue-row{
+  grid-template-columns: auto 1fr auto auto !important;
+}
+.plan-issue-row .pi-cat{
+  font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:7px;white-space:nowrap;
+  max-width:100px;overflow:hidden;text-overflow:ellipsis;
+  background:var(--bg-subtle);color:var(--text-secondary);border:1px solid var(--line);
+}
+.plan-issue-row .pi-cat-frontend{background:rgba(59,130,246,.12);color:#2563eb;border-color:rgba(59,130,246,.25)}
+.plan-issue-row .pi-cat-backend{background:rgba(245,158,11,.12);color:#d97706;border-color:rgba(245,158,11,.25)}
+.plan-issue-row .pi-cat-design{background:rgba(168,85,247,.12);color:#7c3aed;border-color:rgba(168,85,247,.25)}
+.plan-issue-row .pi-cat-other{background:rgba(100,116,139,.12);color:#64748b;border-color:rgba(100,116,139,.25)}
+.plan-issue-row .pi-cat-none{opacity:.55;font-weight:500}

@@ -92,21 +92,32 @@ function extractIssueNumber(url){
 }
 
 function parseIssueLine(line){
-  if(!line) return { url:'', description:'' };
+  if(!line) return { url:'', description:'', category:'' };
   const trimmed = String(line).trim();
-  const sepIdx = trimmed.indexOf('|');
-  if(sepIdx > -1){
-    const url = trimmed.slice(0, sepIdx).trim();
-    const description = trimmed.slice(sepIdx + 1).trim();
-    return { url, description };
+  const parts = trimmed.split('|').map(s => s.trim());
+  if(parts.length >= 2){
+    return {
+      url: parts[0] || '',
+      description: parts[1] || '',
+      category: parts[2] || ''
+    };
   }
-  return { url: trimmed, description: '' };
+  return { url: trimmed, description: '', category: '' };
+}
+
+function inferCategoryFromText(text){
+  const s = String(text || '').trim();
+  if(/^FE[\s\-–—:]/i.test(s) || /\bfront\s*-?end\b/i.test(s)) return 'Front End';
+  if(/^BE[\s\-–—:]/i.test(s) || /\bback\s*-?end\b/i.test(s)) return 'Backend';
+  if(/^DE[\s\-–—:]/i.test(s) || /\bdesign\b/i.test(s)) return 'Design';
+  return '';
 }
 
 function parseIssueLines(text){
   return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line => {
-    const { url, description } = parseIssueLine(line);
-    return { url, description, number: extractIssueNumber(url) };
+    const { url, description, category } = parseIssueLine(line);
+    const cat = category || inferCategoryFromText(description) || inferCategoryFromText(line);
+    return { url, description, category: cat, number: extractIssueNumber(url) };
   });
 }
 
@@ -946,9 +957,11 @@ function addIssueRow(fullLine){
   const parsed = parseIssueLine(fullLine || '');
   const urlVal = parsed.url || '';
   const descVal = parsed.description || '';
+  const catVal = parsed.category || '';
 
   const row = document.createElement('div');
   row.className = 'issue-row-input';
+  if(catVal) row.dataset.category = catVal;
   row.innerHTML = `
     <div class="row-num empty">#—</div>
     <input type="text" placeholder="https://pjm.zahironline.com/issues/32685" value="${escapeHtml(urlVal)}" oninput="onIssueInput(this)" data-url="true"/>
@@ -959,6 +972,7 @@ function addIssueRow(fullLine){
       </svg>
     </button>
     <input type="text" class="row-desc" placeholder="Description (optional, from Redmine)" value="${escapeHtml(descVal)}" data-desc="true" style="grid-column:1 / -1; margin-top:2px"/>
+    <input type="hidden" data-cat="true" value="${escapeHtml(catVal)}"/>
   `;
   body.appendChild(row);
   if(urlVal) onIssueInput(row.querySelector('input[data-url]'));
@@ -1015,8 +1029,10 @@ function getIssueLines(){
   rows.forEach(row => {
     const url = (row.querySelector('input[data-url]')?.value || '').trim();
     const desc = (row.querySelector('input[data-desc]')?.value || '').trim();
+    const cat = (row.querySelector('input[data-cat]')?.value || row.dataset.category || '').trim();
     if(!url) return;
-    if(desc) out.push(`${url} | ${desc}`);
+    if(desc && cat) out.push(`${url} | ${desc} | ${cat}`);
+    else if(desc) out.push(`${url} | ${desc}`);
     else out.push(url);
   });
   return out;
@@ -1261,9 +1277,15 @@ function renderPlanCard(d){
     const num = p.number || '—';
     const desc = p.description || '';
     const url = p.url || '#';
+    const cat = p.category || '';
+    const catKey = cat && typeof normalizeTesterCategory === 'function' ? normalizeTesterCategory(cat) : '';
+    const catHtml = cat
+      ? `<span class="pi-cat pi-cat-${catKey || 'other'}" title="${escapeHtml(cat)}">${escapeHtml(cat)}</span>`
+      : `<span class="pi-cat pi-cat-none">—</span>`;
     return `<div class="plan-issue-row">
       <a class="pi-num" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open in Redmine">#${escapeHtml(num)}</a>
       <span class="pi-desc">${escapeHtml(desc || url)}</span>
+      ${catHtml}
       <a class="pi-open" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open in Redmine">${ICON.externalLink}</a>
     </div>`;
   }).join('');
@@ -3316,12 +3338,23 @@ async function syncFromRedmine(event){
     const issueLines = newIssues.map(i => {
       const url = `https://pjm.zahironline.com/issues/${i.id}`;
       const desc = (i.subject || '').replace(/\s+/g, ' ').trim();
-      return desc ? `${url} | ${desc}` : url;
-    });
+      const cat = (i.category && i.category.name ? i.category.name : '').trim();
+      if(desc && cat) return `${url} | ${desc} | ${cat}`;
+      if(desc) return `${url} | ${desc}`;
+      return url;
+    })
+
+    let syncProjectKey = '';
+    const pn = (projName || '').toLowerCase();
+    if(/erp\s*one/.test(pn)) syncProjectKey = 'erp-one';
+    else if(/manufactur|mfg/.test(pn)) syncProjectKey = 'mfg';
+    else if(/\bmrp\b/.test(pn)) syncProjectKey = 'mrp';
+    else if(/zahir\s*erp/.test(pn)) syncProjectKey = 'erp';
 
     await CloudSync.addPlan({
       title: title,
       date: today,
+      projectKey: syncProjectKey,
       issues: issueLines.join('\n'),
       note: `Auto-synced from Redmine · Project: ${projName} (${proj?.identifier || pid}) · Range: ${from||'…'} → ${to||'…'} · ${new Date().toLocaleString()}`
     });
