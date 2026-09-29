@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.28.0';
+export const APP_VERSION = '4.28.1';
 export const APP_VERSION_DATE = '2026-09-29';
-export const APP_VERSION_NOTE = 'Plans & Summaries scoped and filtered by project';
+export const APP_VERSION_NOTE = 'Fix Telegram RFT alerts (live poll, independent of seen)';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

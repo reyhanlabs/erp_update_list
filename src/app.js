@@ -2218,16 +2218,22 @@ function notifyNewTesterIssues(issues){
     return;
   }
 
-  const fresh = issues.filter(i => {
-    const id = String(i.id);
-    return !seen.has(id) && !last.has(id);
-  });
-  if(!fresh.length) return;
+  // Telegram: any RFT id not yet notified (independent of browser "seen")
+  const freshForTelegram = issues.filter(i => !last.has(String(i.id)));
+  // Browser: also skip issues the user already opened in a category
+  const freshForBrowser = freshForTelegram.filter(i => !seen.has(String(i.id)));
 
-  // Remember notified ids (avoid spam)
+  if(!freshForTelegram.length) return;
+
+  // Remember notified ids (avoid spam) — mark before send to avoid duplicates on retry
   const next = getLastNotifiedIds();
-  fresh.forEach(i => next.add(String(i.id)));
+  freshForTelegram.forEach(i => next.add(String(i.id)));
   saveLastNotifiedIds(next);
+
+  console.info('[tester] new RFT detected', freshForTelegram.map(i => i.id));
+
+  // Use telegram list for Telegram; browser list for Notification API
+  var fresh = freshForBrowser;
 
   // Browser notification (optional)
   if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
@@ -2258,9 +2264,11 @@ function notifyNewTesterIssues(issues){
     }
   }
 
-  // Telegram notification for new RFT
+  // Telegram notification for new RFT (uses all new ids, not browser-seen filter)
   if(isTelegramRftEnabled()){
-    sendTelegramRftAlert(fresh).catch(err => console.warn('telegram RFT alert', err));
+    sendTelegramRftAlert(freshForTelegram).catch(err => console.warn('telegram RFT alert', err));
+  } else {
+    console.info('[telegram RFT] skipped — enable Chat ID + toggle in Settings');
   }
 }
 
@@ -2281,33 +2289,58 @@ function setTelegramRftEnabled(on){
   if(el) el.checked = !!on;
 }
 
+async function testTelegramRftAlert(){
+  const chatId = ($('telegramChatId')?.value || localStorage.getItem(TG_CHAT_KEY) || '').trim();
+  if(!chatId){
+    toast('Set Telegram Chat ID first', 'error');
+    return;
+  }
+  await sendTelegramRftAlert([{
+    id: 'TEST',
+    subject: 'Test alert from Zahir ERP Update Manager — RFT notifications OK',
+    priority: { name: 'Normal' },
+    category: { name: 'Front End' },
+    _projectLabel: 'Zahir ERP',
+    project: { name: 'Zahir ERP' }
+  }]);
+}
+
 async function sendTelegramRftAlert(fresh){
   const chatId = ($('telegramChatId')?.value || localStorage.getItem(TG_CHAT_KEY) || '').trim();
   if(!chatId || !fresh || !fresh.length) return;
 
-  let text = `🆕 *Ready for Testing — ${fresh.length} new*\n\n`;
+  let text = `🆕 Ready for Testing — ${fresh.length} new\n\n`;
   fresh.slice(0, 15).forEach(i => {
     const proj = i._projectLabel || i.project?.name || '';
     const pri = i.priority?.name || '';
     const sub = (i.subject || '').slice(0, 120);
+    const cat = i.category?.name || '';
     text += `#${i.id}`;
     if(pri) text += ` [${pri}]`;
+    if(cat) text += ` · ${cat}`;
     if(proj) text += ` · ${proj}`;
     text += `\n${sub}\nhttps://pjm.zahironline.com/issues/${i.id}\n\n`;
   });
   if(fresh.length > 15) text += `…and ${fresh.length - 15} more\n`;
 
-  const r = await fetch('/api/telegram', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chatId, text: text.trim() })
-  });
-  const data = await r.json().catch(() => ({}));
-  if(!r.ok){
-    console.warn('[telegram RFT]', r.status, data);
-    return;
+  try {
+    const r = await fetch('/api/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId, text: text.trim() })
+    });
+    const data = await r.json().catch(() => ({}));
+    if(!r.ok){
+      console.warn('[telegram RFT]', r.status, data);
+      toast('Telegram RFT alert failed: ' + (data.hint || data.error || r.status), 'error');
+      return;
+    }
+    console.info('[telegram RFT] sent', fresh.length);
+    toast('Telegram: ' + fresh.length + ' new RFT notified');
+  } catch(err){
+    console.warn('[telegram RFT] network', err);
+    toast('Telegram RFT alert network error', 'error');
   }
-  console.info('[telegram RFT] sent', fresh.length);
 }
 
 
@@ -2324,7 +2357,8 @@ async function checkTesterNotifications(){
     const merged = [];
     await Promise.all(targets.map(async (t) => {
       try {
-        const r = await fetchRftForProject(t.id, false);
+        // force:true so new RFT is not hidden behind session cache
+        const r = await fetchRftForProject(t.id, true);
         (r.issues || []).forEach(iss => {
           merged.push({ ...iss, _projectId: t.id, _projectLabel: t.label });
         });
@@ -2354,12 +2388,17 @@ async function checkTesterNotifications(){
 
 function startTesterNotifPoll(){
   if(__testerNotifTimer) return;
-  // Every 3 minutes — refresh badges + detect new RFT (browser + Telegram)
+  // Every 90s — detect new RFT for badges + Telegram (needs tab open)
   __testerNotifTimer = setInterval(() => {
+    if(document.hidden) return;
     checkTesterNotifications().catch(()=>{});
-  }, 3 * 60 * 1000);
+  }, 90 * 1000);
   // First run shortly after boot (don't block UI)
-  setTimeout(() => { checkTesterNotifications().catch(()=>{}); }, 8000);
+  setTimeout(() => { checkTesterNotifications().catch(()=>{}); }, 5000);
+  // Also check when user returns to the tab
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden) checkTesterNotifications().catch(()=>{});
+  });
 }
 
 function stopTesterNotifPoll(){
@@ -2804,6 +2843,7 @@ async function loadTesterReminder(force){
       projects: targets.map(t => t.label).join(', '),
       error: null
     };
+    try { notifyNewTesterIssues(issues); } catch(e){ console.warn('notify after tester load', e); }
     window.__testerLoadError = null;
 
     // Browser notification for brand-new issues (if enabled)
@@ -4978,7 +5018,7 @@ function exposeAppGlobals(){
     openActiveWorkView, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
-    refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled,
+    refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
   };
   Object.keys(map).forEach(k => {
