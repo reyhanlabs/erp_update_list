@@ -3187,15 +3187,21 @@ async function previewRedmineSync(event){
 
     setRedmineStatus('success', `${newIssues.length} new`);
 
-    const rows = issues.slice(0, 50).map(issue=>`
+    const rows = issues.slice(0, 50).map(issue=>{
+      const catName = issue.category?.name || '';
+      const catKey = catName ? (typeof normalizeTesterCategory === 'function' ? normalizeTesterCategory(catName) : '') : '';
+      const catLabel = catName || '—';
+      const catClass = catKey ? `sp-cat sp-cat-${catKey}` : 'sp-cat sp-cat-none';
+      return `
       <div class="sync-preview-row">
         <span class="sp-num">#${issue.id}</span>
         <span class="sp-subject">${escapeHtml(issue.subject || '')}</span>
+        <span class="${catClass}" title="${escapeHtml(catLabel)}">${escapeHtml(catLabel)}</span>
         <span class="sp-status" style="${!existingIds.has(String(issue.id)) ? '' : 'background:var(--bg-subtle);color:var(--text-tertiary);border-color:var(--line)'}">
           ${existingIds.has(String(issue.id)) ? 'Already added' : 'New'}
         </span>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
     const rangeLabel = from || to
       ? `${from || '…'} → ${to || '…'}`
