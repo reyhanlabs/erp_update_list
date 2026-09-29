@@ -2982,38 +2982,69 @@ function resolveTesterProjectIds(){
 }
 
 
+
+/**
+ * Paginate Redmine issues (limit/offset) until all pages fetched or maxPages.
+ * Prefetch/badge paths should still use limit=1 — do not use this helper there.
+ */
+async function fetchRedmineAllIssues(paramsInit, { force = false, pageSize = 100, maxPages = 5 } = {}){
+  const all = [];
+  let total = null;
+  let offset = 0;
+  let fromCacheAny = false;
+  let resolved_status = null;
+  let lastData = null;
+
+  for(let page = 0; page < maxPages; page++){
+    const params = new URLSearchParams(paramsInit);
+    params.set('limit', String(pageSize));
+    params.set('offset', String(offset));
+    const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`, {
+      force: !!force && page === 0
+    });
+    lastData = data;
+    if(fromCache) fromCacheAny = true;
+    if(data.resolved_status) resolved_status = data.resolved_status;
+    if(total == null && typeof data.total_count === 'number') total = data.total_count;
+    const batch = data.issues || [];
+    all.push(...batch);
+    if(batch.length < pageSize) break;
+    if(total != null && all.length >= total) break;
+    offset += pageSize;
+  }
+
+  const byId = new Map();
+  all.forEach(iss => { if(iss && iss.id != null && !byId.has(iss.id)) byId.set(iss.id, iss); });
+  const issues = Array.from(byId.values());
+
+  return {
+    issues,
+    total_count: total != null ? total : issues.length,
+    fromCache: fromCacheAny,
+    resolved_status,
+    data: lastData
+  };
+}
+
 async function fetchRftForProject(projectId, force){
   const cachedSid = getCachedRftStatusId();
   const params = new URLSearchParams();
   if(cachedSid) params.set('status_id', cachedSid);
   else params.set('status_name', 'Ready for Testing');
   params.set('project_id', String(projectId));
-  params.set('limit', '100');
   params.set('sort', 'updated_on:desc');
-  try {
-    const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
-    if(data.resolved_status?.id){
-      setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
-    }
-    rememberIssueCategories(data.issues || []);
-    return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
-  } catch(firstErr){
-    if(cachedSid){
-      const p2 = new URLSearchParams();
-      p2.set('status_name', 'Ready for Testing');
-      p2.set('project_id', String(projectId));
-      p2.set('limit', '100');
-      p2.set('sort', 'updated_on:desc');
-      const { data, fromCache } = await fetchRedmine(`/api/redmine?${p2.toString()}`, { force: true });
-      if(data.resolved_status?.id){
-        setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
-      }
-      rememberIssueCategories(data.issues || []);
-    return { issues: data.issues || [], fromCache: !!fromCache, statusName: data.resolved_status?.name };
-    }
-    throw firstErr;
+  const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 5 });
+  if(result.resolved_status?.id){
+    setCachedRftStatusId(result.resolved_status.id, result.resolved_status.name);
   }
+  rememberIssueCategories(result.issues || []);
+  return {
+    issues: result.issues || [],
+    fromCache: !!result.fromCache,
+    statusName: result.resolved_status?.name
+  };
 }
+
 
 async function loadTesterReminder(force){
   const el = $('testerReminder');
@@ -4124,11 +4155,16 @@ async function fetchNewIssuesForProject(projectId, force = false){
   const params = new URLSearchParams();
   params.set('status_name', getNewIssuesStatusName());
   params.set('project_id', String(projectId));
-  params.set('limit', '100');
   params.set('sort', 'updated_on:desc');
-  const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
-  return { issues: data.issues || [], fromCache: !!fromCache, resolved: data.resolved_status };
+  const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 5 });
+  rememberIssueCategories(result.issues || []);
+  return {
+    issues: result.issues || [],
+    fromCache: !!result.fromCache,
+    resolved: result.resolved_status
+  };
 }
+
 
 async function loadNewIssues(force){
   const el = $('newIssuesBody');
@@ -4584,20 +4620,24 @@ async function fetchIssuesByStatusName(projectId, statusNames, force = false){
       const params = new URLSearchParams();
       params.set('status_name', name);
       params.set('project_id', String(projectId));
-      params.set('limit', '100');
       params.set('sort', 'updated_on:desc');
-      const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
-      // If resolved status exists or issues returned, accept
-      if((data.issues && data.issues.length) || data.resolved_status){
-        return { issues: data.issues || [], statusName: data.resolved_status?.name || name };
+      const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 5 });
+      if((result.issues && result.issues.length) || result.resolved_status){
+        rememberIssueCategories(result.issues || []);
+        return {
+          issues: result.issues || [],
+          statusName: result.resolved_status?.name || name,
+          fromCache: !!result.fromCache
+        };
       }
     } catch(err){
       lastErr = err;
     }
   }
   if(lastErr) throw lastErr;
-  return { issues: [], statusName: statusNames[0] };
+  return { issues: [], statusName: statusNames[0] || '', fromCache: false };
 }
+
 
 async function loadActiveWork(force){
   const el = $('activeWorkBody');
