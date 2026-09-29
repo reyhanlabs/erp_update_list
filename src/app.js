@@ -875,13 +875,24 @@ function buildCopyText(plan, format){
     return out.trim();
   }
 
-  if(format === 'telegram'){
+  if(format === 'telegram-links'){
+    // SDET: links only
+    let out = `📋 *${title}*\n`;
+    out += `📅 ${dateStr}\n`;
+    out += `🔢 ${parsed.length} issues\n\n`;
+    parsed.forEach((p)=>{ out += `${p.url}\n`; });
+    return out.trim();
+  }
+
+  if(format === 'telegram-full' || format === 'telegram'){
+    // Link + description
     let out = `📋 *${title}*\n`;
     out += `📅 ${dateStr}\n`;
     out += `🔢 ${parsed.length} issues\n\n`;
     parsed.forEach((p)=>{
-      const num = p.number || '—';
-      out += `• [#${num}](${p.url})\n`;
+      out += `${p.url}\n`;
+      if(p.description) out += `${p.description}\n`;
+      out += `\n`;
     });
     return out.trim();
   }
@@ -899,7 +910,9 @@ async function copyPlan(id, format){
     plain: 'Plain URLs',
     numbered: 'Numbered list',
     markdown: 'Markdown links',
-    telegram: 'Telegram format'
+    telegram: 'Telegram (link + desc)',
+    'telegram-links': 'Telegram (links only)',
+    'telegram-full': 'Telegram (link + desc)'
   };
 
   try {
@@ -1389,15 +1402,26 @@ function renderPlanCard(d){
             ${ICON.chevronDown}
           </button>
           <div class="copy-menu" onclick="event.stopPropagation()">
-            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram')">
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram-links')">
               <span class="mi-icon">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21.5 3.5L2.5 10.5l6.5 2.5L11 20l3.5-4.5 6.5 3z"/>
                 </svg>
               </span>
               <span class="mi-body">
-                <span class="mi-title">Telegram format</span>
-                <span class="mi-desc">Markdown link + description</span>
+                <span class="mi-title">Telegram — links only</span>
+                <span class="mi-desc">For SDET · URLs only, no description</span>
+              </span>
+            </button>
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram-full')">
+              <span class="mi-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 3.5L2.5 10.5l6.5 2.5L11 20l3.5-4.5 6.5 3z"/>
+                </svg>
+              </span>
+              <span class="mi-body">
+                <span class="mi-title">Telegram — link + description</span>
+                <span class="mi-desc">URL and subject under each link</span>
               </span>
             </button>
             <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'markdown')">
