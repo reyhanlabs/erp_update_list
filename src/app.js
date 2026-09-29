@@ -631,7 +631,7 @@ function switchView(view){
   if(view === 'settings') updateLastSync();
   if(view === 'plans') loadRedmineProjects();
   if(view === 'tester'){
-    const cat = window.__testerCategory || 'frontend';
+    const cat = window.__testerCategory || 'all';
     const label = TESTER_CAT_LABELS[cat] || 'Tester Queue';
     if($('pageTitle')) $('pageTitle').textContent = label;
     if($('pageSubtitle')) $('pageSubtitle').textContent = 'Ready for Testing · ' + label;
@@ -1725,12 +1725,7 @@ window.__testerMeta = window.__testerMeta || { fromCache: false, statusName: 'Re
    TESTER CATEGORY HELPERS
    Maps Redmine issue.category.name → frontend | backend | design | other
    ============================================================ */
-const TESTER_CAT_LABELS = {
-  frontend: 'Front End',
-  backend: 'Backend',
-  design: 'Design',
-  other: 'Other'
-};
+const TESTER_CAT_LABELS = { all:'All', frontend:'Front End', backend:'Backend', design:'Design', other:'Other' };
 
 window.__testerCategory = window.__testerCategory || 'frontend';
 
@@ -1747,9 +1742,9 @@ function setCachedRftStatusId(id, name){
 function normalizeTesterCategory(name){
   const s = String(name || '').toLowerCase().trim();
   if(!s) return 'other';
-  if(/front\s*-?\s*end|^fe$|frontend/.test(s)) return 'frontend';
-  if(/back\s*-?\s*end|^be$|backend|server/.test(s)) return 'backend';
-  if(/design|ui\/?ux|^ui$|^ux$|figma/.test(s)) return 'design';
+  if(/front\s*-?\s*end|^fe$|frontend|front_end/.test(s)) return 'frontend';
+  if(/back\s*-?\s*end|^be$|backend|server|back_end/.test(s)) return 'backend';
+  if(/design|desain|ui\/?ux|^ui$|^ux$|figma/.test(s)) return 'design';
   return 'other';
 }
 
@@ -1772,7 +1767,7 @@ function getIssueTesterCategory(issue){
 }
 
 function openTesterCategory(cat){
-  const key = TESTER_CAT_LABELS[cat] ? cat : 'other';
+  const key = (TESTER_CAT_LABELS && TESTER_CAT_LABELS[cat]) ? cat : (cat === 'all' ? 'all' : 'other');
   window.__testerCategory = key;
   // Highlight active nav item among tester category buttons
   document.querySelectorAll('.nav-item[data-tester-cat]').forEach(b => {
@@ -1802,9 +1797,15 @@ function openTesterCategory(cat){
 function updateTesterCategoryBadges(){
   const issues = window.__testerIssues || [];
   const counts = { frontend:0, backend:0, design:0, other:0 };
-  issues.forEach(i => { counts[getIssueTesterCategory(i)]++; });
+  issues.forEach(i => {
+    const c = getIssueTesterCategory(i);
+    if(counts[c] !== undefined) counts[c]++;
+    else counts.other++;
+  });
+  counts.all = issues.length;
 
   const map = {
+    all: 'countTesterAll',
     frontend: 'countTesterFrontend',
     backend: 'countTesterBackend',
     design: 'countTesterDesign',
@@ -1812,15 +1813,16 @@ function updateTesterCategoryBadges(){
   };
   Object.keys(map).forEach(k => {
     const el = $(map[k]);
-    if(el) el.textContent = String(counts[k]);
+    const n = counts[k] || 0;
+    if(el) el.textContent = String(n);
     const nav = document.querySelector(`.nav-item[data-tester-cat="${k}"]`);
-    if(nav) nav.classList.toggle('has-queue', counts[k] > 0);
+    if(nav) nav.classList.toggle('has-queue', n > 0);
   });
-  updateNewIssueIndicators();
+  try { updateNewIssueIndicators(); } catch(_){}
 
   // Badge in card = current category count
-  const cat = window.__testerCategory || 'frontend';
-  const n = counts[cat] ?? issues.length;
+  const cat = window.__testerCategory || 'all';
+  const n = cat === 'all' ? issues.length : (counts[cat] ?? 0);
   const badge = $('testerCountBadge');
   if(badge){
     badge.textContent = String(n);
@@ -2174,11 +2176,11 @@ function stopTesterNotifPoll(){
 
 function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
-  const cat = window.__testerCategory || 'frontend';
+  const cat = window.__testerCategory || 'all';
   const priFilter = ($('testerPriorityFilter')?.value || 'all');
 
   return (window.__testerIssues || []).filter(i => {
-    if(getIssueTesterCategory(i) !== cat) return false;
+    if(cat !== 'all' && getIssueTesterCategory(i) !== cat) return false;
     if(priFilter !== 'all'){
       const pc = priorityClass(i.priority?.name);
       // map filter value to class suffix
