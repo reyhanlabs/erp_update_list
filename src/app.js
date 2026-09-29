@@ -92,22 +92,22 @@ function extractIssueNumber(url){
 }
 
 function parseIssueLine(line){
-  if(!line) return { url:'', description:'', category:'' };
+  if(!line) return { url:'', description:'', category:'', tracker:'' };
   const trimmed = String(line).trim();
   const parts = trimmed.split('|').map(s => s.trim());
   if(parts.length >= 2){
     return {
       url: parts[0] || '',
       description: parts[1] || '',
-      category: parts[2] || ''
+      category: parts[2] || '',
+      tracker: parts[3] || ''
     };
   }
-  return { url: trimmed, description: '', category: '' };
+  return { url: trimmed, description: '', category: '', tracker: '' };
 }
 
 function inferCategoryFromText(text){
   // Only strong prefixes at the START of the subject — never match words mid-sentence
-  // (e.g. "…design…" must NOT become Design)
   const s = String(text || '').trim();
   if(!s) return '';
   if(/^(FE|Front\s*-?\s*End)([\s\-–—:,.]|$)/i.test(s)) return 'Front End';
@@ -118,40 +118,97 @@ function inferCategoryFromText(text){
 
 function parseIssueLines(text){
   return (text||'').split('\n').map(s=>s.trim()).filter(Boolean).map(line => {
-    const { url, description, category } = parseIssueLine(line);
+    const { url, description, category, tracker } = parseIssueLine(line);
     const number = extractIssueNumber(url);
     const cat = resolveIssueCategory(number, category, description);
-    return { url, description, category: cat, number };
+    const trk = resolveIssueTracker(number, tracker, description);
+    return { url, description, category: cat, tracker: trk, number };
   });
 }
 
-/** Cache Redmine category by issue id — filled whenever issues are fetched */
-function rememberIssueCategories(issues){
+/** Cache Redmine category + tracker by issue id */
+function rememberIssueMeta(issues){
   if(!window.__issueCategoryById) window.__issueCategoryById = {};
+  if(!window.__issueTrackerById) window.__issueTrackerById = {};
   (issues || []).forEach(i => {
     if(!i || i.id == null) return;
-    const name = i.category?.name;
-    if(name && String(name).trim()){
-      window.__issueCategoryById[String(i.id)] = String(name).trim();
-    }
+    const id = String(i.id);
+    const cat = i.category?.name;
+    if(cat && String(cat).trim()) window.__issueCategoryById[id] = String(cat).trim();
+    const tr = i.tracker?.name;
+    if(tr && String(tr).trim()) window.__issueTrackerById[id] = String(tr).trim();
   });
+}
+
+function rememberIssueCategories(issues){
+  rememberIssueMeta(issues);
 }
 
 function resolveIssueCategory(number, storedCategory, description){
-  // 1) Explicit value stored on the plan line (from sync)
-  if(storedCategory && String(storedCategory).trim()){
-    return String(storedCategory).trim();
-  }
-  // 2) Live cache from any Redmine fetch (authoritative field)
+  if(storedCategory && String(storedCategory).trim()) return String(storedCategory).trim();
   const id = number != null ? String(number) : '';
   if(id && window.__issueCategoryById && window.__issueCategoryById[id]){
     return window.__issueCategoryById[id];
   }
-  // 3) Weak fallback: only FE/BE/Design prefix at start of subject
   return inferCategoryFromText(description) || '';
 }
 
+function resolveIssueTracker(number, storedTracker, description){
+  if(storedTracker && String(storedTracker).trim()) return String(storedTracker).trim();
+  const id = number != null ? String(number) : '';
+  if(id && window.__issueTrackerById && window.__issueTrackerById[id]){
+    return window.__issueTrackerById[id];
+  }
+  return '';
+}
 
+/** Classify for summary sections: feature / enhancement / optimization / bug / other */
+function classifyIssueKind(trackerName, subject){
+  const t = String(trackerName || '').toLowerCase();
+  const s = String(subject || '').toLowerCase();
+  if(/bug|defect|hotfix/.test(t)) return 'bug';
+  if(/optim/.test(t)) return 'optimization';
+  if(/enhanc|improve/.test(t)) return 'enhancement';
+  if(/new\s*feature|^feature$|story|epic/.test(t)) return 'feature';
+  if(/\b(bug|error|fix|gagal|tidak\s*bisa|broken|crash)\b/.test(s)) return 'bug';
+  if(/\b(optimasi|optimization|perf(ormance)?)\b/.test(s)) return 'optimization';
+  if(/\b(enhance|enhancement|improvement|penyesuaian)\b/.test(s)) return 'enhancement';
+  if(/\b(new\s*feature|fitur\s*baru)\b/.test(s)) return 'feature';
+  if(/task|support|concept/.test(t)) return 'other';
+  return t ? 'other' : 'feature';
+}
+
+const ISSUE_KIND_META = {
+  feature:      { title: 'New Features', emoji: '✨', order: 1 },
+  enhancement:  { title: 'Enhancements', emoji: '🔧', order: 2 },
+  optimization: { title: 'Optimizations', emoji: '⚡', order: 3 },
+  bug:          { title: 'Bug Fixes', emoji: '🐛', order: 4 },
+  other:        { title: 'Other', emoji: '📌', order: 5 }
+};
+
+function groupIssuesByKind(issueLines){
+  const groups = { feature:[], enhancement:[], optimization:[], bug:[], other:[] };
+  issueLines.forEach(it => {
+    const kind = classifyIssueKind(it.tracker, it.desc || it.description);
+    (groups[kind] || groups.other).push(it);
+  });
+  return groups;
+}
+
+function formatGroupedIssueSections(issueLines, lineFn){
+  const groups = groupIssuesByKind(issueLines);
+  const order = ['feature','enhancement','optimization','bug','other'];
+  let out = '';
+  order.forEach(k => {
+    const list = groups[k];
+    if(!list || !list.length) return;
+    const meta = ISSUE_KIND_META[k];
+    out += `${meta.emoji} *${meta.title}*\n`;
+    list.forEach(it => { out += lineFn(it) + '\n'; });
+    out += '\n';
+  });
+  return out.trimEnd();
+}
 
 
 /* ICON imported from ./icons.js */
@@ -1010,10 +1067,12 @@ function addIssueRow(fullLine){
   const urlVal = parsed.url || '';
   const descVal = parsed.description || '';
   const catVal = parsed.category || '';
+  const trkVal = parsed.tracker || '';
 
   const row = document.createElement('div');
   row.className = 'issue-row-input';
   if(catVal) row.dataset.category = catVal;
+  if(trkVal) row.dataset.tracker = trkVal;
   row.innerHTML = `
     <div class="row-num empty">#—</div>
     <input type="text" placeholder="https://pjm.zahironline.com/issues/32685" value="${escapeHtml(urlVal)}" oninput="onIssueInput(this)" data-url="true"/>
@@ -1025,6 +1084,7 @@ function addIssueRow(fullLine){
     </button>
     <input type="text" class="row-desc" placeholder="Description (optional, from Redmine)" value="${escapeHtml(descVal)}" data-desc="true" style="grid-column:1 / -1; margin-top:2px"/>
     <input type="hidden" data-cat="true" value="${escapeHtml(catVal)}"/>
+    <input type="hidden" data-tracker="true" value="${escapeHtml(trkVal)}"/>
   `;
   body.appendChild(row);
   if(urlVal) onIssueInput(row.querySelector('input[data-url]'));
@@ -1082,8 +1142,11 @@ function getIssueLines(){
     const url = (row.querySelector('input[data-url]')?.value || '').trim();
     const desc = (row.querySelector('input[data-desc]')?.value || '').trim();
     const cat = (row.querySelector('input[data-cat]')?.value || row.dataset.category || '').trim();
+    const trk = (row.querySelector('input[data-tracker]')?.value || row.dataset.tracker || '').trim();
     if(!url) return;
-    if(desc && cat) out.push(`${url} | ${desc} | ${cat}`);
+    if(desc && cat && trk) out.push(`${url} | ${desc} | ${cat} | ${trk}`);
+    else if(desc && cat) out.push(`${url} | ${desc} | ${cat}`);
+    else if(desc && trk) out.push(`${url} | ${desc} |  | ${trk}`);
     else if(desc) out.push(`${url} | ${desc}`);
     else out.push(url);
   });
@@ -1540,49 +1603,69 @@ function autoGenerate(){
   const tpl = $('summaryTemplate')?.value || 'wa';
 
   const issueLines = parsed.length
-    ? parsed.map(it => {
-        const num = it.number || '—';
-        const desc = it.description || '';
-        return { num, desc, url: it.url };
-      })
-    : [{ num: 'xxxxx', desc: '', url: '' }];
+    ? parsed.map(it => ({
+        num: it.number || '—',
+        desc: it.description || '',
+        url: it.url || '',
+        tracker: it.tracker || '',
+        category: it.category || '',
+        description: it.description || ''
+      }))
+    : [];
+
+  const lineWa = (it) => {
+    const cat = it.category ? ` [${it.category}]` : '';
+    return `• [#${it.num}]${cat} ${it.desc || ''}`.trimEnd();
+  };
+  const lineWaShort = (it) => `• #${it.num}${it.desc ? ' — '+it.desc : ''}`;
+  const lineTg = (it) => {
+    const link = it.url ? `[#${it.num}](${it.url})` : `#${it.num}`;
+    const cat = it.category ? ` _${it.category}_` : '';
+    return `• ${link}${cat}${it.desc ? ' — '+it.desc : ''}`;
+  };
 
   let text = '';
-
   if(tpl === 'wa-short'){
     text = `🚀 *Zahir ERP Update* — ${tgl}\n`;
     text += `FE ${fe} · V2 ${v2}${v3 ? ' · V3 '+v3 : ''}\n\n`;
-    issueLines.forEach(it => {
-      text += `• #${it.num}${it.desc ? ' — '+it.desc : ''}\n`;
-    });
+    text += issueLines.length
+      ? formatGroupedIssueSections(issueLines, lineWaShort) + '\n'
+      : '• (no issues)\n';
   } else if(tpl === 'telegram'){
     text = `🚀 *Zahir ERP Update*\n\n`;
     text += `FE: \`${fe}\`\nV2: \`${v2}\`\n`;
     if(v3) text += `V3: \`${v3}\`\n`;
     text += `📅 ${tgl}\n\n`;
-    text += `*Improvements*\n`;
-    issueLines.forEach(it => {
-      const link = it.url ? `[#${it.num}](${it.url})` : `#${it.num}`;
-      text += `• ${link}${it.desc ? ' — '+it.desc : ''}\n`;
-    });
-    text += `\n*Bug Fixes*\n• `;
+    text += issueLines.length
+      ? formatGroupedIssueSections(issueLines, lineTg) + '\n'
+      : '• (no issues)\n';
   } else {
-    // WA formal (default)
     text = `🚀 Zahir ERP Update\n\n`;
     text += `FE Version : ${fe}\n`;
     text += `V2 Version : ${v2}\n`;
     if(v3) text += `V3 Version : ${v3}\n`;
     text += `Date : ${tgl}\n\n`;
-    text += `⚡ Improvements\n`;
-    issueLines.forEach(it => {
-      text += `• [#${it.num}] ${it.desc}\n`;
+    const groups = groupIssuesByKind(issueLines);
+    const order = ['feature','enhancement','optimization','bug','other'];
+    order.forEach(k => {
+      const list = groups[k];
+      if(!list || !list.length) return;
+      const meta = ISSUE_KIND_META[k];
+      text += `${meta.emoji} ${meta.title}\n`;
+      list.forEach(it => { text += lineWa(it) + '\n'; });
+      text += '\n';
     });
-    text += `\n🛠️ Bug Fixes\n• [#xxxxx] \n`;
+    if(!issueLines.length) text += '• (no issues in plan)\n';
   }
 
-  $('summaryText').value = text;
-  toast('Template generated (' + (tpl === 'wa-short' ? 'WA singkat' : tpl === 'telegram' ? 'Telegram' : 'WA formal') + ')');
+  $('summaryText').value = text.trim() + '\n';
+  const counts = groupIssuesByKind(issueLines);
+  const summary = ['feature','enhancement','optimization','bug','other']
+    .map(k => counts[k].length ? `${counts[k].length} ${ISSUE_KIND_META[k].title}` : '')
+    .filter(Boolean).join(', ');
+  toast('Summary grouped: ' + (summary || 'empty'));
 }
+
 
 function quickSummary(planId){
   resetSummaryForm();
@@ -3438,7 +3521,10 @@ async function syncFromRedmine(event){
       const url = `https://pjm.zahironline.com/issues/${i.id}`;
       const desc = (i.subject || '').replace(/\s+/g, ' ').trim();
       const cat = (i.category && i.category.name ? i.category.name : '').trim();
+      const trk = (i.tracker && i.tracker.name ? i.tracker.name : '').trim();
+      if(desc && cat && trk) return `${url} | ${desc} | ${cat} | ${trk}`;
       if(desc && cat) return `${url} | ${desc} | ${cat}`;
+      if(desc && trk) return `${url} | ${desc} |  | ${trk}`;
       if(desc) return `${url} | ${desc}`;
       return url;
     })
