@@ -921,6 +921,10 @@
               <button type="button" class="btn btn-secondary btn-sm" onclick="saveTelegramChatId()">Save</button>
               <button type="button" class="btn btn-primary btn-sm" onclick="sendTelegramBriefing()">Send briefing</button>
             </div>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--text-secondary);cursor:pointer">
+              <input type="checkbox" id="telegramRftToggle" checked onchange="setTelegramRftEnabled(this.checked)" />
+              Auto-notify Telegram when new Ready for Testing issues appear
+            </label>
             <p id="telegramStatus" style="font-size:12px;color:var(--text-tertiary);margin-top:10px">Chat ID not set</p>
           </div>
         </div>
@@ -1003,6 +1007,14 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.0</span>
+                <span class="cl-note">Telegram RFT auto-notify + fix tester badge counts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.8</span>
+                <span class="cl-note">ERP One issues without category → Other / inferred</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.25.7</span>
                 <span class="cl-note">Per-project RFT logs + clearer Telegram errors</span>

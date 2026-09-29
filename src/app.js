@@ -1754,7 +1754,21 @@ function normalizeTesterCategory(name){
 }
 
 function getIssueTesterCategory(issue){
-  return normalizeTesterCategory(issue?.category?.name);
+  // Prefer Redmine category when set
+  const fromCat = normalizeTesterCategory(issue?.category?.name);
+  if(issue?.category?.name) return fromCat;
+
+  // Many ERP One issues have category=null — infer from subject / tracker
+  const subject = String(issue?.subject || '');
+  const tracker = String(issue?.tracker?.name || '');
+  const hay = (subject + ' ' + tracker).toLowerCase();
+
+  if(/\b(front\s*-?end|frontend|\bfe\b|ui component|css|react|angular|vue)\b/.test(hay)) return 'frontend';
+  if(/\b(back\s*-?end|backend|\bbe\b|api|endpoint|server|database|sql)\b/.test(hay)) return 'backend';
+  if(/\b(design|desain|figma|mockup|ui\/?ux|wireframe)\b/.test(hay)) return 'design';
+
+  // Default uncategorized → Other (so they are never hidden)
+  return 'other';
 }
 
 function openTesterCategory(cat){
@@ -1772,6 +1786,8 @@ function openTesterCategory(cat){
   if($('pageSubtitle')) $('pageSubtitle').textContent = 'Ready for Testing · ' + metaTitle;
   if($('testerCategoryTitle')) $('testerCategoryTitle').textContent = metaTitle + ' · Ready for Testing';
 
+  // Sync sidebar counts immediately from current multi-project list
+  try { updateTesterCategoryBadges(); } catch(_){}
   switchView('tester');
   // Re-apply active on the category button after switchView (it sets by data-view only)
   document.querySelectorAll('.nav-item[data-tester-cat]').forEach(b => {
@@ -1992,76 +2008,147 @@ async function toggleTesterNotifications(){
 }
 
 function notifyNewTesterIssues(issues){
-  if(!isTesterNotifEnabled()) return;
-  if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   if(!issues || !issues.length) return;
 
   const seen = getSeenIssueIds();
   const last = getLastNotifiedIds();
+
+  // First run: seed baseline so we don't spam Telegram with the whole queue
+  if(!last.size){
+    const seed = new Set(issues.map(i => String(i.id)));
+    saveLastNotifiedIds(seed);
+    console.info('[tester] seeded notified baseline', seed.size);
+    return;
+  }
+
   const fresh = issues.filter(i => {
     const id = String(i.id);
     return !seen.has(id) && !last.has(id);
   });
   if(!fresh.length) return;
 
-  const title = fresh.length === 1
-    ? `Ready for Testing: #${fresh[0].id}`
-    : `${fresh.length} new Ready for Testing issues`;
-  const body = fresh.slice(0, 4).map(i => {
-    const sub = (i.subject || '').slice(0, 80);
-    return `#${i.id} ${sub}`;
-  }).join('\n');
+  // Remember notified ids (avoid spam)
+  const next = getLastNotifiedIds();
+  fresh.forEach(i => next.add(String(i.id)));
+  saveLastNotifiedIds(next);
 
-  try {
-    const n = new Notification(title, {
-      body,
-      icon: '/icon.png',
-      badge: '/icon.png',
-      tag: 'erp-rft-queue',
-      renotify: true
-    });
-    n.onclick = () => {
-      try { window.focus(); } catch(_){}
-      // Open category with most new items
-      const counts = { frontend:0, backend:0, design:0, other:0 };
-      fresh.forEach(i => { counts[getIssueTesterCategory(i)]++; });
-      const best = Object.keys(counts).sort((a,b) => counts[b]-counts[a])[0] || 'frontend';
-      openTesterCategory(best);
-      n.close();
-    };
-  } catch(err){
-    console.warn('Notification failed', err);
+  // Browser notification (optional)
+  if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+    const title = fresh.length === 1
+      ? `Ready for Testing: #${fresh[0].id}`
+      : `${fresh.length} new Ready for Testing issues`;
+    const body = fresh.slice(0, 4).map(i => {
+      const sub = (i.subject || '').slice(0, 80);
+      return `#${i.id} ${sub}`;
+    }).join('\n');
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: '/icon.png',
+        badge: '/icon.png',
+        tag: 'erp-rft-queue',
+        renotify: true
+      });
+      n.onclick = () => {
+        try { window.focus(); } catch(_){}
+        const counts = { frontend:0, backend:0, design:0, other:0 };
+        fresh.forEach(i => { counts[getIssueTesterCategory(i)] = (counts[getIssueTesterCategory(i)]||0)+1; });
+        const best = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0] || 'frontend';
+        openTesterCategory(best);
+      };
+    } catch(err){
+      console.warn('browser notification failed', err);
+    }
   }
 
-  fresh.forEach(i => last.add(String(i.id)));
-  saveLastNotifiedIds(last);
+  // Telegram notification for new RFT
+  if(isTelegramRftEnabled()){
+    sendTelegramRftAlert(fresh).catch(err => console.warn('telegram RFT alert', err));
+  }
 }
 
+function isTelegramRftEnabled(){
+  try {
+    const chat = (localStorage.getItem(TG_CHAT_KEY) || '').trim();
+    if(!chat) return false;
+    const pref = localStorage.getItem('erp_telegram_rft_notif');
+    // default ON when chat id is set
+    if(pref === null || pref === undefined || pref === '') return true;
+    return pref === '1';
+  } catch(_){ return false; }
+}
+
+function setTelegramRftEnabled(on){
+  try { localStorage.setItem('erp_telegram_rft_notif', on ? '1' : '0'); } catch(_){}
+  const el = $('telegramRftToggle');
+  if(el) el.checked = !!on;
+}
+
+async function sendTelegramRftAlert(fresh){
+  const chatId = ($('telegramChatId')?.value || localStorage.getItem(TG_CHAT_KEY) || '').trim();
+  if(!chatId || !fresh || !fresh.length) return;
+
+  let text = `🆕 *Ready for Testing — ${fresh.length} new*\n\n`;
+  fresh.slice(0, 15).forEach(i => {
+    const proj = i._projectLabel || i.project?.name || '';
+    const pri = i.priority?.name || '';
+    const sub = (i.subject || '').slice(0, 120);
+    text += `#${i.id}`;
+    if(pri) text += ` [${pri}]`;
+    if(proj) text += ` · ${proj}`;
+    text += `\n${sub}\nhttps://pjm.zahironline.com/issues/${i.id}\n\n`;
+  });
+  if(fresh.length > 15) text += `…and ${fresh.length - 15} more\n`;
+
+  const r = await fetch('/api/telegram', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId, text: text.trim() })
+  });
+  const data = await r.json().catch(() => ({}));
+  if(!r.ok){
+    console.warn('[telegram RFT]', r.status, data);
+    return;
+  }
+  console.info('[telegram RFT] sent', fresh.length);
+}
+
+
 async function checkTesterNotifications(){
-  if(!isTesterNotifEnabled()) return;
+  // Always refresh multi-project RFT list for accurate sidebar badges.
+  // Browser / Telegram alerts only when enabled.
   try {
     if(!RedmineState.loaded){
       try { await loadRedmineProjects(); } catch(_){}
     }
-    const pid = getSelectedProjectId();
-    if(!pid) return;
+    const targets = resolveTesterProjectIds();
+    if(!targets.length) return;
 
-    const params = new URLSearchParams();
-    const cachedSid = getCachedRftStatusId();
-    if(cachedSid) params.set('status_id', cachedSid);
-    else params.set('status_name', 'Ready for Testing');
-    params.set('project_id', pid);
-    params.set('limit', '100');
-    params.set('sort', 'updated_on:desc');
+    const merged = [];
+    await Promise.all(targets.map(async (t) => {
+      try {
+        const r = await fetchRftForProject(t.id, false);
+        (r.issues || []).forEach(iss => {
+          merged.push({ ...iss, _projectId: t.id, _projectLabel: t.label });
+        });
+      } catch(err){
+        console.warn('[tester] notif fetch', t.label, err);
+      }
+    }));
+    const byId = new Map();
+    merged.forEach(iss => { if(!byId.has(iss.id)) byId.set(iss.id, iss); });
+    const issues = Array.from(byId.values());
 
-    const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
-    if(data.resolved_status?.id) setCachedRftStatusId(data.resolved_status.id, data.resolved_status.name);
-    const issues = data.issues || [];
-    // Keep global list in sync for badges
-    if(issues.length){
-      window.__testerIssues = issues;
-      updateTesterCategoryBadges();
-    }
+    window.__testerIssues = issues;
+    window.__testerMeta = {
+      ...(window.__testerMeta || {}),
+      fromCache: true,
+      projects: targets.map(t => t.label).join(', '),
+      at: Date.now()
+    };
+    updateTesterCategoryBadges();
+
+    // Detect brand-new RFT for browser + Telegram
     notifyNewTesterIssues(issues);
   } catch(err){
     console.warn('checkTesterNotifications', err);
@@ -2070,12 +2157,12 @@ async function checkTesterNotifications(){
 
 function startTesterNotifPoll(){
   if(__testerNotifTimer) return;
-  // Every 3 minutes
+  // Every 3 minutes — refresh badges + detect new RFT (browser + Telegram)
   __testerNotifTimer = setInterval(() => {
-    if(!isTesterNotifEnabled()) return;
-    // Skip if tab hidden for long stretch? still check — user asked for notif while away
     checkTesterNotifications().catch(()=>{});
   }, 3 * 60 * 1000);
+  // First run shortly after boot (don't block UI)
+  setTimeout(() => { checkTesterNotifications().catch(()=>{}); }, 8000);
 }
 
 function stopTesterNotifPoll(){
@@ -2247,7 +2334,12 @@ function renderTesterList(){
   const list = getFilteredTesterIssues();
   if(!list.length){
     const catLabel = (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[window.__testerCategory]) || window.__testerCategory || 'this category';
-    el.innerHTML = emptyState(ICON.inbox, `No issues in ${catLabel}`, `There are ${all.length} Ready for Testing issue(s) total, but none in this category.`, [
+    const otherCount = all.filter(i => getIssueTesterCategory(i) === 'other').length;
+    const hint = otherCount
+      ? `There are ${all.length} RFT issue(s) total. ${otherCount} without category are in Other (e.g. Zahir ERP One).`
+      : `There are ${all.length} Ready for Testing issue(s) total, but none in this category.`;
+    el.innerHTML = emptyState(ICON.inbox, `No issues in ${catLabel}`, hint, [
+      { label: 'Open Other', action: "openTesterCategory('other')" },
       { label: 'Clear search', action: "$('testerSearch').value=''; renderTesterList();" }
     ]);
     return;
@@ -4567,6 +4659,10 @@ function startBackgroundAutoRefresh(){
         refreshDashNewIssueCounts();
         refreshDashAttention();
       }
+      // Keep tester sidebar counts accurate even outside Tester Queue
+      if(currentView !== 'tester'){
+        prefetchTesterCount().catch(()=>{});
+      }
     } catch(e){ console.warn('auto-refresh', e); }
   }, AUTO_REFRESH_MS);
 }
@@ -4662,7 +4758,7 @@ function exposeAppGlobals(){
     openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
-    refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId,
+    refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled,
     CloudSync
   };
   Object.keys(map).forEach(k => {
@@ -4682,9 +4778,12 @@ export async function startApp(){
   // Restore notification preference
   try {
     updateNotifToggleUI();
-    if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
-      startTesterNotifPoll();
-    }
+    try {
+      const tgOn = document.getElementById('telegramRftToggle');
+      if(tgOn) tgOn.checked = isTelegramRftEnabled();
+    } catch(_){}
+    // Always poll RFT for accurate sidebar counts + Telegram alerts
+    startTesterNotifPoll();
     document.addEventListener('click', (e) => {
       const wrap = $('notifBellWrap');
       if(wrap && !wrap.contains(e.target)) closeNotifPanel();
