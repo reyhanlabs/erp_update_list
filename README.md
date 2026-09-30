@@ -424,7 +424,7 @@ Publish rules so `system/rftTelegramState` is writable (see `FIRESTORE_RULES.md`
 
 ### Schedule
 
-`vercel.json` runs `/api/cron-rft-telegram` every 15 minutes.
+`vercel.json` runs `/api/cron-rft-telegram` **once daily** (Hobby limit). For every 15 min, use [cron-job.org](https://cron-job.org) — Hobby rejects deploy if schedule is more than once/day.
 
 - **Vercel Pro**: cron every 15 min works.
 - **Hobby**: may only allow daily cron — use [cron-job.org](https://cron-job.org) to GET:
