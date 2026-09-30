@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Zahir ERP · Update Manager</title>
+<meta name="theme-color" content="#2563eb">
+<meta name="description" content="Manage Zahir ERP update plans, Redmine sync, and tester queue">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ERP Updates">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+
+<script>
+  (function(){
+    const saved = localStorage.getItem('zahir-theme') || 'auto';
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const resolved = saved === 'auto' ? (prefersDark ? 'dark' : 'light') : saved;
+    document.documentElement.setAttribute('data-theme', resolved);
+    document.documentElement.setAttribute('data-theme-pref', saved);
+  })();
+</script>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p id="loadingText">Connecting to Firebase...</p>
+</div>
+
+<div class="auth-gate hidden" id="authGate">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="icon.png" alt="Zahir ERP" width="56" height="56">
+      <h1>Zahir ERP Update Manager</h1>
+      <p>Sign in to sync plans &amp; summaries across your devices</p>
+    </div>
+    <button type="button" class="btn btn-primary auth-google-btn" id="btnAuthGoogle" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Sign in with Google
+    </button>
+    <button type="button" class="auth-guest-btn" id="btnAuthGuest" onclick="continueAsGuest()">
+      Continue as guest
+      <small>Data stays on this device only</small>
+    </button>
+    <p class="auth-hint" id="authError"></p>
+  </div>
+</div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="mark mark-icon">
+      <img src="icon.png" alt="Zahir ERP" width="36" height="36">
+    </div>
+    <div class="brand-text">
+      <h1>Zahir ERP</h1>
+      <p>Update Manager</p>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">Overview</div>
+    <button class="nav-item active" data-view="dashboard">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
+        <rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+      </svg>
+      <span class="label">Dashboard</span>
+    </button>
+
+    <button class="nav-item" data-view="createissue" onclick="openCreateIssueView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span class="label">New Issue</span>
+    </button>
+
+
+    <div class="nav-section">Workspace</div>
+    <button class="nav-item" data-view="plans">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <path d="M9 12h6M9 16h4"/>
+      </svg>
+      <span class="label">Update Plans</span>
+      <span class="count" id="countPlans">0</span>
+    </button>
+
+    <button class="nav-item" data-view="summaries">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span class="label">Update Summaries</span>
+      <span class="count" id="countSummaries">0</span>
+    </button>
+    <div class="nav-section">Tester Queue</div>
+    <button class="nav-item" data-view="tester" data-tester-cat="all" onclick="openTesterCategory('all')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+      <span class="label">All</span>
+      <span class="count" id="countTesterAll">0</span>
+    </button>
+    <button class="nav-item" data-view="tester" data-tester-cat="frontend" onclick="openTesterCategory('frontend')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+      </svg>
+      <span class="label">Front End</span>
+      <span class="count" id="countTesterFrontend">0</span>
+    </button>
+    <button class="nav-item" data-view="tester" data-tester-cat="backend" onclick="openTesterCategory('backend')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+        <circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
+      </svg>
+      <span class="label">Backend</span>
+      <span class="count" id="countTesterBackend">0</span>
+    </button>
+    <button class="nav-item" data-view="tester" data-tester-cat="design" onclick="openTesterCategory('design')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>
+      </svg>
+      <span class="label">Design</span>
+      <span class="count" id="countTesterDesign">0</span>
+    </button>
+    <button class="nav-item" data-view="tester" data-tester-cat="other" onclick="openTesterCategory('other')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 3h6v4H9z"/>
+        <path d="M10 7v4.5L7 18h10l-3-6.5V7"/>
+        <path d="M8 21h8"/>
+      </svg>
+      <span class="label">Other</span>
+      <span class="count" id="countTesterOther">0</span>
+    </button>
+
+    <div class="nav-section">New Issues</div>
+    <button class="nav-item" data-view="newissues" onclick="openNewIssuesView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      <span class="label">Status New</span>
+      <span class="count" id="countNewIssues">0</span>
+    </button>
+    <button class="nav-item" data-view="activework" onclick="openActiveWorkView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span class="label">Active Work</span>
+      <span class="count" id="countActiveWork">0</span>
+    </button>
+    <button class="nav-item" data-view="whatnext" onclick="openWhatNextView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span class="label">What Next</span>
+      <span class="count" id="countWhatNext">0</span>
+    </button>
+
+    <div class="nav-section">System</div>
+    <button class="nav-item" data-view="settings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span class="label">Settings</span>
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    <span class="dot-status syncing" id="statusDot">Connecting</span>
+    <span id="appVersionLabel">v—</span>
+  </div>
+</aside>
+
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+      <div class="page-heading">
+        <h2 id="pageTitle">Dashboard</h2>
+        <p id="pageSubtitle">Overview of your ERP update activity</p>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <div class="sync-indicator syncing" id="syncIndicator" title="Sync status">
+        <span class="dot"></span>
+        <span class="label" id="syncLabel">Syncing</span>
+      </div>
+
+      <div class="notif-bell-wrap" id="notifBellWrap">
+        <button type="button" class="notif-bell-btn" id="btnNotifBell" onclick="toggleNotifPanel(event)" title="Notifications" aria-label="Notifications">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-bell-dot hidden" id="notifBellDot"></span>
+        </button>
+        <div class="notif-panel hidden" id="notifPanel">
+          <div class="notif-panel-head">Notifications</div>
+          <p class="notif-panel-desc">Alert when new <b>Ready for Testing</b> issues appear in Redmine.</p>
+          <p class="notif-panel-status" id="testerNotifStatus">Off</p>
+          <button type="button" class="btn btn-primary btn-sm" id="btnToggleTesterNotif" onclick="toggleTesterNotifications()">
+            Enable notifications
+          </button>
+          <p class="notif-panel-hint">Tab must stay open. Checks about every 3 minutes.</p>
+        </div>
+      </div>
+
+      <div class="theme-switch" role="group" aria-label="Theme switcher">
+        <button data-theme-set="light" title="Light mode" aria-label="Light mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+          </svg>
+        </button>
+        <button data-theme-set="dark" title="Dark mode" aria-label="Dark mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <button data-theme-set="auto" title="Auto (system)" aria-label="Auto theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+          </svg>
+        </button>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-add hidden" id="btnAdd" onclick="openAddModal(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span class="btn-text">Add New</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="stats-grid stats-grid-4">
+        <div class="stat blue">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                <rect x="9" y="3" width="6" height="4" rx="1"/>
+              </svg>
+            </span>
+            Total Plans
+          </div>
+          <div class="stat-value" id="statPlans">0</div>
+        </div>
+        <div class="stat violet">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </span>
+            Total Summaries
+          </div>
+          <div class="stat-value" id="statSummaries">0</div>
+        </div>
+        <div class="stat amber">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v4l3 2"/>
+              </svg>
+            </span>
+            Total Issues
+          </div>
+          <div class="stat-value" id="statIssues">0</div>
+        </div>
+        <div class="stat rose">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+            Needs Summary
+          </div>
+          <div class="stat-value" id="statNeedsSummary">0</div>
+        </div>
+      </div>
+
+      <div class="dash-section-label">New issues by project</div>
+      <div class="stats-grid stats-grid-3" id="dashNewIssuesGrid">
+        <button type="button" class="stat cyan dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </span>
+            Zahir ERP One
+          </div>
+          <div class="stat-value" id="statNewErpOne">—</div>
+          <div class="stat-hint">Status New</div>
+        </button>
+        <button type="button" class="stat blue dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18"/>
+              </svg>
+            </span>
+            Zahir ERP
+          </div>
+          <div class="stat-value" id="statNewErp">—</div>
+          <div class="stat-hint">Status New</div>
+        </button>
+        <button type="button" class="stat violet dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
+          <div class="stat-label">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>
+              </svg>
+            </span>
+            Manufacturing
+          </div>
+          <div class="stat-value" id="statNewMfg">—</div>
+          <div class="stat-hint">Status New</div>
+        </button>
+      </div>
+
+      <div class="dash-section-label">Needs attention today</div>
+      <div class="dash-attention" id="dashAttention">
+        <div class="dash-att-card">
+          <div class="dash-att-label">Immediate · New</div>
+          <div class="dash-att-value" id="attImmediateNew">—</div>
+        </div>
+        <div class="dash-att-card">
+          <div class="dash-att-label">Stuck In Progress (&gt;7d)</div>
+          <div class="dash-att-value" id="attStuckProgress">—</div>
+        </div>
+        <div class="dash-att-card">
+          <div class="dash-att-label">On Deploy</div>
+          <div class="dash-att-value" id="attOnDeploy">—</div>
+        </div>
+        <div class="dash-att-card dash-att-action">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openWhatNextView()">What Next</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openActiveWorkView()">Active Work</button>
+        </div>
+      </div>
+
+      <div class="dash-actions">
+        <button type="button" class="dash-action-btn" onclick="switchView('plans'); openAddModal()">
+          <span class="da-icon blue">+</span>
+          <span class="da-text"><strong>New Plan</strong><small>Tambah update plan manual</small></span>
+        </button>
+        <button type="button" class="dash-action-btn" onclick="openTesterCategory('frontend')">
+          <span class="da-icon amber">T</span>
+          <span class="da-text"><strong>Tester Queue</strong><small>Issue Ready for Testing</small></span>
+        </button>
+        <button type="button" class="dash-action-btn" onclick="openPlansWithSync()">
+          <span class="da-icon red">R</span>
+          <span class="da-text"><strong>Sync Redmine</strong><small>Pull issues → Update Plan</small></span>
+        </button>
+        <button type="button" class="dash-action-btn" onclick="switchView('summaries'); openAddModal()">
+          <span class="da-icon violet">S</span>
+          <span class="da-text"><strong>New Summary</strong><small>Create WA/Telegram summary</small></span>
+        </button>
+      </div>
+
+      <div class="dash-two-col">
+        <div class="card">
+          <div class="card-head">
+            <h3><span class="mark"></span> Recent Plans</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('plans')">View all</button>
+          </div>
+          <div class="card-body tight" id="recentPlans"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h3><span class="mark"></span> Latest Summary</h3>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('summaries')">View all</button>
+          </div>
+          <div class="card-body tight" id="latestSummary"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- UPDATE PLANS (+ Sync from Redmine) -->
+    <section class="view" id="view-plans">
+      <div class="toolbar toolbar-float toolbar-sticky">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="planSearch" placeholder="Search title, issue, or date... (press /)" oninput="renderPlans()"/>
+        </div>
+        <select class="select" id="planProjectFilter" onchange="renderPlans()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+            <option value="none">No project set</option>
+        </select>
+        <select class="select" id="planSort" onchange="renderPlans()">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnToggleSyncPanel" onclick="toggleSyncPanel()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8"/>
+            <path d="M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
+          </svg>
+          Sync Redmine
+        </button>
+      </div>
+
+      <!-- Collapsible Redmine Sync panel -->
+      <div class="card sync-panel" id="syncPanel" style="display:none;margin-bottom:14px">
+        <div class="card-head">
+          <h3><span class="mark redmine"></span> Sync from Redmine</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="status-pill" id="redmineStatusPill">
+              <span class="sp-dot"></span>
+              <span id="redmineStatusText">Ready</span>
+            </span>
+            <button type="button" class="btn-icon" onclick="toggleSyncPanel(false)" title="Tutup">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="redmine-hero">
+            <div class="logo-redmine">R</div>
+            <div class="hero-text">
+              <h4>pjm.zahironline.com</h4>
+              <p>Pull issues from Redmine and turn them into an Update Plan automatically.</p>
+              <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;background:rgba(239,68,68,.12);color:var(--redmine);border:1px solid var(--redmine-border);font-size:11px;font-weight:600">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--redmine)"></span>
+                  Project: <span id="redmineProjectLabel">—</span>
+                </span>
+                <span id="redmineProjectIdLabel" style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;background:var(--bg-subtle);color:var(--text-tertiary);border:1px solid var(--line);font-size:11px;font-family:'JetBrains Mono',monospace">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field" style="margin-bottom:0">
+              <label>Project <span class="req">*</span></label>
+              <select class="input select" id="syncProject" onchange="onRedmineProjectChange()">
+                <option value="">Loading projects…</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Status Filter</label>
+              <select class="input select" id="syncStatus">
+                <option value="3">Resolved</option>
+                <option value="name:Ready for Testing">Ready for Testing</option>
+                <option value="5">Closed</option>
+                <option value="1">New</option>
+                <option value="2">In Progress</option>
+                <option value="4">Feedback</option>
+                <option value="*">All statuses</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top:14px">
+            <div class="field" style="margin-bottom:0">
+              <label>Date range</label>
+              <select class="input select" id="syncDatePreset" onchange="onDatePresetChange()">
+                <option value="today" selected>Today</option>
+                <option value="week">This week</option>
+                <option value="month">This month</option>
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="custom">Custom</option>
+                <option value="all">⚠ All (use carefully)</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Based on</label>
+              <select class="input select" id="syncDateField">
+                <option value="updated" selected>Updated date</option>
+                <option value="created">Created date</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row" id="syncCustomRow" style="margin-top:14px;display:none">
+            <div class="field" style="margin-bottom:0">
+              <label>From</label>
+              <input class="input" type="date" id="syncFrom"/>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>To</label>
+              <input class="input" type="date" id="syncTo"/>
+            </div>
+          </div>
+
+          <div id="syncAllWarning" class="danger-tile" style="display:none;margin-top:12px;background:linear-gradient(135deg,var(--warning-soft),rgba(245,158,11,.04));border-color:rgba(217,119,6,.3)">
+            <div class="danger-tile-icon" style="background:rgba(245,158,11,.15);color:var(--warning)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div class="danger-tile-text">
+              <b>"All" mode</b> will pull every issue from the project. This may take a while.
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="testRedmineConnection(event)">Test Connection</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="previewRedmineSync(event)">Preview</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="syncFromRedmine(event)">Sync Now</button>
+          </div>
+          <div id="syncResult"></div>
+        </div>
+      </div>
+
+      <div class="filter-chips" id="planFilters">
+        <button type="button" class="filter-chip active" data-filter="all" onclick="setPlanFilter('all')">All</button>
+        <button type="button" class="filter-chip" data-filter="no-summary" onclick="setPlanFilter('no-summary')">No summary</button>
+        <button type="button" class="filter-chip" data-filter="has-summary" onclick="setPlanFilter('has-summary')">Has summary</button>
+        <button type="button" class="filter-chip" data-filter="redmine" onclick="setPlanFilter('redmine')">Redmine</button>
+      </div>
+      <div id="planList"></div>
+    </section>
+
+    <!-- UPDATE SUMMARIES -->
+    <section class="view" id="view-summaries">
+      <div class="toolbar toolbar-float">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="summarySearch" placeholder="Search version or content..." oninput="renderSummaries()"/>
+        </div>
+        <select class="select" id="summaryProjectFilter" onchange="renderSummaries()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+            <option value="none">No project set</option>
+        </select>
+        <select class="select" id="summarySort" onchange="renderSummaries()">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+      </div>
+      <div id="summaryList"></div>
+    </section>
+
+    <!-- TESTER QUEUE -->
+    <section class="view" id="view-tester">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark tester-mark"></span>
+            <span id="testerCategoryTitle">Ready for Testing</span>
+            <span class="badge badge-amber" id="testerCountBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="meta-chip" id="testerStatusLabel" style="font-size:11.5px">Ready for Testing</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyTesterList()" title="Copy list for briefing">
+              Copy list
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshTester" onclick="loadTesterReminder(true)">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="testerSearch" placeholder="Search subject, assignee, #id, priority..." oninput="renderTesterList()"/>
+          </div>
+          <select class="select" id="testerProjectFilter" onchange="renderTesterList()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
+          <select class="select" id="testerPriorityFilter" onchange="renderTesterList()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="select" id="testerGroupBy" onchange="renderTesterList()">
+            <option value="project" selected>Group: Project</option>
+            <option value="assignee">Group: Assignee</option>
+            <option value="priority">Group: Priority</option>
+            <option value="none">No grouping</option>
+          </select>
+        </div>
+        <div class="card-body tight" id="testerReminder">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load issues…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW ISSUES (status New across 3 projects) -->
+    <section class="view" id="view-newissues">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark" style="background:linear-gradient(135deg,#3b82f6,#06b6d4)"></span>
+            New Issues
+            <span class="badge badge-cyan" id="newIssuesTotalBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="meta-chip" style="font-size:11.5px" id="newIssuesStatusLabel">Status: New</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyAllNewIssueLinks()">
+              Copy all links
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshNewIssues" onclick="loadNewIssues(true)">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="newIssuesSearch" placeholder="Search subject, #id, priority..." oninput="renderNewIssues()"/>
+          </div>
+          <select class="select" id="newIssuesProjectFilter" onchange="renderNewIssues()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
+          <select class="select" id="newIssuesStatusFilter" onchange="loadNewIssues(true)">
+            <option value="New" selected>Status: New</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Ready for Testing">Ready for Testing</option>
+            <option value="Feedback">Feedback</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+          <select class="select" id="newIssuesPriorityFilter" onchange="renderNewIssues()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="select" id="newIssuesDateFilter" onchange="renderNewIssues()">
+            <option value="all">Date: All</option>
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="custom">Custom range…</option>
+          </select>
+          <input type="date" id="newIssuesDateFrom" class="select" style="display:none;min-width:140px" onchange="renderNewIssues()" title="From"/>
+          <input type="date" id="newIssuesDateTo" class="select" style="display:none;min-width:140px" onchange="renderNewIssues()" title="To"/>
+        </div>
+        <div class="card-body tight" id="newIssuesBody">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load New issues…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTIVE WORK: In Progress + On Deploy -->
+    <section class="view" id="view-activework">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark" style="background:linear-gradient(135deg,#f59e0b,#ef4444)"></span>
+            Active Work
+            <span class="badge badge-amber" id="activeWorkTotalBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshActiveWork" onclick="loadActiveWork(true)">Refresh</button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="activeWorkSearch" placeholder="Search assignee, subject, #id..." oninput="renderActiveWork()"/>
+          </div>
+          <select class="select" id="activeWorkStatusFilter" onchange="renderActiveWork()">
+            <option value="all">Status: All</option>
+            <option value="progress">In Progress</option>
+            <option value="deploy">On Deploy</option>
+          </select>
+          <select class="select" id="activeWorkProjectFilter" onchange="renderActiveWork()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
+          <select class="select" id="activeWorkPriorityFilter" onchange="renderActiveWork()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="select" id="activeWorkDateFilter" onchange="renderActiveWork()">
+            <option value="all">Date: All</option>
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="custom">Custom range…</option>
+          </select>
+          <input type="date" id="activeWorkDateFrom" class="select" style="display:none;min-width:140px" onchange="renderActiveWork()" title="From"/>
+          <input type="date" id="activeWorkDateTo" class="select" style="display:none;min-width:140px" onchange="renderActiveWork()" title="To"/>
+          <select class="select" id="activeWorkGroupBy" onchange="renderActiveWork()">
+            <option value="assignee">Group: Assignee</option>
+            <option value="project">Group: Project</option>
+            <option value="none">No grouping</option>
+          </select>
+        </div>
+        <div class="card-body tight" id="activeWorkBody">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load In Progress &amp; On Deploy issues…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHAT NEXT — prioritized New issues -->
+    <section class="view" id="view-whatnext">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark" style="background:linear-gradient(135deg,#8b5cf6,#ec4899)"></span>
+            What Next
+            <span class="badge badge-violet" id="whatNextTotalBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="meta-chip" style="font-size:11.5px">Ranked New issues · do these first</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="copyWhatNextList()">Copy top list</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="createPlanFromWhatNext()">Create plan from top</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshWhatNext" onclick="loadWhatNext(true)">Refresh</button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input type="text" id="whatNextSearch" placeholder="Search subject, #id, project..." oninput="renderWhatNext()"/>
+          </div>
+          <select class="select" id="whatNextProjectFilter" onchange="renderWhatNext()">
+            <option value="all">Project: All</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
+          <select class="select" id="whatNextPriorityFilter" onchange="renderWhatNext()">
+            <option value="all">Priority: All</option>
+            <option value="immediate">Immediate</option>
+            <option value="high">High / Urgent</option>
+            <option value="normal">Normal</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="select" id="whatNextLimit" onchange="renderWhatNext()">
+            <option value="10">Top 10</option>
+            <option value="20" selected>Top 20</option>
+            <option value="50">Top 50</option>
+            <option value="0">Show all</option>
+          </select>
+        </div>
+        <div class="card-body tight" id="whatNextBody">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to analyse which New issues to pick first…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    
+    <section class="view" id="view-createissue">
+      <div class="panel" style="max-width:820px">
+        <div class="panel-head">
+          <div>
+            <h2 style="margin:0;font-size:1.1rem">Create Redmine Issue</h2>
+            <p class="muted" style="margin:4px 0 0;font-size:13px">Fill fields manually · generate description from notes (GPT-style template)</p>
+          </div>
+        </div>
+        <form id="createIssueForm" onsubmit="submitCreateIssue(event)" style="padding:16px 20px 24px;display:flex;flex-direction:column;gap:14px">
+          <div class="form-row">
+            <div class="field">
+              <label>Project <span class="req">*</span></label>
+              <select class="input select" id="ciProject" required onchange="onCreateIssueProjectChange()">
+                <option value="">— Select project —</option>
+                <option value="75">Zahir ERP</option>
+                <option value="119">Zahir ERP One</option>
+                <option value="113">Zahir ERP Manufacturing</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tracker <span class="req">*</span></label>
+              <select class="input select" id="ciTracker" required>
+                <option value="">— Load after project —</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label>Priority</label>
+              <select class="input select" id="ciPriority">
+                <option value="">— Default —</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <select class="input select" id="ciCategory">
+                <option value="">— Optional —</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Subject <span class="req">*</span></label>
+            <input class="input" type="text" id="ciSubject" required placeholder="e.g. FE - Error when saving Purchase Order" maxlength="255"/>
+          </div>
+          <div class="field">
+            <label>Notes for description generator</label>
+            <textarea class="input" id="ciNotes" rows="3" placeholder="Short bullets: what happens, steps, expected result, module name…"></textarea>
+            <div class="field-hint">Used only to build the description — not sent as a separate field.</div>
+          </div>
+          <div class="field">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+              <label style="margin:0">Description <span class="req">*</span></label>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generateIssueDescription()">✨ Generate description</button>
+            </div>
+            <textarea class="input" id="ciDescription" rows="14" required placeholder="Full Redmine description…"></textarea>
+          </div>
+          <div id="ciResult" style="display:none" class="sync-status-box"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary" onclick="resetCreateIssueForm()">Reset</button>
+            <button type="submit" class="btn btn-primary" id="ciSubmitBtn">Push to Redmine</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="view" id="view-settings">
+      <div class="card">
+        <div class="card-head">
+          <h3><span class="mark"></span> Appearance</h3>
+        </div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.6">
+            Choose how Zahir ERP Update Manager looks to you. Select a single theme, or sync with your system settings.
+          </p>
+          <div class="theme-options">
+            <button class="theme-card" data-theme-set="light">
+              <div class="theme-preview light-preview"><div class="tp-bar"></div><div class="tp-line long"></div><div class="tp-line short"></div><div class="tp-block"></div></div>
+              <div class="theme-card-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="4"/>
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                </svg>
+                <span>Light</span>
+              </div>
+            </button>
+            <button class="theme-card" data-theme-set="dark">
+              <div class="theme-preview dark-preview"><div class="tp-bar"></div><div class="tp-line long"></div><div class="tp-line short"></div><div class="tp-block"></div></div>
+              <div class="theme-card-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                <span>Dark</span>
+              </div>
+            </button>
+            <button class="theme-card" data-theme-set="auto">
+              <div class="theme-preview auto-preview"><div class="tp-bar"></div><div class="tp-line long"></div><div class="tp-line short"></div><div class="tp-block"></div></div>
+              <div class="theme-card-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                <span>Auto</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-grid">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
+            <h3><span class="mark"></span> Account</h3>
+            <span class="status-pill" id="accountStatusPill">
+              <span class="sp-dot"></span>
+              <span id="accountStatusText">Guest</span>
+            </span>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.6">
+              Sign in with Google so the same plans &amp; summaries appear on PC and phone.
+              Guest mode uses a random ID per device (data will not sync).
+            </p>
+            <div class="info-tile" style="margin-bottom:12px">
+              <div class="info-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="info-tile-body">
+                <div class="info-tile-label">Signed in as</div>
+                <div class="info-tile-value" id="accountIdentity">Guest (anonymous)</div>
+                <div style="font-size:11.5px;color:var(--text-tertiary);margin-top:4px;word-break:break-all">
+                  UID: <span id="userUID">—</span>
+                  <button type="button" class="copy-btn" onclick="copyUID()" title="Copy UID" style="margin-left:4px">Copy</button>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap" id="accountActions">
+              <button type="button" class="btn btn-primary btn-sm" id="btnGoogleSignIn" onclick="signInWithGoogle()">
+                Sign in with Google
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm hidden" id="btnSignOut" onclick="signOutAccount()">
+                Sign out
+              </button>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-tertiary);margin-top:12px;line-height:1.5">
+              Firebase Console: enable <b>Google</b> under Authentication → Sign-in method.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
+            <h3><span class="mark"></span> Team Workspace</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+              Share the same plans &amp; summaries with your team. Everyone who joins the same workspace code sees the same data.
+            </p>
+            <div class="info-tile" style="margin-bottom:12px">
+              <div class="info-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div class="info-tile-body">
+                <div class="info-tile-label">Current workspace</div>
+                <div class="info-tile-value workspace-code" id="workspaceIdLabel">—</div>
+              </div>
+            </div>
+            <div class="workspace-row">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="copyWorkspaceId()">Copy code</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="usePersonalWorkspace()">Use personal</button>
+            </div>
+            <div class="workspace-row" style="margin-top:12px">
+              <input type="text" id="workspaceCodeInput" placeholder="Enter team workspace code" autocomplete="off"/>
+              <button type="button" class="btn btn-primary btn-sm" onclick="joinWorkspace()">Join</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-tertiary);margin-top:10px;line-height:1.5">
+              Tip: one person copies their code, teammates paste it and click Join.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
+            <h3><span class="mark"></span> Telegram</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;line-height:1.6">
+              Send briefings to a Telegram chat. Set <code>TELEGRAM_BOT_TOKEN</code> in Vercel env, then save your Chat ID here.
+            </p>
+            <div class="workspace-row">
+              <input type="text" id="telegramChatId" placeholder="Chat ID (e.g. -100123… or @channel)" />
+              <button type="button" class="btn btn-secondary btn-sm" onclick="saveTelegramChatId()">Save</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="sendTelegramBriefing()">Send briefing</button>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--text-secondary);cursor:pointer">
+              <input type="checkbox" id="telegramRftToggle" checked onchange="setTelegramRftEnabled(this.checked)" />
+              Auto-notify Telegram when new Ready for Testing issues appear
+            </label>
+            <div class="workspace-row" style="margin-top:10px">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="testTelegramRftAlert()">Send test RFT alert</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="checkTesterNotifications()">Check for new RFT now</button>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-tertiary);margin-top:8px;line-height:1.5">
+              In-browser poll needs the tab open (~90s). For alerts while the tab is closed, set up Vercel Cron + TELEGRAM_CHAT_ID (see What’s New / README).
+            </p>
+            <p id="telegramStatus" style="font-size:12px;color:var(--text-tertiary);margin-top:10px">Chat ID not set</p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
+            <h3><span class="mark"></span> Cloud Sync</h3>
+            <span class="status-pill" id="cloudStatusPill">
+              <span class="sp-dot"></span>
+              <span id="cloudStatusText">Connected</span>
+            </span>
+          </div>
+          <div class="card-body">
+            <div style="display:flex;gap:14px;align-items:flex-start">
+              <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.35);flex-shrink:0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.5A4.5 4.5 0 0 0 6.5 19z"/>
+                </svg>
+              </div>
+              <div style="min-width:0;flex:1">
+                <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:4px">Firebase Firestore</div>
+                <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">
+                  Realtime sync across devices. Data is tied to your account (see Account).
+                </div>
+              </div>
+            </div>
+            <div class="info-tile" style="margin-top:12px">
+              <div class="info-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div class="info-tile-body">
+                <div class="info-tile-label">Last Sync</div>
+                <div class="info-tile-value" id="lastSyncTime">—</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="CloudSync.pullAll()">Force Refresh</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-grid" style="margin-top:16px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
+            <h3><span class="mark"></span> Backup &amp; Restore</h3>
+          </div>
+          <div class="card-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;line-height:1.6">
+              Export a local JSON snapshot, or restore from a previous backup file.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button type="button" class="btn btn-primary btn-sm" onclick="exportAll()">Export JSON</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('importFile').click()">Import JSON</button>
+              <input type="file" id="importFile" accept=".json" style="display:none" onchange="importAll(event)"/>
+            </div>
+            <div class="danger-tile">
+              <div class="danger-tile-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div style="min-width:0;flex:1">
+                <div class="danger-tile-text" style="margin-bottom:8px">
+                  <b>Danger zone.</b> Permanently delete all plans and summaries from the cloud.
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="wipeAll()">Delete All Data</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-head">
+            <h3><span class="mark"></span> What's New</h3>
+          </div>
+          <div class="card-body">
+            <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.1</span>
+                <span class="cl-note">New Issue menu right under Dashboard</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.0</span>
+                <span class="cl-note">Create Redmine issue + generate description</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.32.0</span>
+                <span class="cl-note">Vercel Cron RFT → Telegram (no tab needed)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.31.0</span>
+                <span class="cl-note">Redmine pagination (up to 500 issues)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.30.1</span>
+                <span class="cl-note">Fix Vercel 404 (static dist build)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.30.0</span>
+                <span class="cl-note">SW cache fix + Active Work badge prefetch</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.29.1</span>
+                <span class="cl-note">Summary grouping fix + light New Issues badge prefetch</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.29.0</span>
+                <span class="cl-note">Auto-summary groups by tracker (Feature/Enhance/Optim/Bug)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.7</span>
+                <span class="cl-note">Telegram copy: links-only or link+description</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.6</span>
+                <span class="cl-note">Telegram copy: link only, no #issue number</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.5</span>
+                <span class="cl-note">Use Redmine category field for plan issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.4</span>
+                <span class="cl-note">Fix wrong Design label on FE issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.3</span>
+                <span class="cl-note">Plan issue list shows FE/BE category</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.2</span>
+                <span class="cl-note">Sync preview: category column (FE/BE/Design)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.1</span>
+                <span class="cl-note">Fix Telegram RFT auto-alerts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.0</span>
+                <span class="cl-note">Plans &amp; Summaries per project</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.27.1</span>
+                <span class="cl-note">Project filter on all issue lists</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.27.0</span>
+                <span class="cl-note">Shareable URLs per menu and tester category</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.2</span>
+                <span class="cl-note">Tester: hide uncategorized; split FE/BE/Design/Other</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.1</span>
+                <span class="cl-note">Tester All category — ERP One Design issues visible</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.0</span>
+                <span class="cl-note">Telegram RFT auto-notify + fix tester badge counts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.8</span>
+                <span class="cl-note">ERP One issues without category → Other / inferred</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.7</span>
+                <span class="cl-note">Per-project RFT logs + clearer Telegram errors</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.6</span>
+                <span class="cl-note">Hardcode Redmine project IDs for ERP / One / MFG</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.5</span>
+                <span class="cl-note">Tester: reliably load ERP One + Manufacturing</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.4</span>
+                <span class="cl-note">Tester Queue group by project</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.3</span>
+                <span class="cl-note">Fix Tester Queue fromCache error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.2</span>
+                <span class="cl-note">Fix missing refreshDashAttention boot error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.1</span>
+                <span class="cl-note">Tester Queue always includes Zahir ERP + One + MRP</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.0</span>
+                <span class="cl-note">Tester multi-project · auto-refresh · plan from What Next · Telegram</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.24.0</span>
+                <span class="cl-note">What Next — ranked New issues to work first</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.4</span>
+                <span class="cl-note">Faster New Issues + Active Work (cache 8min)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.3</span>
+                <span class="cl-note">Clean assignee display — name only</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.2</span>
+                <span class="cl-note">Fix config.js syntax error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.1</span>
+                <span class="cl-note">Active Work: status, priority, date filters</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.0</span>
+                <span class="cl-note">Active Work (In Progress + On Deploy) · scrollable What's New</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.4</span>
+                <span class="cl-note">Dashboard: New issues count per project</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.3</span>
+                <span class="cl-note">New Issues: priority filter</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.2</span>
+                <span class="cl-note">New Issues: status filter</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.1</span>
+                <span class="cl-note">New Issues: date filter + sort Immediate first</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.0</span>
+                <span class="cl-note">New Issues — status New from 3 projects + copy links</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.6</span>
+                <span class="cl-note">Wider content body — less empty side space</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.5</span>
+                <span class="cl-note">Fix save Summary &amp; Plan form handlers</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.4</span>
+                <span class="cl-note">Fix plan card clicks + softer Immediate priority highlight</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.3</span>
+                <span class="cl-note">Fix async line-break syntax error on notif panel</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.2</span>
+                <span class="cl-note">Fix notification toggle syntax error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.1</span>
+                <span class="cl-note">Notification bell in topbar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.0</span>
+                <span class="cl-note">Browser notifications for new Ready for Testing issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.20.0</span>
+                <span class="cl-note">Priority filter · new-issue sidebar dots · loading skeleton</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.2</span>
+                <span class="cl-note">Fix duplicate Tester list (table + cards both showing)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.1</span>
+                <span class="cl-note">Priority colors — Immediate red, High orange, Low green</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.0</span>
+                <span class="cl-note">Team workspace · Redmine error vs empty · mobile Tester cards</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.18.1</span>
+                <span class="cl-note">Fix Tester Queue sidebar clicks (Backend / Design / Other)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.18.0</span>
+                <span class="cl-note">P1: Modular JS — config, icons, firebase, app (ES modules)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.17.0</span>
+                <span class="cl-note">P0 security: Firestore rules + guest→Google data migration</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.16.2</span>
+                <span class="cl-note">Mobile Google login via redirect (fixes popup blocked)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.16.1</span>
+                <span class="cl-note">Tester Queue: resilient Redmine status lookup (retry on 503)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.16.0</span>
+                <span class="cl-note">Login page on open — Google Sign-In before app</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.15.4</span>
+                <span class="cl-note">Fix Settings HTML structure (layout no longer broken)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.15.3</span>
+                <span class="cl-note">Cleaner What's New list</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.15.0</span>
+                <span class="cl-note">Google Sign-In for sync across PC &amp; phone</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.14.2</span>
+                <span class="cl-note">Tester table · category menus in sidebar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.13.0</span>
+                <span class="cl-note">PWA, Redmine cache, English UI</span>
+              </div>
+            </div>
+            <p class="kbd-hint" style="margin-top:14px;font-size:12px;color:var(--text-tertiary);line-height:1.7">
+              <strong>Shortcuts:</strong>
+              <kbd>/</kbd> Search ·
+              <kbd>N</kbd> New item ·
+              <kbd>Esc</kbd> Close modal
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-footer">
+        <div>Zahir ERP Update Manager · <span id="appVersionLabelSettings">v—</span></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span class="badge-soft" id="appVersionDate">—</span>
+          <span class="badge-soft">Firebase v10</span>
+          <span class="badge-soft" id="footerDataCount">0 items</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- MODAL: PLAN -->
+<div class="modal-overlay" id="planModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>
+        <span class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+            <rect x="9" y="3" width="6" height="4" rx="1"/>
+          </svg>
+        </span>
+        <span id="planModalTitle">Add Update Plan</span>
+      </h3>
+      <button type="button" class="btn-icon" onclick="closeModal('planModal')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="planForm" onsubmit="savePlan(event)">
+      <input type="hidden" id="planEditId"/>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="field">
+            <label>Title <span class="req">*</span></label>
+            <input class="input" type="text" id="planTitle" placeholder="Update ERP 16 September 2026" required/>
+          </div>
+          <div class="field">
+            <label>Date <span class="req">*</span></label>
+            <input class="input" type="date" id="planDate" required/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Project <span class="req">*</span></label>
+          <select class="input select" id="planProject" required style="background:var(--surface)">
+            <option value="">— Select project —</option>
+            <option value="erp">Zahir ERP</option>
+            <option value="erp-one">Zahir ERP One</option>
+            <option value="mfg">Zahir ERP Manufacturing</option>
+            <option value="mrp">Zahir MRP</option>
+          </select>
+          <div class="field-hint">One plan belongs to one product line (ERP / One / Manufacturing / MRP).</div>
+        </div>
+
+        <div class="field">
+          <label>SDET Issue List <span class="req">*</span></label>
+          <div class="issue-editor">
+            <div class="issue-editor-head">
+              <div class="info">
+                <span>Issues</span>
+                <span class="count-badge" id="issueCountBadge">0</span>
+              </div>
+            </div>
+            <div class="issue-editor-body" id="issueEditorBody"></div>
+            <div class="issue-editor-foot">
+              <button type="button" class="btn-add-issue" onclick="addIssueRow()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Issue
+              </button>
+            </div>
+          </div>
+          <div class="field-hint">Paste one issue URL per row. Issue number is auto-detected. Description is optional.</div>
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <input class="input" type="text" id="planNote" placeholder="e.g. high priority for Trial Balance module"/>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('planModal')">Cancel</button>
+        <div class="modal-foot-right">
+          <button type="submit" class="btn btn-primary">💾 Save Plan</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL: SUMMARY -->
+<div class="modal-overlay" id="summaryModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>
+        <span class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </span>
+        <span id="summaryModalTitle">Add Summary</span>
+      </h3>
+      <button type="button" class="btn-icon" onclick="closeModal('summaryModal')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <form id="summaryForm" onsubmit="saveSummary(event)">
+      <input type="hidden" id="summaryEditId"/>
+      <div class="modal-body">
+        <div class="field">
+          <label>Update Plan <span class="req">*</span></label>
+          <select class="input select" id="summaryPlanRef" required onchange="onPlanRefChange()" style="background:var(--surface) url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>&quot;) no-repeat right 12px center;appearance:none;-webkit-appearance:none;padding-right:36px">
+            <option value="">— Select a Plan —</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label>FE Version <span class="req">*</span></label>
+            <input class="input" type="text" id="summaryFe" placeholder="V2.26.09.171600" required/>
+          </div>
+          <div class="field">
+            <label>V2 Version <span class="req">*</span></label>
+            <input class="input" type="text" id="summaryV2" placeholder="V2.26.09.171619" required/>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field">
+            <label>V3 Version</label>
+            <input class="input" type="text" id="summaryV3" placeholder="V3.26.09.171630 (optional)"/>
+          </div>
+          <div class="field">
+            <label>Release Date <span class="req">*</span></label>
+            <input class="input" type="date" id="summaryDate" required/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Update Summary <span class="req">*</span></label>
+          <textarea class="textarea mono" id="summaryText" style="min-height:220px" placeholder="🚀 Zahir ERP Update&#10;&#10;FE Version : ..." required></textarea>
+          <div class="field-hint">Paste the GPT output, or click Auto-generate to build a template.</div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('summaryModal')">Cancel</button>
+        <div class="modal-foot-right" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <select class="select" id="summaryTemplate" style="height:34px;font-size:12.5px" title="Template style">
+            <option value="wa">WA formal</option>
+            <option value="wa-short">WA singkat</option>
+            <option value="telegram">Telegram</option>
+          </select>
+          <button type="button" class="btn btn-secondary" onclick="autoGenerate()">✨ Auto-generate</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveSummary">💾 Save Summary</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="confirm-overlay" id="confirmModal">
+  <div class="confirm-box" id="confirmBox">
+    <div class="confirm-body">
+      <div class="confirm-icon" id="confirmIcon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="confirm-title" id="confirmTitle">Are you sure?</div>
+      <div class="confirm-message" id="confirmMessage">This action cannot be undone.</div>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="confirmOkBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
