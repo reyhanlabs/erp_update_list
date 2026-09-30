@@ -79,6 +79,14 @@
       <span class="label">Dashboard</span>
     </button>
 
+    <button class="nav-item" data-view="createissue" onclick="openCreateIssueView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span class="label">New Issue</span>
+    </button>
+
+
     <div class="nav-section">Workspace</div>
     <button class="nav-item" data-view="plans">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -171,14 +179,6 @@
     </button>
 
     <div class="nav-section">System</div>
-
-    <div class="nav-section">Create</div>
-    <button class="nav-item" data-view="createissue" onclick="openCreateIssueView()">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 5v14M5 12h14"/>
-      </svg>
-      <span class="label">New Issue</span>
-    </button>
     <button class="nav-item" data-view="settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
@@ -1134,6 +1134,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.1</span>
+                <span class="cl-note">New Issue menu right under Dashboard</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.33.0</span>
                 <span class="cl-note">Create Redmine issue + generate description</span>
