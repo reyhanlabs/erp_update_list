@@ -853,7 +853,7 @@
               <label>Project <span class="req">*</span></label>
               <select class="input select" id="ciProject" required onchange="onCreateIssueProjectChange()">
                 <option value="">— Select project —</option>
-                <option value="75">Zahir ERP</option>
+                <option value="75" selected>Zahir ERP</option>
                 <option value="119">Zahir ERP One</option>
                 <option value="113">Zahir ERP Manufacturing</option>
               </select>
@@ -1134,6 +1134,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.3</span>
+                <span class="cl-note">Fix create issue — require Project + Tracker before push</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.33.2</span>
                 <span class="cl-note">Fix Vercel Hobby cron limit (deploys work again)</span>

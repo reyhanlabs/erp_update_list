@@ -15,6 +15,17 @@ function headers(apiKey) {
   };
 }
 
+async function readBody(req) {
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+    return req.body;
+  }
+  if (typeof req.body === 'string' && req.body.trim()) {
+    try { return JSON.parse(req.body); } catch (_) { return {}; }
+  }
+  // Some runtimes leave body as stream / empty — try raw if available
+  return {};
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -51,25 +62,33 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      let body = req.body;
-      if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch (_) { body = {}; }
-      }
-
-      const project_id = body.project_id;
+      const body = await readBody(req);
+      const projectRaw = body.project_id ?? body.projectId ?? '';
+      const project_id = parseInt(String(projectRaw).trim(), 10);
       const subject = (body.subject || '').trim();
       const description = (body.description || '').trim();
-      if (!project_id) return res.status(400).json({ error: 'project_id required' });
+      const tracker_id = body.tracker_id ? parseInt(String(body.tracker_id), 10) : null;
+      const priority_id = body.priority_id ? parseInt(String(body.priority_id), 10) : null;
+      const category_id = body.category_id ? parseInt(String(body.category_id), 10) : null;
+
+      if (!projectRaw || !Number.isFinite(project_id) || project_id <= 0) {
+        return res.status(400).json({
+          error: 'project_id required',
+          detail: 'Select a project in the form (Zahir ERP / One / Manufacturing).',
+          received: body.project_id
+        });
+      }
       if (!subject) return res.status(400).json({ error: 'subject required' });
+      if (!description) return res.status(400).json({ error: 'description required' });
 
       const issue = {
-        project_id: Number(project_id),
+        project_id,
         subject: subject.slice(0, 255),
         description
       };
-      if (body.tracker_id) issue.tracker_id = Number(body.tracker_id);
-      if (body.priority_id) issue.priority_id = Number(body.priority_id);
-      if (body.category_id) issue.category_id = Number(body.category_id);
+      if (Number.isFinite(tracker_id) && tracker_id > 0) issue.tracker_id = tracker_id;
+      if (Number.isFinite(priority_id) && priority_id > 0) issue.priority_id = priority_id;
+      if (Number.isFinite(category_id) && category_id > 0) issue.category_id = category_id;
 
       const r = await fetch(`${REDMINE_BASE}/issues.json`, {
         method: 'POST',
@@ -81,10 +100,12 @@ export default async function handler(req, res) {
       try { data = JSON.parse(text); } catch (_) { data = { raw: text.slice(0, 500) }; }
 
       if (!r.ok) {
+        const errs = data.errors || data.error || data.raw || text.slice(0, 400);
         return res.status(r.status).json({
           error: 'Redmine rejected create',
           status: r.status,
-          detail: data.errors || data.error || data.raw || text.slice(0, 400)
+          detail: errs,
+          sent: { project_id, tracker_id: issue.tracker_id || null, subject: issue.subject }
         });
       }
 

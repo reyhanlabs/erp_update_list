@@ -5406,11 +5406,16 @@ async function ensureCreateIssueMeta(){
       sel.innerHTML = '<option value="">— Select project —</option>' + opts;
       if(cur) sel.value = cur;
     }
-    await loadCreateIssueMeta(pid || '');
+    // Default to Zahir ERP if nothing selected
+    if(sel && !sel.value){
+      sel.value = '75';
+    }
+    await loadCreateIssueMeta((sel && sel.value) || pid || '75');
   } catch(err){
     console.warn('ensureCreateIssueMeta', err);
   }
 }
+
 
 async function loadCreateIssueMeta(projectId){
   const q = projectId ? `?meta=1&project_id=${encodeURIComponent(projectId)}` : '?meta=1';
@@ -5533,20 +5538,41 @@ async function submitCreateIssue(e){
   const btn = $('ciSubmitBtn');
   if(btn) btn.disabled = true;
 
-  const payload = {
-    project_id: $('ciProject')?.value,
-    tracker_id: $('ciTracker')?.value || undefined,
-    priority_id: $('ciPriority')?.value || undefined,
-    category_id: $('ciCategory')?.value || undefined,
-    subject: ($('ciSubject')?.value || '').trim(),
-    description: ($('ciDescription')?.value || '').trim()
-  };
+  const projectEl = $('ciProject');
+  const trackerEl = $('ciTracker');
+  const project_id = (projectEl?.value || '').trim();
+  const tracker_id = (trackerEl?.value || '').trim();
+  const subject = ($('ciSubject')?.value || '').trim();
+  const description = ($('ciDescription')?.value || '').trim();
 
-  if(!payload.project_id || !payload.subject || !payload.description){
-    toast('Project, subject, and description are required', 'error');
+  if(!project_id){
+    toast('Please select a Project first', 'error');
+    projectEl?.focus();
     if(btn) btn.disabled = false;
     return;
   }
+  if(!tracker_id){
+    toast('Please select a Tracker (Bug / Feature / …)', 'error');
+    trackerEl?.focus();
+    if(btn) btn.disabled = false;
+    return;
+  }
+  if(!subject || !description){
+    toast('Subject and description are required', 'error');
+    if(btn) btn.disabled = false;
+    return;
+  }
+
+  const payload = {
+    project_id: Number(project_id),
+    tracker_id: Number(tracker_id),
+    subject,
+    description
+  };
+  const pr = ($('ciPriority')?.value || '').trim();
+  const cat = ($('ciCategory')?.value || '').trim();
+  if(pr) payload.priority_id = Number(pr);
+  if(cat) payload.category_id = Number(cat);
 
   try {
     const r = await fetch('/api/redmine-issue', {
@@ -5557,7 +5583,8 @@ async function submitCreateIssue(e){
     const data = await r.json().catch(() => ({}));
     if(!r.ok){
       const detail = Array.isArray(data.detail) ? data.detail.join(', ') : (data.detail || data.error || r.status);
-      throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      const extra = data.sent ? ` (sent project_id=${data.sent.project_id})` : '';
+      throw new Error((typeof detail === 'string' ? detail : JSON.stringify(detail)) + extra);
     }
     const url = data.url || (data.id ? `https://pjm.zahironline.com/issues/${data.id}` : '');
     const box = $('ciResult');
@@ -5567,7 +5594,6 @@ async function submitCreateIssue(e){
       box.innerHTML = `<div class="box-body"><b>Created #${data.id}</b><br>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>` : ''}</div>`;
     }
     toast(`Issue #${data.id} created on Redmine`);
-    // optional: clear subject/desc for next
     if($('ciSubject')) $('ciSubject').value = '';
     if($('ciNotes')) $('ciNotes').value = '';
     if($('ciDescription')) $('ciDescription').value = '';
@@ -5577,6 +5603,7 @@ async function submitCreateIssue(e){
     if(btn) btn.disabled = false;
   }
 }
+
 
 
 function exposeAppGlobals(){
