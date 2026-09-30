@@ -171,6 +171,14 @@
     </button>
 
     <div class="nav-section">System</div>
+
+    <div class="nav-section">Create</div>
+    <button class="nav-item" data-view="createissue" onclick="openCreateIssueView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span class="label">New Issue</span>
+    </button>
     <button class="nav-item" data-view="settings">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"/>
@@ -830,6 +838,72 @@
     </section>
 
     <!-- SETTINGS -->
+    
+    <section class="view" id="view-createissue">
+      <div class="panel" style="max-width:820px">
+        <div class="panel-head">
+          <div>
+            <h2 style="margin:0;font-size:1.1rem">Create Redmine Issue</h2>
+            <p class="muted" style="margin:4px 0 0;font-size:13px">Fill fields manually · generate description from notes (GPT-style template)</p>
+          </div>
+        </div>
+        <form id="createIssueForm" onsubmit="submitCreateIssue(event)" style="padding:16px 20px 24px;display:flex;flex-direction:column;gap:14px">
+          <div class="form-row">
+            <div class="field">
+              <label>Project <span class="req">*</span></label>
+              <select class="input select" id="ciProject" required onchange="onCreateIssueProjectChange()">
+                <option value="">— Select project —</option>
+                <option value="75">Zahir ERP</option>
+                <option value="119">Zahir ERP One</option>
+                <option value="113">Zahir ERP Manufacturing</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Tracker <span class="req">*</span></label>
+              <select class="input select" id="ciTracker" required>
+                <option value="">— Load after project —</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label>Priority</label>
+              <select class="input select" id="ciPriority">
+                <option value="">— Default —</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <select class="input select" id="ciCategory">
+                <option value="">— Optional —</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Subject <span class="req">*</span></label>
+            <input class="input" type="text" id="ciSubject" required placeholder="e.g. FE - Error when saving Purchase Order" maxlength="255"/>
+          </div>
+          <div class="field">
+            <label>Notes for description generator</label>
+            <textarea class="input" id="ciNotes" rows="3" placeholder="Short bullets: what happens, steps, expected result, module name…"></textarea>
+            <div class="field-hint">Used only to build the description — not sent as a separate field.</div>
+          </div>
+          <div class="field">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+              <label style="margin:0">Description <span class="req">*</span></label>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generateIssueDescription()">✨ Generate description</button>
+            </div>
+            <textarea class="input" id="ciDescription" rows="14" required placeholder="Full Redmine description…"></textarea>
+          </div>
+          <div id="ciResult" style="display:none" class="sync-status-box"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary" onclick="resetCreateIssueForm()">Reset</button>
+            <button type="submit" class="btn btn-primary" id="ciSubmitBtn">Push to Redmine</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
     <section class="view" id="view-settings">
       <div class="card">
         <div class="card-head">
@@ -1060,6 +1134,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.0</span>
+                <span class="cl-note">Create Redmine issue + generate description</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.32.0</span>
                 <span class="cl-note">Vercel Cron RFT → Telegram (no tab needed)</span>
