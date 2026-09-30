@@ -36,17 +36,20 @@ const $ = id => document.getElementById(id);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 const todayISO = () => new Date().toISOString().split('T')[0];
 
-function toast(msg, type){
+function toast(msg, type='info'){
   const t = $('toast');
   if(!t) return;
-  const icon = type === 'error' ? ICON.alert : ICON.check;
-  t.className = 'toast' + (type === 'error' ? ' error' : '');
+  const icons = {
+    error: '✕',
+    success: '✓',
+    info: 'ℹ'
+  };
+  const icon = icons[type] || icons.info;
+  t.className = 'toast show' + (type === 'error' ? ' error' : type === 'success' ? ' success' : type === 'info' ? ' info' : '');
   t.innerHTML = `<span class="toast-icon">${icon}</span><span>${escapeHtml(msg)}</span>`;
-  t.classList.add('show');
-  clearTimeout(t._t);
-  // Errors stay longer so user can read them
-  const ms = type === 'error' ? 5200 : 2600;
-  t._t = setTimeout(()=>t.classList.remove('show'), ms);
+  clearTimeout(window.__toastTimer);
+  const ms = type === 'error' ? 5200 : type === 'success' ? 3800 : 3200;
+  window.__toastTimer = setTimeout(() => { t.classList.remove('show'); }, ms);
 }
 
 /** Disable button + show loading label while async work runs */
@@ -2359,11 +2362,14 @@ function saveLastNotifiedIds(set){
 function updateNotifToggleUI(){
   const btn = $('btnToggleTesterNotif');
   const status = $('testerNotifStatus');
+  const pill = $('testerNotifStatusPill');
   const bell = $('btnNotifBell');
   const dot = $('notifBellDot');
+  const badge = $('notifBellBadge');
+  const tgHint = $('notifTelegramHint');
   const on = isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted';
   if(btn){
-    btn.textContent = on ? 'Disable notifications' : 'Enable notifications';
+    btn.textContent = on ? 'Disable browser alerts' : 'Enable browser alerts';
     btn.classList.toggle('btn-primary', !on);
     btn.classList.toggle('btn-secondary', on);
   }
@@ -2371,28 +2377,116 @@ function updateNotifToggleUI(){
     if(typeof Notification === 'undefined'){
       status.textContent = 'Not supported in this browser';
     } else if(Notification.permission === 'denied'){
-      status.textContent = 'Blocked by browser — allow in site settings';
+      status.textContent = 'Blocked — allow in browser site settings';
     } else if(on){
-      status.textContent = 'On — checks every ~3 min while this tab is open';
+      status.textContent = 'On · checks while this tab is open';
     } else {
-      status.textContent = 'Off';
+      status.textContent = 'Browser alerts off';
+    }
+  }
+  if(pill){
+    pill.classList.remove('on','blocked');
+    if(typeof Notification !== 'undefined' && Notification.permission === 'denied'){
+      pill.textContent = 'Blocked';
+      pill.classList.add('blocked');
+    } else if(on){
+      pill.textContent = 'On';
+      pill.classList.add('on');
+    } else {
+      pill.textContent = 'Off';
     }
   }
   if(bell) bell.classList.toggle('is-on', on);
-  // Dot = notifications ON and there are unseen new issues
+  const recent = window.__notifRecent || [];
+  const unread = recent.filter(x => !x.seen).length;
   if(dot){
+    // keep small dot only when ON and no numeric badge needed
     const counts = (typeof countNewByCategory === 'function') ? countNewByCategory() : {};
-    const totalNew = Object.values(counts).reduce((a,b)=>a+b, 0);
-    const showDot = on && totalNew > 0;
+    const totalNew = Object.values(counts).reduce((a,b)=>a+(b||0), 0);
+    const showDot = on && unread === 0 && totalNew > 0;
     dot.classList.toggle('hidden', !showDot);
   }
+  if(badge){
+    if(unread > 0){
+      badge.textContent = unread > 9 ? '9+' : String(unread);
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+  if(tgHint){
+    const chat = (localStorage.getItem(typeof TG_CHAT_KEY !== 'undefined' ? TG_CHAT_KEY : 'erp_telegram_chat') || '').trim();
+    const tgOn = typeof isTelegramRftEnabled === 'function' && isTelegramRftEnabled();
+    tgHint.textContent = chat
+      ? (tgOn ? 'Telegram: RFT alerts on' : 'Telegram: Chat ID set, alerts off')
+      : 'Telegram: set Chat ID in Settings';
+  }
+  renderNotifRecent();
+}
+
+function renderNotifRecent(){
+  const box = $('notifRecentList');
+  if(!box) return;
+  const list = window.__notifRecent || [];
+  if(!list.length){
+    box.innerHTML = '<p class="notif-empty">No new RFT alerts yet in this session.</p>';
+    return;
+  }
+  box.innerHTML = list.slice(0, 12).map(item => {
+    const pri = (item.priority || '').toLowerCase();
+    const priClass = /immediate|urgent/.test(pri) ? 'immediate' : /high/.test(pri) ? 'high' : '';
+    const priLabel = item.priority ? `<span class="notif-item-pri ${priClass}">${escapeHtml(item.priority)}</span>` : '';
+    const meta = [item.project, item.category].filter(Boolean).join(' · ');
+    return `<a class="notif-item" href="${escapeHtml(item.url || '#')}" target="_blank" rel="noopener" onclick="markNotifSeen('${item.id}')">
+      <div class="notif-item-top">
+        <span class="notif-item-id">#${escapeHtml(String(item.id))}</span>
+        ${priLabel}
+      </div>
+      <div class="notif-item-sub">${escapeHtml(item.subject || '')}</div>
+      <div class="notif-item-meta">${escapeHtml(meta)}${item.at ? ' · ' + escapeHtml(item.at) : ''}</div>
+    </a>`;
+  }).join('');
+}
+
+function markNotifSeen(id){
+  const list = window.__notifRecent || [];
+  list.forEach(x => { if(String(x.id) === String(id)) x.seen = true; });
+  updateNotifToggleUI();
+}
+
+function pushNotifRecent(issues){
+  if(!issues || !issues.length) return;
+  window.__notifRecent = window.__notifRecent || [];
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const existing = new Set(window.__notifRecent.map(x => String(x.id)));
+  issues.forEach(i => {
+    const id = String(i.id);
+    if(existing.has(id)) return;
+    window.__notifRecent.unshift({
+      id,
+      subject: i.subject || '',
+      priority: i.priority?.name || '',
+      category: i.category?.name || '',
+      project: i._projectLabel || i.project?.name || '',
+      url: `https://pjm.zahironline.com/issues/${id}`,
+      at: now,
+      seen: false
+    });
+  });
+  window.__notifRecent = window.__notifRecent.slice(0, 30);
+  updateNotifToggleUI();
 }
 
 function toggleNotifPanel(ev){
   if(ev){ ev.stopPropagation(); }
   const panel = $('notifPanel');
   if(!panel) return;
+  const opening = panel.classList.contains('hidden');
   panel.classList.toggle('hidden');
+  if(opening){
+    // Opening panel marks recent as seen (badge clears)
+    (window.__notifRecent || []).forEach(x => { x.seen = true; });
+  }
   updateNotifToggleUI();
 }
 function closeNotifPanel(){
@@ -2461,26 +2555,37 @@ function notifyNewTesterIssues(issues){
   saveLastNotifiedIds(next);
 
   console.info('[tester] new RFT detected', freshForTelegram.map(i => i.id));
+  pushNotifRecent(freshForTelegram);
+  // In-app toast when tab is visible
+  if(!document.hidden){
+    const n = freshForTelegram.length;
+    toast(`${n} new Ready for Testing issue${n>1?'s':''}`, 'success');
+  }
+
 
   // Use telegram list for Telegram; browser list for Notification API
   var fresh = freshForBrowser;
 
   // Browser notification (optional)
   if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
-    const title = fresh.length === 1
-      ? `Ready for Testing: #${fresh[0].id}`
-      : `${fresh.length} new Ready for Testing issues`;
-    const body = fresh.slice(0, 4).map(i => {
-      const sub = (i.subject || '').slice(0, 80);
-      return `#${i.id} ${sub}`;
-    }).join('\n');
     try {
+      const nCount = fresh.length;
+      const title = nCount === 1
+        ? `RFT #${fresh[0].id}`
+        : `${nCount} new Ready for Testing`;
+      const lines = fresh.slice(0, 3).map(i => {
+        const pri = i.priority?.name ? `[${i.priority.name}] ` : '';
+        return `${pri}#${i.id} ${(i.subject || '').slice(0, 80)}`;
+      });
+      if(nCount > 3) lines.push(`…and ${nCount - 3} more`);
+      const body = lines.join('\n');
       const n = new Notification(title, {
         body,
         icon: '/icon.png',
         badge: '/icon.png',
-        tag: 'erp-rft-queue',
-        renotify: true
+        tag: 'erp-rft-new',
+        renotify: true,
+        requireInteraction: nCount >= 3
       });
       n.onclick = () => {
         try { window.focus(); } catch(_){}
@@ -2575,6 +2680,9 @@ async function sendTelegramRftAlert(fresh){
 
 
 async function checkTesterNotifications(){
+  const lc = $('notifLastCheck');
+  if(lc) lc.textContent = 'Last check: checking…';
+
   // Always refresh multi-project RFT list for accurate sidebar badges.
   // Browser / Telegram alerts only when enabled.
   try {
@@ -2592,7 +2700,9 @@ async function checkTesterNotifications(){
         (r.issues || []).forEach(iss => {
           merged.push({ ...iss, _projectId: t.id, _projectLabel: t.label });
         });
-      } catch(err){
+        const _lcOk = $('notifLastCheck');
+    if(_lcOk) _lcOk.textContent = 'Last check: ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  } catch(err){
         console.warn('[tester] notif fetch', t.label, err);
       }
     }));
@@ -2611,26 +2721,30 @@ async function checkTesterNotifications(){
 
     // Detect brand-new RFT for browser + Telegram
     notifyNewTesterIssues(issues);
+    const _lcOk = $('notifLastCheck');
+    if(_lcOk) _lcOk.textContent = 'Last check: ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
   } catch(err){
+    const lcErr = $('notifLastCheck');
+    if(lcErr) lcErr.textContent = 'Last check: failed';
+    const _lc = $('notifLastCheck');
+    if(_lc) _lc.textContent = 'Last check: failed';
     console.warn('checkTesterNotifications', err);
   }
 }
 
 function startTesterNotifPoll(){
   if(__testerNotifTimer) return;
-  // Every 90s — detect new RFT for badges + Telegram (needs tab open)
-  __testerNotifTimer = setInterval(() => {
-    if(document.hidden) return;
+  const tick = () => {
+    if(document.hidden) return; // skip while tab hidden — cron/Telegram cover that
     checkTesterNotifications().catch(()=>{});
-  }, 90 * 1000);
-  // First run shortly after boot (don't block UI)
-  setTimeout(() => { checkTesterNotifications().catch(()=>{}); }, 5000);
-  // Also check when user returns to the tab
+  };
+  // Adaptive: every 90s while focused (was ~3 min)
+  __testerNotifTimer = setInterval(tick, 90 * 1000);
+  setTimeout(tick, 4000);
   document.addEventListener('visibilitychange', () => {
     if(!document.hidden) checkTesterNotifications().catch(()=>{});
   });
 }
-
 function stopTesterNotifPoll(){
   if(__testerNotifTimer){
     clearInterval(__testerNotifTimer);
@@ -5583,8 +5697,9 @@ async function submitCreateIssue(e){
     const data = await r.json().catch(() => ({}));
     if(!r.ok){
       const detail = Array.isArray(data.detail) ? data.detail.join(', ') : (data.detail || data.error || r.status);
-      const extra = data.sent ? ` (sent project_id=${data.sent.project_id})` : '';
-      throw new Error((typeof detail === 'string' ? detail : JSON.stringify(detail)) + extra);
+      const hint = data.hint ? ' — ' + data.hint : '';
+      const extra = data.sent ? ` (project_id=${data.sent.project_id})` : '';
+      throw new Error((typeof detail === 'string' ? detail : JSON.stringify(detail)) + extra + hint);
     }
     const url = data.url || (data.id ? `https://pjm.zahironline.com/issues/${data.id}` : '');
     const box = $('ciResult');
@@ -5616,7 +5731,7 @@ function exposeAppGlobals(){
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
-    toggleTesterNotifications, toggleNotifPanel, closeNotifPanel,
+    toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel,
     // Plan cards
     togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, editPlan, deletePlan, savePlan,
     // Summaries
