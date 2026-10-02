@@ -27,6 +27,9 @@ copy(join(root, 'share.html'), join(dist, 'share.html'));
 copy(join(root, 'sw.js'), join(dist, 'sw.js'));
 copy(join(root, 'manifest.json'), join(dist, 'manifest.json'));
 copy(join(root, 'icon.png'), join(dist, 'icon.png'));
+copy(join(root, 'icon-192.png'), join(dist, 'icon-192.png'));
+copy(join(root, 'icon-512.png'), join(dist, 'icon-512.png'));
+copy(join(root, 'apple-touch-icon.png'), join(dist, 'apple-touch-icon.png'));
 copy(join(root, 'css'), join(dist, 'css'));
 copy(join(root, 'src'), join(dist, 'src'));
 

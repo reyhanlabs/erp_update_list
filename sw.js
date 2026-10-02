@@ -1,14 +1,20 @@
 /* Zahir ERP Update Manager — Service Worker */
 /* Bump CACHE_NAME on every release so clients drop stale shells */
-const CACHE_NAME = 'erp-update-v4.30.0';
+const CACHE_NAME = 'erp-update-v4.35.0';
 const PRECACHE = [
   '/',
   '/index.html',
+  '/share.html',
   '/css/style.css',
   '/manifest.json',
   '/icon.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
   '/src/main.js',
-  '/src/config.js'
+  '/src/config.js',
+  '/src/app.js',
+  '/src/firebase.js'
 ];
 
 self.addEventListener('install', (event) => {

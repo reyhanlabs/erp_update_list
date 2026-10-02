@@ -5952,7 +5952,7 @@ function exposeAppGlobals(){
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
     toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel,
     // Plan cards
-    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
+    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, installPwaApp, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
@@ -6152,8 +6152,43 @@ export async function startApp(){
   applyAppVersion();
 
   // PWA service worker
-  if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').then((reg)=>{
+  
+/* PWA install prompt (Android/Chrome) */
+window.__deferredPwaPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.__deferredPwaPrompt = e;
+  const btn = document.getElementById('btnInstallPwa');
+  if(btn) btn.classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  window.__deferredPwaPrompt = null;
+  const btn = document.getElementById('btnInstallPwa');
+  if(btn) btn.classList.add('hidden');
+  try { toast('App installed on this device', 'success'); } catch(_){}
+});
+async function installPwaApp(){
+  const e = window.__deferredPwaPrompt;
+  if(!e){
+    // iOS guidance
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if(isIOS){
+      toast('iPhone: Share → Add to Home Screen', 'info');
+    } else {
+      toast('Install is available from the browser menu', 'info');
+    }
+    return;
+  }
+  e.prompt();
+  const choice = await e.userChoice;
+  window.__deferredPwaPrompt = null;
+  const btn = document.getElementById('btnInstallPwa');
+  if(btn) btn.classList.add('hidden');
+  if(choice && choice.outcome === 'accepted') toast('Installing…', 'success');
+}
+
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then((reg)=>{
       console.log('SW registered', reg.scope);
     }).catch((err)=>{
       console.warn('SW registration failed', err);
