@@ -6215,7 +6215,7 @@ function renderGlobalSearchResults(q){
       hits.push({ type: 'Note', label: n.title || 'Untitled', sub: (n.body||'').slice(0,80), action: `openNotesView();closeGlobalSearch();` });
     }
   });
-  // Tester in-memory
+  // Tester Queue (RFT) in-memory
   (window.__testerIssues || []).forEach(i => {
     const id = String(i.id || '');
     const sub = i.subject || '';
@@ -6228,7 +6228,45 @@ function renderGlobalSearchResults(q){
       });
     }
   });
-  const top = hits.slice(0, 40);
+
+  // Status New — New Issues menu (in-memory by project)
+  const byNew = window.__newIssuesByProject || {};
+  Object.keys(byNew).forEach(projKey => {
+    const block = byNew[projKey];
+    const issues = Array.isArray(block) ? block : (block?.issues || []);
+    const projLabel = (!Array.isArray(block) && block?.label) ? block.label : projKey;
+    issues.forEach(i => {
+      const id = String(i.id || '');
+      const sub = i.subject || '';
+      if(id.includes(q) || sub.toLowerCase().includes(q)){
+        hits.push({
+          type: 'New',
+          label: `#${id} ${sub}`.trim(),
+          sub: projLabel || '',
+          action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
+        });
+      }
+    });
+  });
+
+  // Active Work — On Progress / On Deploy (in-memory)
+  const aw = window.__activeWorkData || {};
+  [['progress', 'Progress'], ['deploy', 'Deploy']].forEach(([key, label]) => {
+    (aw[key] || []).forEach(i => {
+      const id = String(i.id || '');
+      const sub = i.subject || '';
+      if(id.includes(q) || sub.toLowerCase().includes(q)){
+        hits.push({
+          type: label,
+          label: `#${id} ${sub}`.trim(),
+          sub: i._projectLabel || i.project?.name || '',
+          action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
+        });
+      }
+    });
+  });
+
+  const top = hits.slice(0, 50);
   if(!top.length){
     el.innerHTML = '<p class="muted" style="padding:12px;margin:0">No matches.</p>';
     return;
