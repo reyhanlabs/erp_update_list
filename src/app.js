@@ -690,6 +690,7 @@ const VIEW_META = {
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
+  notes:      { title:'Notes', sub:'Quick notes and reminders', addBtn:false },
   share:     { title:'Shared Plan', sub:'Read-only plan link', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
@@ -732,7 +733,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
      /?view=summaries
      /?view=settings
    ============================================================ */
-const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','share','settings']);
+const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','share','settings']);
 const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
 let __applyingRoute = false; // prevent pushState loop
 
@@ -750,6 +751,7 @@ function getRouteFromLocation(){
   }
 
   if(!VALID_VIEWS.has(view)) view = 'dashboard';
+  if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }
   if(view === 'tester'){
     if(!VALID_TESTER_CATS.has(cat)) cat = window.__testerCategory || 'all';
   } else {
@@ -783,7 +785,10 @@ function applyRouteFromUrl({ replaceUrl = true } = {}){
   const { view, cat } = getRouteFromLocation();
   __applyingRoute = true;
   try {
-    if(view === 'tester'){
+    if(view === 'notes'){
+      switchView('notes');
+      try { renderNotes(); } catch(_){}
+    } else if(view === 'tester'){
       // openTesterCategory will call switchView('tester')
       if(typeof openTesterCategory === 'function'){
         openTesterCategory(cat || 'all');
@@ -846,6 +851,7 @@ function switchView(view){
   refreshCounts();
   if(view === 'settings') updateLastSync();
   if(view === 'plans') loadRedmineProjects();
+  if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }
   if(view === 'tester'){
     const cat = window.__testerCategory || 'all';
     const label = TESTER_CAT_LABELS[cat] || 'Tester Queue';
@@ -1276,6 +1282,7 @@ async function deletePlan(id){
    ============================================================ */
 function setPlanFilter(filter){
   window.__planFilter = filter || 'all';
+  try { savePersistedFilters({ planFilter: window.__planFilter }); } catch(_){}
   document.querySelectorAll('#planFilters .filter-chip').forEach(chip=>{
     chip.classList.toggle('active', chip.dataset.filter === window.__planFilter);
   });
@@ -1989,6 +1996,53 @@ function emptyState(iconSvg, title, desc, actions){
   </div>`;
 }
 
+
+/* ============================================================
+   PERSISTED FILTERS
+   ============================================================ */
+const FILTER_STORE_KEY = 'erp_ui_filters_v1';
+function loadPersistedFilters(){
+  try {
+    return JSON.parse(localStorage.getItem(FILTER_STORE_KEY) || '{}') || {};
+  } catch(_){ return {}; }
+}
+function savePersistedFilters(patch){
+  try {
+    const cur = loadPersistedFilters();
+    const next = { ...cur, ...patch };
+    localStorage.setItem(FILTER_STORE_KEY, JSON.stringify(next));
+  } catch(_){}
+}
+function applyPersistedFiltersToDom(){
+  const f = loadPersistedFilters();
+  if(f.planFilter) window.__planFilter = f.planFilter;
+  if(f.planSearch && $('planSearch')) $('planSearch').value = f.planSearch;
+  if(f.planProject && $('planProjectFilter')) $('planProjectFilter').value = f.planProject;
+  if(f.planSort && $('planSort')) $('planSort').value = f.planSort;
+  if(f.testerProject && $('testerProjectFilter')) $('testerProjectFilter').value = f.testerProject;
+  if(f.testerCategory) window.__testerCategory = f.testerCategory;
+  // New issues / active work filters if present
+  ['niDateFrom','niDateTo','niStatus','niPriority','niProject',
+   'awDateFrom','awDateTo','awStatus','awPriority','awProject'].forEach(id => {
+    if(f[id] != null && $(id)) $(id).value = f[id];
+  });
+}
+function wireFilterPersistence(){
+  const map = [
+    ['planSearch', 'planSearch', () => renderPlans()],
+    ['planProjectFilter', 'planProject', () => renderPlans()],
+    ['planSort', 'planSort', () => renderPlans()],
+    ['testerProjectFilter', 'testerProject', () => renderTesterList()],
+  ];
+  map.forEach(([id, key, cb]) => {
+    const el = $(id);
+    if(!el || el.dataset.persistWired) return;
+    el.dataset.persistWired = '1';
+    el.addEventListener('change', () => { savePersistedFilters({ [key]: el.value }); cb && cb(); });
+    el.addEventListener('input', () => { savePersistedFilters({ [key]: el.value }); });
+  });
+}
+
 /* ============================================================
    REDMINE HELPERS
    ============================================================ */
@@ -2005,7 +2059,7 @@ function applyStatusParam(params, statusVal){
    REDMINE CACHE + ERROR HANDLING
    ============================================================ */
 const RedmineCache = {
-  TTL_MS: 8 * 60 * 1000, // 8 minutes — fewer Redmine round-trips
+  TTL_MS: 20 * 60 * 1000, // 20 minutes — fewer Redmine round-trips
   _mem: new Map(),
 
   key(url){ return String(url); },
@@ -2013,12 +2067,14 @@ const RedmineCache = {
   get(url){
     const k = this.key(url);
     const hit = this._mem.get(k);
-    if(hit && Date.now() - hit.ts < this.TTL_MS) return hit.data;
+    const ttl = (hit && hit.ttl) || this.TTL_MS;
+    if(hit && Date.now() - hit.ts < ttl) return hit.data;
     try {
       const raw = sessionStorage.getItem('rm-cache:' + k);
       if(!raw) return null;
       const parsed = JSON.parse(raw);
-      if(Date.now() - parsed.ts < this.TTL_MS){
+      const t = parsed.ttl || this.TTL_MS;
+      if(Date.now() - parsed.ts < t){
         this._mem.set(k, parsed);
         return parsed.data;
       }
@@ -2026,8 +2082,8 @@ const RedmineCache = {
     return null;
   },
 
-  set(url, data){
-    const entry = { ts: Date.now(), data };
+  set(url, data, ttlMs){
+    const entry = { ts: Date.now(), data, ttl: ttlMs || this.TTL_MS };
     this._mem.set(this.key(url), entry);
     try {
       sessionStorage.setItem('rm-cache:' + this.key(url), JSON.stringify(entry));
@@ -2191,8 +2247,12 @@ function getIssueTesterCategory(issue){
 }
 
 function openTesterCategory(cat){
-  const key = (TESTER_CAT_LABELS && TESTER_CAT_LABELS[cat]) ? cat : (cat === 'all' ? 'all' : 'other');
+  const key = cat || 'all';
   window.__testerCategory = key;
+  try { savePersistedFilters({ testerCategory: key }); } catch(_){}
+  window.__testerShown = 40;
+  try { savePersistedFilters({ testerCategory: key }); } catch(_){}
+  window.__testerShown = 40;
   // Highlight active nav item among tester category buttons
   document.querySelectorAll('.nav-item[data-tester-cat]').forEach(b => {
     b.classList.toggle('active', b.dataset.testerCat === key);
@@ -2887,6 +2947,19 @@ function renderTesterTable(list){
 }
 
 
+
+function genericLoadingSkeleton(label){
+  const row = () => `<div class="skel-row">
+    <div class="skel skel-id"></div>
+    <div class="skel skel-line long"></div>
+    <div class="skel skel-pill"></div>
+  </div>`;
+  return `<div class="skel-wrap" aria-busy="true" aria-label="Loading">
+    <div class="skel-label">${escapeHtml(label || 'Loading…')}</div>
+    ${row()}${row()}${row()}${row()}
+  </div>`;
+}
+
 function testerLoadingSkeleton(){
   const row = () => `<div class="skel-row">
     <div class="skel skel-id"></div>
@@ -2898,7 +2971,13 @@ function testerLoadingSkeleton(){
     ${row()}${row()}${row()}${row()}
   </div>`;
 }
+function showMoreTester(){
+  window.__testerShown = (window.__testerShown || 40) + 40;
+  renderTesterList();
+}
 function renderTesterList(){
+  // reset page size when category/project changes handled elsewhere
+
   const el = $('testerReminder');
   if(!el) return;
 
@@ -2920,8 +2999,8 @@ function renderTesterList(){
     return;
   }
 
-  const list = getFilteredTesterIssues();
-  if(!list.length){
+  const listAll = getFilteredTesterIssues();
+  if(!listAll.length){
     const catLabel = (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[window.__testerCategory]) || window.__testerCategory || 'this category';
     const uncat = all.filter(i => getIssueTesterCategory(i) === null).length;
     const hint = uncat
@@ -2939,8 +3018,17 @@ function renderTesterList(){
     ? `<div class="tester-cache-note">📦 From cache · click Refresh for latest data</div>`
     : '';
 
+  const pageSize = window.__testerShown || 40;
+  const list = listAll.slice(0, pageSize);
+  const moreBtn = listAll.length > list.length
+    ? `<div style="text-align:center;padding:12px 8px 20px">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="showMoreTester()">Show more (${listAll.length - list.length} remaining)</button>
+      </div>`
+    : '';
+  const meta = `<div class="list-meta-row">Showing <b>${list.length}</b> of <b>${listAll.length}</b></div>`;
+
   if(groupBy === 'none'){
-    el.innerHTML = cacheNote + renderTesterTable(list);
+    el.innerHTML = cacheNote + meta + renderTesterTable(list) + moreBtn;
     return;
   }
 
@@ -2974,7 +3062,7 @@ function renderTesterList(){
     return groups[b].length - groups[a].length || a.localeCompare(b);
   });
 
-  el.innerHTML = cacheNote + keys.map(key => `
+  el.innerHTML = cacheNote + meta + keys.map(key => `
     <div class="tester-group">
       <div class="tester-group-head">
         <span class="tester-group-title">${escapeHtml(key)}</span>
@@ -2982,7 +3070,7 @@ function renderTesterList(){
       </div>
       ${renderTesterTable(groups[key])}
     </div>
-  `).join('');
+  `).join('') + moreBtn;
 }
 
 async function copyTesterList(){
@@ -4041,38 +4129,67 @@ async function signInWithGoogle(){
     [btn, btnAuth].forEach(b => {
       if(!b) return;
       b.disabled = !!busy;
-      if(busy) b.textContent = label || 'Opening Google…';
+      if(busy){
+        b.dataset.prevLabel = b.dataset.prevLabel || b.textContent;
+        b.textContent = label || 'Opening Google…';
+      } else if(b.dataset.prevLabel){
+        // restore only settings button; auth gate keeps HTML structure
+        if(b.id === 'btnGoogleSignIn') b.textContent = b.dataset.prevLabel;
+        delete b.dataset.prevLabel;
+      }
     });
+    if(!busy && btnAuth){
+      // restore Google button label (keep SVG)
+      btnAuth.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg> Sign in with Google`;
+    }
   };
 
+  // Mobile / PWA / coarse pointer → redirect (popups blocked on most phones)
   const preferRedirect = (() => {
     try {
       const ua = navigator.userAgent || '';
-      const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-      const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-      return mobile || standalone;
-    } catch(_){ return false; }
+      const mobile = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry/i.test(ua);
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      const coarse = window.matchMedia('(pointer: coarse)').matches;
+      const touch = (navigator.maxTouchPoints || 0) > 1;
+      return mobile || standalone || coarse || touch;
+    } catch(_){ return true; }
   })();
 
   try {
     setBusy(true, preferRedirect ? 'Redirecting to Google…' : 'Opening Google…');
-    // Keep a copy of guest data in case UID changes
-    snapshotLocalWorkspace();
-    const current = auth.currentUser;
+    try { snapshotLocalWorkspace(); } catch(_){}
 
-    // Mobile / PWA: redirect is reliable (popups are often blocked)
     if(preferRedirect){
-      sessionStorage.setItem('erp_auth_redirect', '1');
-      if(current && current.isAnonymous){
-        await current.linkWithRedirect(provider);
-      } else {
-        await auth.signInWithRedirect(provider);
+      try {
+        sessionStorage.setItem('erp_auth_redirect', '1');
+        sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
+      } catch(_){}
+      // Same Google account as laptop: clear anonymous/guest session first so
+      // Firebase does a clean sign-in (avoids link/credential conflicts on mobile).
+      try {
+        sessionStorage.removeItem('erp_guest_ok');
+        if(auth.currentUser && auth.currentUser.isAnonymous){
+          await auth.signOut();
+        }
+      } catch(signOutErr){
+        console.warn('pre-redirect signOut', signOutErr);
       }
-      return; // page will navigate away
+      try {
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      } catch(_){}
+      await auth.signInWithRedirect(provider);
+      return;
     }
 
-    // Desktop: try popup first
+    // Desktop: popup, fallback redirect
     let cred;
+    const current = auth.currentUser;
     if(current && current.isAnonymous){
       try {
         cred = await current.linkWithPopup(provider);
@@ -4083,14 +4200,10 @@ async function signInWithGoogle(){
           cred = await auth.signInWithPopup(provider);
           toast('Signed in with Google');
         } else if(linkErr.code === 'auth/popup-blocked' || linkErr.code === 'auth/popup-closed-by-user'){
-          // Fallback to redirect
           sessionStorage.setItem('erp_auth_redirect', '1');
+          sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
           setBusy(true, 'Redirecting to Google…');
-          if(linkErr.code === 'auth/popup-blocked'){
-            await current.linkWithRedirect(provider);
-          } else {
-            await auth.signInWithRedirect(provider);
-          }
+          await auth.signInWithRedirect(provider);
           return;
         } else {
           throw linkErr;
@@ -4101,8 +4214,9 @@ async function signInWithGoogle(){
         cred = await auth.signInWithPopup(provider);
         toast('Signed in with Google');
       } catch(popErr){
-        if(popErr.code === 'auth/popup-blocked'){
+        if(popErr.code === 'auth/popup-blocked' || popErr.code === 'auth/popup-closed-by-user'){
           sessionStorage.setItem('erp_auth_redirect', '1');
+          sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
           setBusy(true, 'Redirecting to Google…');
           await auth.signInWithRedirect(provider);
           return;
@@ -4123,22 +4237,21 @@ async function signInWithGoogle(){
     console.error('Google sign-in failed:', err);
     const map = {
       'auth/popup-closed-by-user': 'Sign-in cancelled',
-      'auth/popup-blocked': 'Popup blocked — use redirect or allow popups for this site',
+      'auth/popup-blocked': 'Popup blocked — try again (will use full-page Google sign-in)',
       'auth/operation-not-allowed': 'Google sign-in is not enabled in Firebase Console',
-      'auth/unauthorized-domain': `Domain ${location.hostname} is not authorized in Firebase Console`,
-      'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method'
+      'auth/unauthorized-domain': `Domain "${location.hostname}" is not authorized. Firebase Console → Authentication → Settings → Authorized domains → add this domain.`,
+      'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method',
+      'auth/network-request-failed': 'Network error — check connection and try again',
+      'auth/internal-error': 'Google sign-in failed (internal). Try again or use Safari/Chrome.'
     };
     const msg = map[err.code] || (err.message || 'Sign-in failed');
     if(errEl) errEl.textContent = msg;
     toast(msg, 'error');
   } finally {
     setBusy(false);
-    if(btn) btn.textContent = 'Sign in with Google';
-    if(btnAuth){
-      btnAuth.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#fff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#fff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Sign in with Google`;
-    }
   }
 }
+
 
 async function signOutAccount(){
   try {
@@ -4287,6 +4400,12 @@ async function fetchNewIssuesForProject(projectId, force = false){
 
 
 async function loadNewIssues(force){
+  const _niEl = $('newIssuesList') || $('view-newissues');
+  if(force || !(window.__newIssuesByProject && Object.keys(window.__newIssuesByProject).length)){
+    const box = $('newIssuesList');
+    if(box && !box.innerHTML.trim()) box.innerHTML = genericLoadingSkeleton('Loading New issues…');
+  }
+
   const el = $('newIssuesBody');
   const btn = $('btnRefreshNewIssues');
   const hasMem = !!(window.__newIssuesByProject && Object.keys(window.__newIssuesByProject).length);
@@ -4731,6 +4850,7 @@ const ACTIVE_WORK_STATUSES = [
 ];
 
 window.__activeWorkData = window.__activeWorkData || { progress: [], deploy: [] };
+
 window.__activeWorkError = null;
 
 async function fetchIssuesByStatusName(projectId, statusNames, force = false){
@@ -4760,6 +4880,11 @@ async function fetchIssuesByStatusName(projectId, statusNames, force = false){
 
 
 async function loadActiveWork(force){
+  const box = $('activeWorkList');
+  if(box && (force || !(window.__activeWorkData && ((window.__activeWorkData.progress||[]).length || (window.__activeWorkData.deploy||[]).length)))){
+    if(!box.innerHTML.trim() || force) box.innerHTML = genericLoadingSkeleton('Loading active work…');
+  }
+
   const el = $('activeWorkBody');
   const btn = $('btnRefreshActiveWork');
   const hasMem = !!(window.__activeWorkData && ((window.__activeWorkData.progress||[]).length || (window.__activeWorkData.deploy||[]).length || window.__activeWorkMeta));
@@ -5977,6 +6102,149 @@ async function installPwaApp(){
   if(choice && choice.outcome === 'accepted') toast('Installing…', 'success');
 }
 
+
+/* ============================================================
+   QUICK NOTES (workspace-local via localStorage; optional cloud later)
+   ============================================================ */
+const NOTES_KEY = 'erp_quick_notes_v1';
+function getNotes(){
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '[]') || []; } catch(_){ return []; }
+}
+function setNotes(arr){
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(arr.slice(0, 200))); } catch(_){}
+}
+function openNotesView(){
+  switchView('notes');
+  renderNotes();
+}
+function renderNotes(){
+  const el = $('notesList');
+  if(!el) return;
+  const q = ($('notesSearch')?.value || '').trim().toLowerCase();
+  let list = getNotes().slice().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+  if(q) list = list.filter(n => (n.title||'').toLowerCase().includes(q) || (n.body||'').toLowerCase().includes(q));
+  if(!list.length){
+    el.innerHTML = emptyState(ICON.inbox, 'No notes yet', 'Jot down testing notes, blockers, or reminders.', [
+      { label: 'Add note', action: 'openNoteEditor()', primary: true }
+    ]);
+    return;
+  }
+  el.innerHTML = list.map(n => `
+    <div class="note-card" data-id="${escapeHtml(n.id)}">
+      <div class="note-card-top">
+        <strong>${escapeHtml(n.title || 'Untitled')}</strong>
+        <span class="note-card-date">${escapeHtml(n.updatedAt ? new Date(n.updatedAt).toLocaleString() : '')}</span>
+      </div>
+      <div class="note-card-body">${escapeHtml((n.body||'').slice(0, 280))}${(n.body||'').length>280?'…':''}</div>
+      <div class="note-card-actions">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openNoteEditor('${n.id}')">Edit</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="deleteNote('${n.id}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+function openNoteEditor(id){
+  const n = id ? getNotes().find(x => x.id === id) : null;
+  const title = prompt('Note title', n?.title || '');
+  if(title === null) return;
+  const body = prompt('Note body', n?.body || '');
+  if(body === null) return;
+  const list = getNotes();
+  if(n){
+    const i = list.findIndex(x => x.id === id);
+    if(i >= 0) list[i] = { ...list[i], title: title.trim() || 'Untitled', body: body, updatedAt: Date.now() };
+  } else {
+    list.push({ id: uid(), title: title.trim() || 'Untitled', body: body, updatedAt: Date.now(), createdAt: Date.now() });
+  }
+  setNotes(list);
+  renderNotes();
+  toast('Note saved', 'success');
+}
+function deleteNote(id){
+  if(!confirm('Delete this note?')) return;
+  setNotes(getNotes().filter(n => n.id !== id));
+  renderNotes();
+  toast('Note deleted');
+}
+
+
+/* ============================================================
+   GLOBAL SEARCH (plans + notes + issue lines)
+   ============================================================ */
+function openGlobalSearch(){
+  const modal = $('globalSearchModal');
+  if(!modal) return;
+  modal.classList.remove('hidden');
+  const input = $('globalSearchInput');
+  if(input){ input.value = ''; input.focus(); }
+  renderGlobalSearchResults('');
+}
+function closeGlobalSearch(){
+  const modal = $('globalSearchModal');
+  if(modal) modal.classList.add('hidden');
+}
+function renderGlobalSearchResults(q){
+  const el = $('globalSearchResults');
+  if(!el) return;
+  q = String(q || '').trim().toLowerCase();
+  if(!q){
+    el.innerHTML = '<p class="muted" style="padding:12px;margin:0">Type an issue number, title, or keyword…</p>';
+    return;
+  }
+  const hits = [];
+  // Plans
+  State.plans.all().forEach(p => {
+    const title = p.title || '';
+    const issues = p.issues || '';
+    if(title.toLowerCase().includes(q) || issues.toLowerCase().includes(q) || (p.note||'').toLowerCase().includes(q)){
+      hits.push({ type: 'Plan', label: title || 'Untitled plan', sub: (p.date || ''), action: `switchView('plans');closeGlobalSearch();` });
+    }
+    parseIssueLines(issues).forEach(it => {
+      if((it.number||'').includes(q) || (it.description||'').toLowerCase().includes(q)){
+        hits.push({
+          type: 'Issue',
+          label: `#${it.number || '—'} ${it.description || ''}`.trim(),
+          sub: title,
+          action: it.url ? `window.open('${it.url.replace(/'/g, "\\'")}','_blank');closeGlobalSearch();` : `switchView('plans');closeGlobalSearch();`
+        });
+      }
+    });
+  });
+  getNotes().forEach(n => {
+    if((n.title||'').toLowerCase().includes(q) || (n.body||'').toLowerCase().includes(q)){
+      hits.push({ type: 'Note', label: n.title || 'Untitled', sub: (n.body||'').slice(0,80), action: `openNotesView();closeGlobalSearch();` });
+    }
+  });
+  // Tester in-memory
+  (window.__testerIssues || []).forEach(i => {
+    const id = String(i.id || '');
+    const sub = i.subject || '';
+    if(id.includes(q) || sub.toLowerCase().includes(q)){
+      hits.push({
+        type: 'RFT',
+        label: `#${id} ${sub}`.trim(),
+        sub: i._projectLabel || '',
+        action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
+      });
+    }
+  });
+  const top = hits.slice(0, 40);
+  if(!top.length){
+    el.innerHTML = '<p class="muted" style="padding:12px;margin:0">No matches.</p>';
+    return;
+  }
+  el.innerHTML = top.map(h => `
+    <button type="button" class="gs-item" onclick="${h.action}">
+      <span class="gs-type">${escapeHtml(h.type)}</span>
+      <span class="gs-label">${escapeHtml(h.label)}</span>
+      <span class="gs-sub">${escapeHtml(h.sub || '')}</span>
+    </button>
+  `).join('');
+}
+function onGlobalSearchInput(){
+  renderGlobalSearchResults($('globalSearchInput')?.value || '');
+}
+
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
@@ -5995,7 +6263,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
@@ -6119,16 +6387,39 @@ export async function startApp(){
   // Restore session (Google) or fall back to anonymous guest
   // Complete Google redirect sign-in (mobile)
   try {
+    const wasRedirect = sessionStorage.getItem('erp_auth_redirect') === '1';
     const redirectResult = await auth.getRedirectResult();
     if(redirectResult && redirectResult.user){
       sessionStorage.removeItem('erp_auth_redirect');
       sessionStorage.removeItem('erp_guest_ok');
       console.log('✅ Google redirect sign-in:', redirectResult.user.email || redirectResult.user.uid);
+      const back = sessionStorage.getItem('erp_post_auth_path');
+      sessionStorage.removeItem('erp_post_auth_path');
+      if(back && back !== (location.pathname + location.search + location.hash)){
+        try { history.replaceState(null, '', back); } catch(_){}
+      }
+      hideAuthGate();
+      updateAccountUI(redirectResult.user);
+      toast('Signed in with Google', 'success');
+    } else if(wasRedirect){
+      // Came back from Google without a user — show gate + hint
+      sessionStorage.removeItem('erp_auth_redirect');
+      console.warn('Redirect returned without user');
+      const errEl = $('authError');
+      if(errEl) errEl.textContent = 'Google sign-in was cancelled or failed. Please try again.';
     }
   } catch(redirErr){
     console.warn('Redirect sign-in error:', redirErr);
+    sessionStorage.removeItem('erp_auth_redirect');
     const errEl = $('authError');
-    if(errEl) errEl.textContent = redirErr.message || 'Google sign-in failed';
+    const map = {
+      'auth/unauthorized-domain': `Domain "${location.hostname}" not authorized in Firebase Console → Authentication → Authorized domains.`,
+      'auth/operation-not-allowed': 'Enable Google sign-in in Firebase Console.',
+      'auth/account-exists-with-different-credential': 'Account exists with a different method.'
+    };
+    const msg = map[redirErr.code] || redirErr.message || 'Google sign-in failed';
+    if(errEl) errEl.textContent = msg;
+    toast(msg, 'error');
   }
 
   let __authBootstrapped = false;
@@ -6151,6 +6442,12 @@ export async function startApp(){
       }
 
       console.log('✅ Auth session:', user.isAnonymous ? 'anonymous' : (user.email || user.uid));
+
+      // Google user → never keep the login wall up
+      if(isGoogleUser(user)){
+        try { sessionStorage.removeItem('erp_guest_ok'); } catch(_){}
+        hideAuthGate();
+      }
 
       // Require Google unless user chose guest this session
       if(isAnonymousUser(user) && sessionStorage.getItem('erp_guest_ok') !== '1'){

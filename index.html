@@ -47,7 +47,7 @@
 <div class="auth-gate hidden" id="authGate">
   <div class="auth-card">
     <div class="auth-brand">
-      <img src="icon.png" alt="Zahir ERP" width="56" height="56">
+      <img src="/icon-192.png" alt="Zahir ERP" width="56" height="56" onerror="this.src='/icon.png'">
       <h1>Zahir ERP Update Manager</h1>
       <p>Sign in to sync plans &amp; summaries across your devices</p>
     </div>
@@ -228,6 +228,9 @@
         <span class="label" id="syncLabel">Syncing</span>
       </div>
 
+      <button type="button" class="notif-bell-btn" onclick="openGlobalSearch()" title="Search (/)" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
       <div class="notif-bell-wrap" id="notifBellWrap">
         <button type="button" class="notif-bell-btn" id="btnNotifBell" onclick="toggleNotifPanel(event)" title="Notifications" aria-label="Notifications">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -885,6 +888,17 @@
       </div>
     </section>
 
+    
+    <section class="view" id="view-notes">
+      <div class="panel">
+        <div class="panel-toolbar" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <input class="input" type="search" id="notesSearch" placeholder="Search notes…" oninput="renderNotes()" style="flex:1;min-width:160px"/>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openNoteEditor()">+ Add note</button>
+        </div>
+        <div id="notesList"></div>
+      </div>
+    </section>
+
     <section class="view" id="view-createissue">
       <div class="panel" style="max-width:820px">
         <div class="panel-head">
@@ -1195,6 +1209,18 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.36.0</span>
+                <span class="cl-note">Persist filters, skeletons, lazy RFT, notes, global search</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.4</span>
+                <span class="cl-note">Mobile Google login same account as laptop</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.3</span>
+                <span class="cl-note">Mobile Google login: force redirect + clearer errors</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.35.2</span>
                 <span class="cl-note">Fix installPwaApp not defined on boot</span>
@@ -1684,6 +1710,17 @@
       <button class="btn btn-secondary" id="confirmCancelBtn">Cancel</button>
       <button class="btn btn-primary" id="confirmOkBtn">Confirm</button>
     </div>
+  </div>
+</div>
+
+
+<div class="gs-modal hidden" id="globalSearchModal" onclick="if(event.target===this)closeGlobalSearch()">
+  <div class="gs-panel" role="dialog" aria-label="Search">
+    <div class="gs-head">
+      <input class="input" id="globalSearchInput" type="search" placeholder="Search issues, plans, notes… (/)" oninput="onGlobalSearchInput()" autocomplete="off"/>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeGlobalSearch()">Esc</button>
+    </div>
+    <div id="globalSearchResults" class="gs-results"></div>
   </div>
 </div>
 
