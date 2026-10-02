@@ -859,6 +859,22 @@
 
     <!-- SETTINGS -->
     
+    
+    <!-- PUBLIC SHARE (no login) -->
+    <section class="view" id="view-share">
+      <div class="panel share-panel" style="max-width:900px;margin:0 auto">
+        <div class="share-banner">
+          <span>Shared Update Plan</span>
+          <span class="share-banner-sub">Read-only · no login required</span>
+        </div>
+        <div id="shareBody">
+          <div class="empty" style="padding:40px 16px">
+            <p style="margin:0;color:var(--text-tertiary)">Loading shared plan…</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="view" id="view-createissue">
       <div class="panel" style="max-width:820px">
         <div class="panel-head">
@@ -1154,6 +1170,14 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.34.1</span>
+                <span class="cl-note">Dedicated share page: /share.html (no login)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.34.0</span>
+                <span class="cl-note">Share plan link — SDET open without login/workspace</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.33.5</span>
                 <span class="cl-note">Notifications: badge, recent list, faster poll, better alerts</span>

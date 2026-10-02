@@ -3,6 +3,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/share",
+      "destination": "/share.html"
+    },
+    {
+      "source": "/share/",
+      "destination": "/share.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }

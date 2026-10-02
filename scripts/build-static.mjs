@@ -23,6 +23,7 @@ function copy(src, dest) {
 
 // Core shell
 copy(join(root, 'index.html'), join(dist, 'index.html'));
+copy(join(root, 'share.html'), join(dist, 'share.html'));
 copy(join(root, 'sw.js'), join(dist, 'sw.js'));
 copy(join(root, 'manifest.json'), join(dist, 'manifest.json'));
 copy(join(root, 'icon.png'), join(dist, 'icon.png'));

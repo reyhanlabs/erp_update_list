@@ -690,6 +690,7 @@ const VIEW_META = {
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
+  share:     { title:'Shared Plan', sub:'Read-only plan link', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
 };
 
@@ -731,7 +732,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
      /?view=summaries
      /?view=settings
    ============================================================ */
-const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','settings']);
+const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','share','settings']);
 const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
 let __applyingRoute = false; // prevent pushState loop
 
@@ -1485,6 +1486,10 @@ function renderPlanCard(d){
             ${ICON.chevronDown}
           </button>
           <div class="copy-menu" onclick="event.stopPropagation()">
+            <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlanShareLink('${d.id}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Copy share link (no login)
+            </button>
             <button type="button" class="copy-menu-item" onclick="event.stopPropagation(); copyPlan('${d.id}', 'telegram-links')">
               <span class="mi-icon">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5721,6 +5726,175 @@ async function submitCreateIssue(e){
 
 
 
+
+/* ============================================================
+   PUBLIC SHARE LINK (no workspace / no login)
+   Data is embedded in the URL hash — anyone with the link can view.
+   ============================================================ */
+function encodeSharePayload(obj){
+  const json = JSON.stringify(obj);
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decodeSharePayload(str){
+  try {
+    const b64 = String(str || '').replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+    const bin = atob(b64 + pad);
+    const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch(err){
+    console.warn('decodeSharePayload', err);
+    return null;
+  }
+}
+
+function buildPlanShareData(plan){
+  if(!plan) return null;
+  const issues = parseIssueLines(plan.issues || '').map(it => ({
+    url: it.url || '',
+    number: it.number || '',
+    description: it.description || '',
+    category: it.category || '',
+    tracker: it.tracker || ''
+  }));
+  return {
+    v: 1,
+    title: plan.title || 'Update Plan',
+    date: plan.date || '',
+    note: plan.note || '',
+    projectKey: plan.projectKey || '',
+    issues
+  };
+}
+
+function copyPlanShareLink(planId){
+  const plan = State.plans.get(planId);
+  if(!plan){ toast('Plan not found', 'error'); return; }
+  const data = buildPlanShareData(plan);
+  const token = encodeSharePayload(data);
+  if(token.length > 12000){
+    toast('Plan too large for a share link — use Copy for Telegram instead', 'error');
+    return;
+  }
+  const url = `${location.origin}/share.html#${token}`;
+  try {
+    navigator.clipboard.writeText(url);
+    toast('Share link copied — opens /share.html (no login)');
+  } catch(_){
+    prompt('Copy this share link:', url);
+  }
+  closeAllCopyMenus();
+}
+
+function isShareRoute(){
+  try {
+    const q = new URLSearchParams(location.search);
+    return q.get('view') === 'share' || (location.hash && location.hash.length > 20 && q.get('view') === 'share');
+  } catch(_){ return false; }
+}
+
+function loadSharedPlanFromUrl(){
+  const body = $('shareBody');
+  if(!body) return;
+  const hash = (location.hash || '').replace(/^#/, '');
+  if(!hash){
+    body.innerHTML = `<div class="empty" style="padding:40px 16px"><p style="margin:0;color:var(--text-tertiary)">Invalid share link (missing data).</p></div>`;
+    return;
+  }
+  const data = decodeSharePayload(hash);
+  if(!data || !Array.isArray(data.issues)){
+    body.innerHTML = `<div class="empty" style="padding:40px 16px"><p style="margin:0;color:var(--text-tertiary)">Could not read this share link.</p></div>`;
+    return;
+  }
+  renderSharedPlan(data);
+}
+
+function renderSharedPlan(data){
+  const body = $('shareBody');
+  if(!body) return;
+  const issues = data.issues || [];
+  const rows = issues.map((it, idx) => {
+    const num = it.number || (it.url || '').match(/\/issues\/(\d+)/)?.[1] || '';
+    const url = it.url || (num ? `https://pjm.zahironline.com/issues/${num}` : '#');
+    const cat = it.category ? `<span class="sp-cat">${escapeHtml(it.category)}</span>` : '';
+    const trk = it.tracker ? `<span class="meta-chip" style="font-size:11px">${escapeHtml(it.tracker)}</span>` : '';
+    return `<tr>
+      <td class="share-num">${idx + 1}</td>
+      <td class="share-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">#${escapeHtml(String(num || '—'))}</a></td>
+      <td class="share-desc">${escapeHtml(it.description || '')}</td>
+      <td>${cat} ${trk}</td>
+    </tr>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="share-card">
+      <h2 class="share-title">${escapeHtml(data.title || 'Update Plan')}</h2>
+      <div class="share-meta">
+        ${data.date ? `<span>📅 ${escapeHtml(formatDate(data.date) || data.date)}</span>` : ''}
+        <span>${issues.length} issue(s)</span>
+        ${data.projectKey ? `<span class="meta-chip">${escapeHtml(data.projectKey)}</span>` : ''}
+      </div>
+      ${data.note ? `<p class="share-note">${escapeHtml(data.note)}</p>` : ''}
+      <div class="share-actions">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copySharedIssueLinks()">Copy all links</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copySharedTelegram()">Copy for Telegram</button>
+      </div>
+      <div class="table-wrap share-table-wrap">
+        <table class="data-table share-table">
+          <thead>
+            <tr><th>#</th><th>Issue</th><th>Description</th><th>Category</th></tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--text-tertiary)">No issues</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  window.__sharedPlanData = data;
+}
+
+function copySharedIssueLinks(){
+  const data = window.__sharedPlanData;
+  if(!data) return;
+  const lines = (data.issues || []).map(it => it.url || (it.number ? `https://pjm.zahironline.com/issues/${it.number}` : '')).filter(Boolean);
+  navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Links copied')).catch(() => toast('Copy failed', 'error'));
+}
+
+function copySharedTelegram(){
+  const data = window.__sharedPlanData;
+  if(!data) return;
+  const lines = (data.issues || []).map(it => {
+    const url = it.url || (it.number ? `https://pjm.zahironline.com/issues/${it.number}` : '');
+    return url;
+  }).filter(Boolean);
+  const text = `${data.title || 'Update Plan'}\n\n` + lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => toast('Copied for Telegram')).catch(() => toast('Copy failed', 'error'));
+}
+
+function bootShareMode(){
+  // Hide auth gate & show app shell for public share
+  const gate = $('authGate');
+  if(gate) gate.classList.add('hidden');
+  const loading = $('loadingScreen') || $('appLoading');
+  if(loading) loading.classList.add('hidden');
+  document.body.classList.add('share-mode');
+  // Hide sidebar nav complexity for pure share? keep simple - just switch view
+  try {
+    switchView('share', { replaceUrl: true });
+  } catch(_){
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const v = $('view-share');
+    if(v) v.classList.add('active');
+  }
+  loadSharedPlanFromUrl();
+  // Minimal chrome: still show topbar version
+  updateNotifToggleUI?.();
+}
+
+
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
@@ -5733,7 +5907,7 @@ function exposeAppGlobals(){
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
     toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel,
     // Plan cards
-    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, editPlan, deletePlan, savePlan,
+    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, bootShareMode, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
@@ -5849,7 +6023,16 @@ export async function startApp(){
   try { initRouter(); } catch(_){}
   try { applyRouteFromUrl({ replaceUrl: true }); } catch(_){ switchView('dashboard'); }
 
-    $('loadingText').textContent = 'Connecting to Firebase...';
+    // Public share link — skip login gate
+  try {
+    const q = new URLSearchParams(location.search);
+    if(q.get('view') === 'share'){
+      bootShareMode();
+      return;
+    }
+  } catch(_){}
+
+  $('loadingText').textContent = 'Connecting to Firebase...';
 
   // Restore session (Google) or fall back to anonymous guest
   // Complete Google redirect sign-in (mobile)

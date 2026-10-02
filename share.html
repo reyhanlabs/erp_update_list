@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Shared Update Plan · Zahir ERP</title>
+  <link rel="icon" href="/icon.png" />
+  <style>
+    :root {
+      --bg: #f4f6fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --brand: #2563eb;
+      --brand-soft: rgba(37,99,235,.1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b1220;
+        --card: #111827;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --line: #1e293b;
+        --brand: #60a5fa;
+        --brand-soft: rgba(96,165,250,.12);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.45;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
+    .top {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+    .brand img { width: 28px; height: 28px; border-radius: 8px; }
+    .badge {
+      font-size: 12px; font-weight: 600; color: var(--brand);
+      background: var(--brand-soft); border: 1px solid rgba(37,99,235,.25);
+      padding: 6px 10px; border-radius: 999px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      padding: 20px 20px 8px; box-shadow: 0 10px 30px rgba(15,23,42,.06);
+    }
+    h1 { margin: 0 0 8px; font-size: 1.35rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .note {
+      font-size: 13px; color: var(--muted); background: var(--bg);
+      border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px;
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    button {
+      border: 1px solid var(--line); background: var(--bg); color: var(--text);
+      border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    button:hover { border-color: var(--brand); color: var(--brand); }
+    button.primary { background: var(--brand); color: #fff; border-color: transparent; }
+    button.primary:hover { filter: brightness(1.05); color: #fff; }
+    .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left; padding: 10px 12px; background: var(--bg); color: var(--muted);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid var(--line);
+    }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    a { color: var(--brand); font-weight: 700; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .cat {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 999px; background: var(--brand-soft); color: var(--brand);
+    }
+    .empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(12px);
+      background: #0f172a; color: #fff; padding: 10px 14px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 50;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .foot { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <img src="/icon.png" alt="" onerror="this.style.display='none'" />
+        <span>Zahir ERP · Update Manager</span>
+      </div>
+      <span class="badge">Shared plan · no login</span>
+    </div>
+    <div class="card" id="root">
+      <div class="empty">Loading shared plan…</div>
+    </div>
+    <p class="foot">Read-only link · generated from Zahir ERP Update Manager</p>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script>
+    let shared = null;
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    function decodePayload(str) {
+      try {
+        const b64 = String(str || '').replace(/-/g, '+').replace(/_/g, '/');
+        const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+        const bin = atob(b64 + pad);
+        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch (e) {
+        console.warn(e);
+        return null;
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[c]);
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      try {
+        const d = new Date(iso + (iso.length <= 10 ? 'T00:00:00' : ''));
+        if (isNaN(d)) return iso;
+        return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch (_) { return iso; }
+    }
+
+    function issueUrl(it) {
+      if (it.url) return it.url;
+      if (it.number) return 'https://pjm.zahironline.com/issues/' + it.number;
+      return '#';
+    }
+
+    function render(data) {
+      shared = data;
+      const issues = data.issues || [];
+      const rows = issues.map((it, idx) => {
+        const num = it.number || (String(it.url || '').match(/\/issues\/(\d+)/) || [])[1] || '—';
+        const url = issueUrl(it);
+        const cat = it.category ? `<span class="cat">${escapeHtml(it.category)}</span>` : '';
+        return `<tr>
+          <td style="color:var(--muted);width:40px">${idx + 1}</td>
+          <td><a href="${escapeHtml(url)}" target="_blank" rel="noopener">#${escapeHtml(String(num))}</a></td>
+          <td>${escapeHtml(it.description || '')}</td>
+          <td>${cat}</td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('root').innerHTML = `
+        <h1>${escapeHtml(data.title || 'Update Plan')}</h1>
+        <div class="meta">
+          ${data.date ? `<span>📅 ${escapeHtml(formatDate(data.date))}</span>` : ''}
+          <span>${issues.length} issue(s)</span>
+          ${data.projectKey ? `<span>${escapeHtml(data.projectKey)}</span>` : ''}
+        </div>
+        ${data.note ? `<p class="note">${escapeHtml(data.note)}</p>` : ''}
+        <div class="actions">
+          <button class="primary" type="button" onclick="copyLinks()">Copy all links</button>
+          <button type="button" onclick="copyTelegram()">Copy for Telegram</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Issue</th><th>Description</th><th>Category</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="4" class="empty">No issues</td></tr>'}</tbody>
+          </table>
+        </div>
+      `;
+      document.title = (data.title || 'Shared Plan') + ' · Zahir ERP';
+    }
+
+    function copyLinks() {
+      if (!shared) return;
+      const lines = (shared.issues || []).map(issueUrl).filter(u => u && u !== '#');
+      navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Links copied')).catch(() => toast('Copy failed'));
+    }
+
+    function copyTelegram() {
+      if (!shared) return;
+      const lines = (shared.issues || []).map(issueUrl).filter(u => u && u !== '#');
+      const text = (shared.title || 'Update Plan') + '\n\n' + lines.join('\n');
+      navigator.clipboard.writeText(text).then(() => toast('Copied for Telegram')).catch(() => toast('Copy failed'));
+    }
+
+    function boot() {
+      const q = new URLSearchParams(location.search);
+      const fromQuery = q.get('d') || q.get('data') || '';
+      const fromHash = (location.hash || '').replace(/^#/, '');
+      const raw = fromHash || fromQuery;
+      if (!raw) {
+        document.getElementById('root').innerHTML = '<div class="empty">Invalid share link.<br>Ask the sender to copy the share link again.</div>';
+        return;
+      }
+      const data = decodePayload(raw);
+      if (!data || !Array.isArray(data.issues)) {
+        document.getElementById('root').innerHTML = '<div class="empty">Could not read this share link.</div>';
+        return;
+      }
+      render(data);
+    }
+
+    boot();
+  </script>
+</body>
+</html>
