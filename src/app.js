@@ -5940,6 +5940,43 @@ function bootShareMode(){
 }
 
 
+
+/* ============================================================
+   PWA install (module scope — must be global for onclick + expose)
+   ============================================================ */
+window.__deferredPwaPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.__deferredPwaPrompt = e;
+  const btn = document.getElementById('btnInstallPwa');
+  if(btn) btn.classList.remove('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  window.__deferredPwaPrompt = null;
+  const btn = document.getElementById('btnInstallPwa');
+  if(btn) btn.classList.add('hidden');
+  try { toast('App installed on this device', 'success'); } catch(_){}
+});
+
+async function installPwaApp(){
+  const e = window.__deferredPwaPrompt;
+  if(!e){
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if(isIOS){
+      toast('iPhone: Share → Add to Home Screen', 'info');
+    } else {
+      toast('Install is available from the browser menu (⋮ → Install app)', 'info');
+    }
+    return;
+  }
+  e.prompt();
+  const choice = await e.userChoice;
+  window.__deferredPwaPrompt = null;
+  const btn = document.getElementById('btnInstallPwa');
+  if(btn) btn.classList.add('hidden');
+  if(choice && choice.outcome === 'accepted') toast('Installing…', 'success');
+}
+
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
@@ -6153,41 +6190,8 @@ export async function startApp(){
 
   // PWA service worker
   
-/* PWA install prompt (Android/Chrome) */
-window.__deferredPwaPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  window.__deferredPwaPrompt = e;
-  const btn = document.getElementById('btnInstallPwa');
-  if(btn) btn.classList.remove('hidden');
-});
-window.addEventListener('appinstalled', () => {
-  window.__deferredPwaPrompt = null;
-  const btn = document.getElementById('btnInstallPwa');
-  if(btn) btn.classList.add('hidden');
-  try { toast('App installed on this device', 'success'); } catch(_){}
-});
-async function installPwaApp(){
-  const e = window.__deferredPwaPrompt;
-  if(!e){
-    // iOS guidance
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    if(isIOS){
-      toast('iPhone: Share → Add to Home Screen', 'info');
-    } else {
-      toast('Install is available from the browser menu', 'info');
-    }
-    return;
-  }
-  e.prompt();
-  const choice = await e.userChoice;
-  window.__deferredPwaPrompt = null;
-  const btn = document.getElementById('btnInstallPwa');
-  if(btn) btn.classList.add('hidden');
-  if(choice && choice.outcome === 'accepted') toast('Installing…', 'success');
-}
-
-if('serviceWorker' in navigator){
+  // PWA service worker
+  if('serviceWorker' in navigator){
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).then((reg)=>{
       console.log('SW registered', reg.scope);
     }).catch((err)=>{
