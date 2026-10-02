@@ -11,6 +11,10 @@
       "destination": "/share.html"
     },
     {
+      "source": "/share/:id",
+      "destination": "/share.html?id=:id"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }

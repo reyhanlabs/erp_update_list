@@ -8,30 +8,19 @@
   <link rel="icon" href="/icon.png" />
   <style>
     :root {
-      --bg: #f4f6fb;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --line: #e2e8f0;
-      --brand: #2563eb;
-      --brand-soft: rgba(37,99,235,.1);
+      --bg: #f4f6fb; --card: #fff; --text: #0f172a; --muted: #64748b;
+      --line: #e2e8f0; --brand: #2563eb; --brand-soft: rgba(37,99,235,.1);
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0b1220;
-        --card: #111827;
-        --text: #f1f5f9;
-        --muted: #94a3b8;
-        --line: #1e293b;
-        --brand: #60a5fa;
-        --brand-soft: rgba(96,165,250,.12);
+        --bg: #0b1220; --card: #111827; --text: #f1f5f9; --muted: #94a3b8;
+        --line: #1e293b; --brand: #60a5fa; --brand-soft: rgba(96,165,250,.12);
       }
     }
     * { box-sizing: border-box; }
     body {
       margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: var(--bg); color: var(--text); line-height: 1.45;
-      min-height: 100vh;
+      background: var(--bg); color: var(--text); line-height: 1.45; min-height: 100vh;
     }
     .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
     .top {
@@ -86,6 +75,8 @@
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .foot { margin-top: 16px; font-size: 12px; color: var(--muted); text-align: center; }
   </style>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -99,11 +90,19 @@
     <div class="card" id="root">
       <div class="empty">Loading shared plan…</div>
     </div>
-    <p class="foot">Read-only link · generated from Zahir ERP Update Manager</p>
+    <p class="foot">Read-only link · Zahir ERP Update Manager</p>
   </div>
   <div class="toast" id="toast"></div>
   <script>
     let shared = null;
+    const firebaseConfig = {
+      apiKey: "AIzaSyA9EXEDl79MzQkO4k181BH4SQPE6lOArGg",
+      authDomain: "erpupdate-f0b18.firebaseapp.com",
+      projectId: "erpupdate-f0b18",
+      storageBucket: "erpupdate-f0b18.firebasestorage.app",
+      messagingSenderId: "500016291571",
+      appId: "1:500016291571:web:455e3a23ce8f8597142186"
+    };
 
     function toast(msg) {
       const t = document.getElementById('toast');
@@ -112,29 +111,16 @@
       setTimeout(() => t.classList.remove('show'), 2200);
     }
 
-    function decodePayload(str) {
-      try {
-        const b64 = String(str || '').replace(/-/g, '+').replace(/_/g, '/');
-        const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
-        const bin = atob(b64 + pad);
-        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
-        return JSON.parse(new TextDecoder().decode(bytes));
-      } catch (e) {
-        console.warn(e);
-        return null;
-      }
-    }
-
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
       })[c]);
     }
 
     function formatDate(iso) {
       if (!iso) return '';
       try {
-        const d = new Date(iso + (iso.length <= 10 ? 'T00:00:00' : ''));
+        const d = new Date(iso.length <= 10 ? iso + 'T00:00:00' : iso);
         if (isNaN(d)) return iso;
         return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
       } catch (_) { return iso; }
@@ -144,6 +130,16 @@
       if (it.url) return it.url;
       if (it.number) return 'https://pjm.zahironline.com/issues/' + it.number;
       return '#';
+    }
+
+    function decodePayload(str) {
+      try {
+        const b64 = String(str || '').replace(/-/g, '+').replace(/_/g, '/');
+        const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+        const bin = atob(b64 + pad);
+        const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch (e) { return null; }
     }
 
     function render(data) {
@@ -196,21 +192,41 @@
       navigator.clipboard.writeText(text).then(() => toast('Copied for Telegram')).catch(() => toast('Copy failed'));
     }
 
-    function boot() {
+    async function loadById(id) {
+      if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+      const snap = await db.collection('shares').doc(id).get();
+      if (!snap.exists) throw new Error('Share not found');
+      return snap.data();
+    }
+
+    async function boot() {
       const q = new URLSearchParams(location.search);
-      const fromQuery = q.get('d') || q.get('data') || '';
-      const fromHash = (location.hash || '').replace(/^#/, '');
-      const raw = fromHash || fromQuery;
-      if (!raw) {
-        document.getElementById('root').innerHTML = '<div class="empty">Invalid share link.<br>Ask the sender to copy the share link again.</div>';
-        return;
+      const id = (q.get('id') || '').trim();
+      const pathId = (location.pathname.match(/\/share\/([A-Za-z0-9_-]+)/) || [])[1];
+      const shareId = id || pathId || '';
+      const hash = (location.hash || '').replace(/^#/, '');
+
+      try {
+        if (shareId) {
+          const data = await loadById(shareId);
+          if (!data || !Array.isArray(data.issues)) throw new Error('Invalid share data');
+          render(data);
+          return;
+        }
+        if (hash) {
+          const data = decodePayload(hash);
+          if (!data || !Array.isArray(data.issues)) throw new Error('Invalid link');
+          render(data);
+          return;
+        }
+        document.getElementById('root').innerHTML =
+          '<div class="empty">Invalid share link.<br>Ask the sender to copy the share link again.</div>';
+      } catch (err) {
+        console.warn(err);
+        document.getElementById('root').innerHTML =
+          '<div class="empty">Could not load this share link.<br>' + escapeHtml(err.message || '') + '</div>';
       }
-      const data = decodePayload(raw);
-      if (!data || !Array.isArray(data.issues)) {
-        document.getElementById('root').innerHTML = '<div class="empty">Could not read this share link.</div>';
-        return;
-      }
-      render(data);
     }
 
     boot();

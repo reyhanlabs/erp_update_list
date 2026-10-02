@@ -1,25 +1,16 @@
-# Firestore Security Rules
+# Firestore rules — publish in Firebase Console
 
-## Deploy
-Firebase Console → Firestore → Rules → paste `firestore.rules` → Publish
-
-Or: `firebase deploy --only firestore:rules`
-
-## Paths
-- `users/{uid}` — profile + `workspaceId`
-- `users/{uid}/plans|summaries` — legacy (migration only)
-- `workspaces/{workspaceId}/plans|summaries` — **team data (v4.19+)**
-
-Signed-in users can read/write any workspace they know the ID for (share code model).
-
-## System collection (cron state)
-
-Deploy these rules so server-side RFT Telegram cron can save its baseline:
+After deploy v4.34.2, publish rules so short share links work:
 
 ```
-match /system/{document} {
-  allow read, write: if true;
+match /shares/{shareId} {
+  allow read: if true;
+  allow create: if request.auth != null
+    && request.resource.data.keys().hasAll(['v', 'title', 'issues', 'createdAt'])
+    && request.resource.data.issues is list
+    && request.resource.data.issues.size() <= 500;
+  allow update, delete: if false;
 }
 ```
 
-Document used: `system/rftTelegramState` (notified issue ids).
+Full file: `firestore.rules` in this repo.

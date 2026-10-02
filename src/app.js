@@ -5771,24 +5771,69 @@ function buildPlanShareData(plan){
   };
 }
 
-function copyPlanShareLink(planId){
+async function copyPlanShareLink(planId){
   const plan = State.plans.get(planId);
   if(!plan){ toast('Plan not found', 'error'); return; }
   const data = buildPlanShareData(plan);
-  const token = encodeSharePayload(data);
-  if(token.length > 12000){
-    toast('Plan too large for a share link — use Copy for Telegram instead', 'error');
-    return;
-  }
-  const url = `${location.origin}/share.html#${token}`;
+  if(!data){ toast('Nothing to share', 'error'); return; }
+
+  // Short link via Firestore: /share?id=xxxxxxxx
   try {
-    navigator.clipboard.writeText(url);
-    toast('Share link copied — opens /share.html (no login)');
-  } catch(_){
-    prompt('Copy this share link:', url);
+    if(!auth?.currentUser){
+      throw new Error('Sign in required to create a short share link');
+    }
+    const id = makeShareId();
+    await db.collection('shares').doc(id).set({
+      v: 1,
+      title: data.title || 'Update Plan',
+      date: data.date || '',
+      note: data.note || '',
+      projectKey: data.projectKey || '',
+      issues: data.issues || [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: auth.currentUser.uid
+    });
+    const url = `${location.origin}/share?id=${id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Short share link copied');
+    } catch(_){
+      prompt('Copy this share link:', url);
+    }
+    closeAllCopyMenus();
+    return;
+  } catch(err){
+    console.warn('short share failed', err);
+    // Fallback: long hash link (still works offline)
+    try {
+      const token = encodeSharePayload(data);
+      if(token.length > 12000){
+        toast('Could not create share link. Check Firestore rules for /shares, or use Copy for Telegram.', 'error');
+        return;
+      }
+      const url = `${location.origin}/share.html#${token}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast('Share link copied (long form — publish Firestore /shares rules for short links)');
+      } catch(_){
+        prompt('Copy this share link:', url);
+      }
+    } catch(e2){
+      toast('Share failed: ' + (err.message || err), 'error');
+    }
   }
   closeAllCopyMenus();
 }
+
+function makeShareId(){
+  const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id = '';
+  const arr = new Uint8Array(8);
+  crypto.getRandomValues(arr);
+  for(let i = 0; i < arr.length; i++) id += alphabet[arr[i] % alphabet.length];
+  return id;
+}
+
 
 function isShareRoute(){
   try {
@@ -5907,7 +5952,7 @@ function exposeAppGlobals(){
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
     toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel,
     // Plan cards
-    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, bootShareMode, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
+    togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
