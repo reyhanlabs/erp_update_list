@@ -686,7 +686,7 @@ const VIEW_META = {
   plans:     { title:'Update Plans', sub:'Manage plans & sync from Redmine', addBtn:true, addLabel:'Add New Plan' },
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
-  newissues:{ title:'New Issues', sub:'Filter by status · Zahir ERP One, Zahir ERP, Manufacturing', addBtn:false },
+  newissues:{ title:'Issue Status', sub:'New · On Progress · On Deploy · Rework · Feedback', addBtn:false },
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
@@ -826,9 +826,13 @@ function switchView(view){
   } catch(_){}
   document.querySelectorAll('.nav-item').forEach(b => {
     if(view === 'tester' && b.dataset.testerCat){
-      b.classList.toggle('active', b.dataset.testerCat === (window.__testerCategory || 'frontend'));
+      b.classList.toggle('active', b.dataset.testerCat === (window.__testerCategory || 'all'));
+    } else if(view === 'newissues' && b.dataset.issueStatus){
+      b.classList.toggle('active', b.dataset.issueStatus === (window.__issueStatusKey || 'new'));
+    } else if(b.dataset.testerCat || b.dataset.issueStatus){
+      b.classList.remove('active');
     } else {
-      b.classList.toggle('active', b.dataset.view===view && !b.dataset.testerCat);
+      b.classList.toggle('active', b.dataset.view === view);
     }
   });
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
@@ -836,8 +840,14 @@ function switchView(view){
     try { refreshDashNewIssueCounts(); } catch(_){}
   }
   const meta = VIEW_META[view] || VIEW_META.dashboard;
-  $('pageTitle').textContent = meta.title;
-  $('pageSubtitle').textContent = meta.sub;
+  if(view === 'newissues' && typeof getIssueStatusDef === 'function'){
+    const def = getIssueStatusDef(window.__issueStatusKey || 'new');
+    $('pageTitle').textContent = def.label;
+    $('pageSubtitle').textContent = `Status "${def.label}" · Zahir ERP / One / Manufacturing`;
+  } else {
+    $('pageTitle').textContent = meta.title;
+    $('pageSubtitle').textContent = meta.sub;
+  }
 
   const btn = $('btnAdd');
   if(meta.addBtn){
@@ -3025,10 +3035,8 @@ function renderTesterList(){
         <button type="button" class="btn btn-secondary btn-sm" onclick="showMoreTester()">Show more (${listAll.length - list.length} remaining)</button>
       </div>`
     : '';
-  const meta = `<div class="list-meta-row">Showing <b>${list.length}</b> of <b>${listAll.length}</b></div>`;
-
   if(groupBy === 'none'){
-    el.innerHTML = cacheNote + meta + renderTesterTable(list) + moreBtn;
+    el.innerHTML = cacheNote + renderTesterTable(list) + moreBtn;
     return;
   }
 
@@ -3062,7 +3070,7 @@ function renderTesterList(){
     return groups[b].length - groups[a].length || a.localeCompare(b);
   });
 
-  el.innerHTML = cacheNote + meta + keys.map(key => `
+  el.innerHTML = cacheNote + keys.map(key => `
     <div class="tester-group">
       <div class="tester-group-head">
         <span class="tester-group-title">${escapeHtml(key)}</span>
@@ -4326,6 +4334,62 @@ function copyWorkspaceId(){
 }
 
 
+
+/* ============================================================
+   ISSUE STATUS BOARD — New / On Progress / On Deploy / Rework / Feedback
+   ============================================================ */
+const ISSUE_STATUS_DEFS = {
+  new:      { key:'new',      label:'New',         names:['New'], badgeId:'countStatusNew' },
+  progress: { key:'progress', label:'On Progress', names:['In Progress','On Progress','Progress'], badgeId:'countStatusProgress' },
+  deploy:   { key:'deploy',   label:'On Deploy',   names:['On Deploy','Ondeploy','On deploy','Deploy'], badgeId:'countStatusDeploy' },
+  rework:   { key:'rework',   label:'Rework',      names:['Rework','Re-work','Re Work'], badgeId:'countStatusRework' },
+  feedback: { key:'feedback', label:'Feedback',    names:['Feedback'], badgeId:'countStatusFeedback' }
+};
+window.__issueStatusKey = window.__issueStatusKey || 'new';
+window.__issueStatusCache = window.__issueStatusCache || {};
+
+function getIssueStatusDef(key){
+  return ISSUE_STATUS_DEFS[key] || ISSUE_STATUS_DEFS.new;
+}
+
+function openIssueStatusView(statusKey){
+  const key = (statusKey && ISSUE_STATUS_DEFS[statusKey]) ? statusKey : 'new';
+  window.__issueStatusKey = key;
+  document.querySelectorAll('.nav-item[data-issue-status]').forEach(b => {
+    b.classList.toggle('active', b.dataset.issueStatus === key);
+  });
+  const def = getIssueStatusDef(key);
+  const titleEl = $('pageTitle');
+  if(titleEl) titleEl.textContent = def.label;
+  const subEl = $('pageSubtitle');
+  if(subEl) subEl.textContent = `Status "${def.label}" · Zahir ERP / One / Manufacturing`;
+  // Keep status filter select in sync if present
+  const sel = $('newIssuesStatusFilter');
+  if(sel){
+    // Prefer exact first name
+    const opt = Array.from(sel.options).find(o => o.value === def.names[0]);
+    if(opt) sel.value = def.names[0];
+  }
+  switchView('newissues');
+  const cached = window.__issueStatusCache[key];
+  if(cached && cached.byProject){
+    window.__newIssuesByProject = cached.byProject;
+    window.__newIssuesMeta = cached.meta || null;
+    window.__newIssuesError = null;
+    try { renderNewIssues(); } catch(_){}
+    // refresh badge
+    const total = (cached.meta && cached.meta.total) != null ? cached.meta.total : 0;
+    const badge = $('newIssuesTotalBadge');
+    if(badge) badge.textContent = String(total);
+    const sb = $(def.badgeId);
+    if(sb) sb.textContent = String(total);
+    // background refresh if stale
+    const age = cached.at ? (Date.now() - cached.at) : Infinity;
+    if(age < 8 * 60 * 1000) return;
+  }
+  loadNewIssues(true);
+}
+
 /* ============================================================
    NEW ISSUES — status "New" from 3 Zahir projects
    ============================================================ */
@@ -4380,21 +4444,21 @@ function resolveNewIssueProjectIds(){
 }
 
 function getNewIssuesStatusName(){
-  const v = ($('newIssuesStatusFilter')?.value || 'New').trim();
-  return v || 'New';
+  const def = getIssueStatusDef(window.__issueStatusKey || 'new');
+  // Prefer UI filter if user changed it inside the page
+  const v = ($('newIssuesStatusFilter')?.value || '').trim();
+  if(v && v !== 'all') return v;
+  return def.names[0] || 'New';
 }
 
 async function fetchNewIssuesForProject(projectId, force = false){
-  const params = new URLSearchParams();
-  params.set('status_name', getNewIssuesStatusName());
-  params.set('project_id', String(projectId));
-  params.set('sort', 'updated_on:desc');
-  const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 5 });
-  rememberIssueCategories(result.issues || []);
+  const def = getIssueStatusDef(window.__issueStatusKey || 'new');
+  const names = def.names && def.names.length ? def.names : [getNewIssuesStatusName()];
+  const r = await fetchIssuesByStatusName(projectId, names, !!force);
   return {
-    issues: result.issues || [],
-    fromCache: !!result.fromCache,
-    resolved: result.resolved_status
+    issues: r.issues || [],
+    fromCache: !!r.fromCache,
+    resolved: r.statusName ? { name: r.statusName } : null
   };
 }
 
@@ -4455,6 +4519,14 @@ async function loadNewIssues(force){
     window.__newIssuesByProject = byProject;
     window.__newIssuesError = null;
     window.__newIssuesMeta = { total, at: Date.now(), fromCache: anyFromCache && !force };
+    const sk = window.__issueStatusKey || 'new';
+    window.__issueStatusCache[sk] = { byProject, meta: window.__newIssuesMeta, at: Date.now() };
+    const defB = getIssueStatusDef(sk);
+    const sb = defB.badgeId ? $(defB.badgeId) : null;
+    if(sb) sb.textContent = String(total);
+    // legacy badge
+    const leg = $('countNewIssues');
+    if(leg && sk === 'new') leg.textContent = String(total);
 
     const badge = $('countNewIssues');
     if(badge) badge.textContent = String(total);
@@ -4835,8 +4907,7 @@ async function prefetchNewIssueCounts(){
 }
 
 function openNewIssuesView(){
-  switchView('newissues');
-  loadNewIssues(false);
+  openIssueStatusView(window.__issueStatusKey || 'new');
 }
 
 
@@ -6299,7 +6370,7 @@ function exposeAppGlobals(){
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
-    openNewIssuesView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
+    openNewIssuesView, openIssueStatusView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,

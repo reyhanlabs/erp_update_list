@@ -159,26 +159,41 @@
       <span class="count" id="countTesterOther">0</span>
     </button>
 
-    <div class="nav-section">New Issues</div>
-    <button class="nav-item" data-view="newissues" onclick="openNewIssuesView()">
+    <div class="nav-section">Issue Status</div>
+    <button class="nav-item" data-view="newissues" data-issue-status="new" onclick="openIssueStatusView('new')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="12" y1="18" x2="12" y2="12"/>
-        <line x1="9" y1="15" x2="15" y2="15"/>
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
       </svg>
-      <span class="label">Status New</span>
-      <span class="count" id="countNewIssues">0</span>
+      <span class="label">New</span>
+      <span class="count" id="countStatusNew">0</span>
     </button>
-    <button class="nav-item" data-view="activework" onclick="openActiveWorkView()">
+    <button class="nav-item" data-view="newissues" data-issue-status="progress" onclick="openIssueStatusView('progress')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="9" cy="7" r="4"/>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
-      <span class="label">Active Work</span>
-      <span class="count" id="countActiveWork">0</span>
+      <span class="label">On Progress</span>
+      <span class="count" id="countStatusProgress">0</span>
+    </button>
+    <button class="nav-item" data-view="newissues" data-issue-status="deploy" onclick="openIssueStatusView('deploy')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v13"/><path d="m5 9 7 7 7-7"/><path d="M5 19h14"/>
+      </svg>
+      <span class="label">On Deploy</span>
+      <span class="count" id="countStatusDeploy">0</span>
+    </button>
+    <button class="nav-item" data-view="newissues" data-issue-status="rework" onclick="openIssueStatusView('rework')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+      </svg>
+      <span class="label">Rework</span>
+      <span class="count" id="countStatusRework">0</span>
+    </button>
+    <button class="nav-item" data-view="newissues" data-issue-status="feedback" onclick="openIssueStatusView('feedback')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span class="label">Feedback</span>
+      <span class="count" id="countStatusFeedback">0</span>
     </button>
     <button class="nav-item" data-view="whatnext" onclick="openWhatNextView()">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -370,7 +385,7 @@
             Zahir ERP One
           </div>
           <div class="stat-value" id="statNewErpOne">—</div>
-          <div class="stat-hint">Status New</div>
+          <div class="stat-hint">Issue Status</div>
         </button>
         <button type="button" class="stat blue dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
           <div class="stat-label">
@@ -383,7 +398,7 @@
             Zahir ERP
           </div>
           <div class="stat-value" id="statNewErp">—</div>
-          <div class="stat-hint">Status New</div>
+          <div class="stat-hint">Issue Status</div>
         </button>
         <button type="button" class="stat violet dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
           <div class="stat-label">
@@ -396,7 +411,7 @@
             Manufacturing
           </div>
           <div class="stat-value" id="statNewMfg">—</div>
-          <div class="stat-hint">Status New</div>
+          <div class="stat-hint">Issue Status</div>
         </button>
       </div>
 
@@ -1209,6 +1224,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.0</span>
+                <span class="cl-note">Issue Status: New, On Progress, On Deploy, Rework, Feedback · hide Showing N of N</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.36.1</span>
                 <span class="cl-note">Global search: New Issues + Active Work</span>
