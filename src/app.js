@@ -2776,6 +2776,7 @@ async function toggleTesterNotifications(){
     // Lightweight sidebar counts (limit=1 per project)
     setTimeout(() => {
       prefetchNewIssueCounts().catch(()=>{});
+      prefetchAllIssueStatusBadges().catch(()=>{});
       prefetchActiveWorkCounts().catch(()=>{});
     }, 2500);
   updateNotifToggleUI();
@@ -4540,6 +4541,138 @@ const ISSUE_STATUS_DEFS = {
 window.__issueStatusKey = window.__issueStatusKey || 'new';
 window.__issueStatusCache = window.__issueStatusCache || {};
 
+const ISSUE_STATUS_LS_KEY = 'erp_issue_status_badges_v1';
+const ISSUE_STATUS_SS_KEY = 'erp_issue_status_cache_v1';
+
+function persistIssueStatusBadges(){
+  try {
+    const badges = {};
+    Object.keys(ISSUE_STATUS_DEFS).forEach(k => {
+      const c = window.__issueStatusCache[k];
+      if(c && c.meta && c.meta.total != null) badges[k] = c.meta.total;
+      else {
+        const def = ISSUE_STATUS_DEFS[k];
+        const el = def && def.badgeId ? $(def.badgeId) : null;
+        if(el){
+          const n = parseInt(el.textContent, 10);
+          if(!isNaN(n)) badges[k] = n;
+        }
+      }
+    });
+    localStorage.setItem(ISSUE_STATUS_LS_KEY, JSON.stringify({ badges, at: Date.now() }));
+  } catch(_){}
+}
+
+function persistIssueStatusCache(){
+  try {
+    // Full list cache for instant reopen (session only)
+    const payload = { cache: window.__issueStatusCache || {}, at: Date.now() };
+    sessionStorage.setItem(ISSUE_STATUS_SS_KEY, JSON.stringify(payload));
+  } catch(err){
+    // Quota exceeded — keep badges only
+    console.warn('issue status session cache skip', err && err.name);
+  }
+  persistIssueStatusBadges();
+}
+
+function restoreIssueStatusCache(){
+  // 1) Full session cache
+  try {
+    const raw = sessionStorage.getItem(ISSUE_STATUS_SS_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && parsed.cache && typeof parsed.cache === 'object'){
+        window.__issueStatusCache = { ...(window.__issueStatusCache || {}), ...parsed.cache };
+      }
+    }
+  } catch(_){}
+  // 2) Badge totals (survive full browser restart)
+  try {
+    const raw = localStorage.getItem(ISSUE_STATUS_LS_KEY);
+    if(!raw) return;
+    const parsed = JSON.parse(raw);
+    const badges = parsed && parsed.badges ? parsed.badges : {};
+    Object.keys(badges).forEach(k => {
+      const def = ISSUE_STATUS_DEFS[k];
+      if(!def) return;
+      const n = badges[k];
+      if(n == null || isNaN(n)) return;
+      const el = $(def.badgeId);
+      if(el) el.textContent = String(n);
+      // seed cache meta so sidebar is not stuck at 0
+      if(!window.__issueStatusCache[k]){
+        window.__issueStatusCache[k] = {
+          byProject: null,
+          meta: { total: n, fromCache: true },
+          at: parsed.at || 0,
+          badgesOnly: true
+        };
+      } else if(window.__issueStatusCache[k].meta && window.__issueStatusCache[k].meta.total == null){
+        window.__issueStatusCache[k].meta.total = n;
+      }
+    });
+  } catch(_){}
+}
+
+function applyIssueStatusBadgesFromCache(){
+  Object.keys(ISSUE_STATUS_DEFS).forEach(k => {
+    const def = ISSUE_STATUS_DEFS[k];
+    const c = window.__issueStatusCache[k];
+    const total = c && c.meta && c.meta.total != null ? c.meta.total : null;
+    if(total == null) return;
+    const el = $(def.badgeId);
+    if(el) el.textContent = String(total);
+  });
+}
+
+/** Lightweight badge prefetch for all Issue Status sidebar counts */
+async function prefetchAllIssueStatusBadges(){
+  try {
+    if(!RedmineState.loaded){
+      try { await loadRedmineProjects(); } catch(_){}
+    }
+    const targets = (typeof resolveNewIssueProjectIds === 'function') ? resolveNewIssueProjectIds() : [];
+    if(!targets.length) return;
+
+    await Promise.all(Object.keys(ISSUE_STATUS_DEFS).map(async (statusKey) => {
+      const def = ISSUE_STATUS_DEFS[statusKey];
+      let total = 0;
+      let ok = false;
+      await Promise.all(targets.map(async (t) => {
+        if(!t.projectId) return;
+        // try each status name until one resolves
+        for(const name of def.names){
+          try {
+            const params = new URLSearchParams();
+            params.set('status_name', name);
+            params.set('project_id', String(t.projectId));
+            params.set('limit', '1');
+            const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: false });
+            const n = (typeof data.total_count === 'number') ? data.total_count : (data.issues || []).length;
+            total += n;
+            ok = true;
+            break;
+          } catch(_){}
+        }
+      }));
+      if(!ok) return;
+      const el = $(def.badgeId);
+      if(el) el.textContent = String(total);
+      const prev = window.__issueStatusCache[statusKey] || {};
+      window.__issueStatusCache[statusKey] = {
+        ...prev,
+        meta: { ...(prev.meta || {}), total, fromCache: true },
+        at: prev.at || Date.now(),
+        badgesOnly: !prev.byProject
+      };
+    }));
+    persistIssueStatusBadges();
+  } catch(err){
+    console.warn('prefetchAllIssueStatusBadges', err);
+  }
+}
+
+
 function getIssueStatusDef(key){
   return ISSUE_STATUS_DEFS[key] || ISSUE_STATUS_DEFS.new;
 }
@@ -4569,17 +4702,29 @@ function openIssueStatusView(statusKey){
     window.__newIssuesMeta = cached.meta || null;
     window.__newIssuesError = null;
     try { renderNewIssues(); } catch(_){}
-    // refresh badge
     const total = (cached.meta && cached.meta.total) != null ? cached.meta.total : 0;
     const badge = $('newIssuesTotalBadge');
     if(badge) badge.textContent = String(total);
     const sb = $(def.badgeId);
     if(sb) sb.textContent = String(total);
-    // background refresh if stale
+    // Soft refresh in background when stale; keep showing cache
     const age = cached.at ? (Date.now() - cached.at) : Infinity;
-    if(age < 8 * 60 * 1000) return;
+    if(age < 15 * 60 * 1000){
+      // still refresh quietly after a short delay so data is not frozen forever
+      if(age > 3 * 60 * 1000) setTimeout(() => { try { loadNewIssues(false); } catch(_){} }, 400);
+      return;
+    }
+    loadNewIssues(false);
+    return;
   }
-  loadNewIssues(true);
+  // badges-only: show total, then load full list
+  if(cached && cached.meta && cached.meta.total != null){
+    const badge = $('newIssuesTotalBadge');
+    if(badge) badge.textContent = String(cached.meta.total);
+    const sb = $(def.badgeId);
+    if(sb) sb.textContent = String(cached.meta.total);
+  }
+  loadNewIssues(false);
 }
 
 /* ============================================================
@@ -4712,7 +4857,8 @@ async function loadNewIssues(force){
     window.__newIssuesError = null;
     window.__newIssuesMeta = { total, at: Date.now(), fromCache: anyFromCache && !force };
     const sk = window.__issueStatusKey || 'new';
-    window.__issueStatusCache[sk] = { byProject, meta: window.__newIssuesMeta, at: Date.now() };
+    window.__issueStatusCache[sk] = { byProject, meta: window.__newIssuesMeta, at: Date.now(), badgesOnly: false };
+    try { persistIssueStatusCache(); } catch(_){}
     const defB = getIssueStatusDef(sk);
     const sb = defB.badgeId ? $(defB.badgeId) : null;
     if(sb) sb.textContent = String(total);
@@ -6817,7 +6963,7 @@ function exposeAppGlobals(){
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
-    openNewIssuesView, openIssueStatusView, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
+    openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
