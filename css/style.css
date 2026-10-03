@@ -607,10 +607,12 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 .plan-card-chevron svg{ width:16px; height:16px; }
 
 .plan-details{
+  display:none;
   padding:0;
 }
 .plan-card.expanded .plan-details{
   display:block;
+  animation:detailsIn .18s ease;
 }
 @keyframes detailsIn{
   from{opacity:0;transform:translateY(-4px)}
