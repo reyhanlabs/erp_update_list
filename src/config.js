@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.38.2';
+export const APP_VERSION = '4.38.3';
 export const APP_VERSION_DATE = '2026-09-29';
-export const APP_VERSION_NOTE = 'Fix messy By Client / topbar / batch bar UI';
+export const APP_VERSION_NOTE = 'Global search includes Client Name';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

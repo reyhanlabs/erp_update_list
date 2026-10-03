@@ -6892,12 +6892,24 @@ function closeGlobalSearch(){
 function renderGlobalSearchResults(q){
   const el = $('globalSearchResults');
   if(!el) return;
-  q = String(q || '').trim().toLowerCase();
+  const raw = String(q || '').trim();
+  q = raw.toLowerCase();
   if(!q){
-    el.innerHTML = '<p class="muted" style="padding:12px;margin:0">Type an issue number, title, or keyword…</p>';
+    el.innerHTML = '<p class="muted" style="padding:12px;margin:0">Type issue #, subject, <b>client name</b>, plan, or note…</p>';
     return;
   }
   const hits = [];
+  const seenIssueIds = new Set();
+
+  // Shortcut: open By Client with this query
+  const qEsc = raw.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  hits.push({
+    type: 'Client',
+    label: `Search client “${raw}”`,
+    sub: 'Open By Client · Redmine Client Name',
+    action: `closeGlobalSearch();searchClientFromGlobal('${qEsc}');`
+  });
+
   // Plans
   State.plans.all().forEach(p => {
     const title = p.title || '';
@@ -6921,60 +6933,59 @@ function renderGlobalSearchResults(q){
       hits.push({ type: 'Note', label: n.title || 'Untitled', sub: (n.body||'').slice(0,80), action: `openNotesView();closeGlobalSearch();` });
     }
   });
-  // Tester Queue (RFT) in-memory
-  (window.__testerIssues || []).forEach(i => {
+
+  function pushIssueHit(type, i, subExtra){
     const id = String(i.id || '');
-    const sub = i.subject || '';
-    if(id.includes(q) || sub.toLowerCase().includes(q)){
-      hits.push({
-        type: 'RFT',
-        label: `#${id} ${sub}`.trim(),
-        sub: i._projectLabel || '',
-        action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
-      });
-    }
+    if(!id || seenIssueIds.has(id)) return;
+    const subj = i.subject || '';
+    const client = (typeof getIssueClientName === 'function') ? getIssueClientName(i) : '';
+    const hay = [id, subj, client, i._projectLabel || '', i.project?.name || '', i.status?.name || '', formatAssignee(i.assigned_to)]
+      .map(x => String(x||'').toLowerCase()).join(' ');
+    if(!hay.includes(q)) return;
+    seenIssueIds.add(id);
+    const clientBit = client ? ` · ${client}` : '';
+    hits.push({
+      type,
+      label: `#${id} ${subj}`.trim(),
+      sub: (subExtra || i._projectLabel || i.project?.name || '') + clientBit,
+      action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
+    });
+  }
+
+  // Tester Queue (RFT)
+  (window.__testerIssues || []).forEach(i => pushIssueHit('RFT', i, i._projectLabel || ''));
+
+  // Issue Status cache (all loaded statuses)
+  const statusCache = window.__issueStatusCache || {};
+  Object.keys(statusCache).forEach(sk => {
+    const by = statusCache[sk] && statusCache[sk].byProject;
+    if(!by) return;
+    const typeLabel = (ISSUE_STATUS_DEFS[sk] && ISSUE_STATUS_DEFS[sk].label) || sk;
+    Object.keys(by).forEach(projKey => {
+      const block = by[projKey];
+      (block && block.issues || []).forEach(i => pushIssueHit(typeLabel, i, block.projectName || block.label || ''));
+    });
   });
 
-  // Status New — New Issues menu (in-memory by project)
+  // Current new-issues memory
   const byNew = window.__newIssuesByProject || {};
   Object.keys(byNew).forEach(projKey => {
     const block = byNew[projKey];
-    const issues = Array.isArray(block) ? block : (block?.issues || []);
-    const projLabel = (!Array.isArray(block) && block?.label) ? block.label : projKey;
-    issues.forEach(i => {
-      const id = String(i.id || '');
-      const sub = i.subject || '';
-      if(id.includes(q) || sub.toLowerCase().includes(q)){
-        hits.push({
-          type: 'New',
-          label: `#${id} ${sub}`.trim(),
-          sub: projLabel || '',
-          action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
-        });
-      }
-    });
+    (block && block.issues || []).forEach(i => pushIssueHit('Status', i, block.projectName || block.label || ''));
   });
 
-  // Active Work — On Progress / On Deploy (in-memory)
+  // Active Work
   const aw = window.__activeWorkData || {};
   [['progress', 'Progress'], ['deploy', 'Deploy']].forEach(([key, label]) => {
-    (aw[key] || []).forEach(i => {
-      const id = String(i.id || '');
-      const sub = i.subject || '';
-      if(id.includes(q) || sub.toLowerCase().includes(q)){
-        hits.push({
-          type: label,
-          label: `#${id} ${sub}`.trim(),
-          sub: i._projectLabel || i.project?.name || '',
-          action: `window.open('https://pjm.zahironline.com/issues/${id}','_blank');closeGlobalSearch();`
-        });
-      }
-    });
+    (aw[key] || []).forEach(i => pushIssueHit(label, i, i._projectLabel || i.project?.name || ''));
   });
+
+  // Last By Client results
+  (window.__clientIssues || []).forEach(i => pushIssueHit('Client', i, i._clientName || getIssueClientName(i) || ''));
 
   const top = hits.slice(0, 50);
   if(!top.length){
-    el.innerHTML = '<p class="muted" style="padding:12px;margin:0">No matches.</p>';
+    el.innerHTML = '<p class="muted" style="padding:12px;margin:0">No matches. Try a Client Name → opens By Client search.</p>';
     return;
   }
   el.innerHTML = top.map(h => `
@@ -7040,6 +7051,13 @@ async function resolveClientNameFieldId(force){
   return null;
 }
 
+function searchClientFromGlobal(name){
+  const q = String(name || '').trim();
+  openClientsView();
+  const input = $('clientSearchInput');
+  if(input) input.value = q;
+  if(q) loadClientIssues(q, true);
+}
 function openClientsView(){
   switchView('clients');
   try {
@@ -7270,7 +7288,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
