@@ -2744,18 +2744,28 @@ function pushNotifRecent(issues){
 }
 
 function toggleNotifPanel(ev){
-  if(ev){ ev.stopPropagation(); }
+  if(ev){
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
   const panel = $('notifPanel');
   if(!panel) return;
   const opening = panel.classList.contains('hidden');
-  panel.classList.toggle('hidden');
   if(opening){
+    panel.classList.remove('hidden');
     // Opening panel marks recent as seen (badge clears)
     (window.__notifRecent || []).forEach(x => { x.seen = true; });
+    // Prevent the same click from immediately closing via document listener
+    window.__notifOpenedAt = Date.now();
+  } else {
+    closeNotifPanel();
   }
-  updateNotifToggleUI();
+  try { updateNotifToggleUI(); } catch(_){}
 }
-function closeNotifPanel(){
+function closeNotifPanel(ev){
+  if(ev){
+    try { ev.preventDefault(); ev.stopPropagation(); } catch(_){}
+  }
   const panel = $('notifPanel');
   if(panel) panel.classList.add('hidden');
 }
@@ -7333,7 +7343,18 @@ export async function startApp(){
     }, 1800);
     document.addEventListener('click', (e) => {
       const wrap = $('notifBellWrap');
-      if(wrap && !wrap.contains(e.target)) closeNotifPanel();
+      const panel = $('notifPanel');
+      if(!panel || panel.classList.contains('hidden')) return;
+      // Ignore the click that just opened the panel
+      if(window.__notifOpenedAt && (Date.now() - window.__notifOpenedAt) < 250) return;
+      if(wrap && wrap.contains(e.target)) return;
+      closeNotifPanel();
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape'){
+        const panel = $('notifPanel');
+        if(panel && !panel.classList.contains('hidden')) closeNotifPanel();
+      }
     });
   } catch(_){}
 
