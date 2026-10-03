@@ -415,24 +415,44 @@
         </button>
       </div>
 
-      <div class="dash-section-label">Needs attention today</div>
+      <div class="dash-section-label">
+        Needs attention today
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto;font-size:11px" onclick="refreshDashAttention(true)">Refresh</button>
+      </div>
       <div class="dash-attention" id="dashAttention">
-        <div class="dash-att-card">
+        <button type="button" class="dash-att-card is-clickable" id="attCardImmediate" onclick="openIssueStatusView('new')" title="Open New issues">
           <div class="dash-att-label">Immediate · New</div>
           <div class="dash-att-value" id="attImmediateNew">—</div>
-        </div>
-        <div class="dash-att-card">
-          <div class="dash-att-label">Stuck In Progress (&gt;7d)</div>
+          <div class="dash-att-hint" id="attImmediateHint">High priority backlog</div>
+        </button>
+        <button type="button" class="dash-att-card is-clickable" id="attCardStuck" onclick="openIssueStatusView('progress')" title="Open On Progress">
+          <div class="dash-att-label">Stuck On Progress (&gt;7d)</div>
           <div class="dash-att-value" id="attStuckProgress">—</div>
-        </div>
-        <div class="dash-att-card">
+          <div class="dash-att-hint" id="attStuckHint">No update in a week+</div>
+        </button>
+        <button type="button" class="dash-att-card is-clickable" id="attCardDeploy" onclick="openIssueStatusView('deploy')" title="Open On Deploy">
           <div class="dash-att-label">On Deploy</div>
           <div class="dash-att-value" id="attOnDeploy">—</div>
-        </div>
+          <div class="dash-att-hint" id="attDeployHint">Waiting release</div>
+        </button>
+        <button type="button" class="dash-att-card is-clickable" id="attCardRework" onclick="openIssueStatusView('rework')" title="Open Rework">
+          <div class="dash-att-label">Rework</div>
+          <div class="dash-att-value" id="attRework">—</div>
+          <div class="dash-att-hint" id="attReworkHint">Needs fix again</div>
+        </button>
+        <button type="button" class="dash-att-card is-clickable" id="attCardFeedback" onclick="openIssueStatusView('feedback')" title="Open Feedback">
+          <div class="dash-att-label">Feedback</div>
+          <div class="dash-att-value" id="attFeedback">—</div>
+          <div class="dash-att-hint" id="attFeedbackHint">Waiting response</div>
+        </button>
         <div class="dash-att-card dash-att-action">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openWhatNextView()">What Next</button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openActiveWorkView()">Active Work</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openWhatNextView()">What Next</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="openTesterCategory('all')">Tester Queue</button>
         </div>
+      </div>
+      <div class="dash-att-preview" id="dashAttPreview" hidden>
+        <div class="dash-att-preview-title">Top items needing attention</div>
+        <div class="dash-att-preview-list" id="dashAttPreviewList"></div>
       </div>
 
       <div class="dash-actions">
@@ -1230,6 +1250,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.2</span>
+                <span class="cl-note">Dashboard: Needs attention today (Immediate, Stuck, Deploy, Rework, Feedback)</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.37.1</span>
                 <span class="cl-note">Issue Status: group by project/assignee + FE/BE/assignee chips</span>

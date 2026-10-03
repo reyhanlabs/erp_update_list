@@ -838,6 +838,7 @@ function switchView(view){
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
   if(view === 'dashboard'){
     try { refreshDashNewIssueCounts(); } catch(_){}
+    try { refreshDashAttention(false); } catch(_){}
   }
   const meta = VIEW_META[view] || VIEW_META.dashboard;
   if(view === 'newissues' && typeof getIssueStatusDef === 'function'){
@@ -5666,51 +5667,152 @@ async function createPlanFromWhatNext(){
 }
 
 
-async function refreshDashAttention(){
+async function refreshDashAttention(force){
   const set = (id, v) => { const el = $(id); if(el) el.textContent = v; };
+  const mark = (cardId, n, tone) => {
+    const c = $(cardId);
+    if(!c) return;
+    c.classList.toggle('has-items', n > 0);
+    c.classList.remove('tone-amber', 'tone-blue');
+    if(n > 0 && tone) c.classList.add(tone);
+  };
+  // loading state
+  ['attImmediateNew','attStuckProgress','attOnDeploy','attRework','attFeedback'].forEach(id => {
+    const el = $(id);
+    if(el && (force || el.textContent === '—' || el.textContent === '')) el.textContent = '…';
+  });
+
   try {
     if(!RedmineState.loaded){
       try { await loadRedmineProjects(); } catch(_){}
     }
     const targets = (typeof resolveNewIssueProjectIds === 'function') ? resolveNewIssueProjectIds() : [];
-    let immediate = 0;
-    let stuck = 0;
-    let deploy = 0;
+    let immediate = 0, stuck = 0, deploy = 0, rework = 0, feedback = 0;
+    const topItems = []; // {id, subject, tag, project, url, rank}
 
     await Promise.all(targets.map(async (t) => {
       if(!t.projectId) return;
+      const label = t.projectName || t.label || t.key;
+
+      // New → Immediate
       try {
         const params = new URLSearchParams();
         params.set('status_name', 'New');
         params.set('project_id', String(t.projectId));
         params.set('limit', '100');
-        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
+        params.set('sort', 'updated_on:desc');
+        const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: !!force });
         (data.issues || []).forEach(i => {
           const pc = (typeof priorityClass === 'function') ? priorityClass(i.priority?.name) : '';
-          if(pc === 'pri-immediate') immediate++;
+          if(pc === 'pri-immediate'){
+            immediate++;
+            topItems.push({
+              id: i.id, subject: i.subject || '', tag: 'Immediate', project: label,
+              url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 0
+            });
+          }
         });
       } catch(_){}
+
+      // On Progress stuck >7d
       try {
-        const r = await fetchIssuesByStatusName(t.projectId, ['In Progress', 'On Progress', 'Progress'], false);
+        const r = await fetchIssuesByStatusName(t.projectId, ['In Progress', 'On Progress', 'Progress'], !!force);
         (r.issues || []).forEach(i => {
           const days = (typeof daysSince === 'function') ? daysSince(i.updated_on || i.created_on) : 0;
-          if(days >= 7) stuck++;
+          if(days >= 7){
+            stuck++;
+            topItems.push({
+              id: i.id, subject: i.subject || '', tag: `Stuck ${days}d`, project: label,
+              url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 1
+            });
+          }
         });
       } catch(_){}
+
+      // On Deploy
       try {
-        const r = await fetchIssuesByStatusName(t.projectId, ['On Deploy', 'Ondeploy', 'Deploy'], false);
+        const r = await fetchIssuesByStatusName(t.projectId, ['On Deploy', 'Ondeploy', 'Deploy'], !!force);
         deploy += (r.issues || []).length;
+        (r.issues || []).slice(0, 3).forEach(i => {
+          topItems.push({
+            id: i.id, subject: i.subject || '', tag: 'On Deploy', project: label,
+            url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 2
+          });
+        });
+      } catch(_){}
+
+      // Rework
+      try {
+        const r = await fetchIssuesByStatusName(t.projectId, ['Rework', 'Re-work', 'Re Work'], !!force);
+        rework += (r.issues || []).length;
+        (r.issues || []).slice(0, 3).forEach(i => {
+          topItems.push({
+            id: i.id, subject: i.subject || '', tag: 'Rework', project: label,
+            url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 0
+          });
+        });
+      } catch(_){}
+
+      // Feedback
+      try {
+        const r = await fetchIssuesByStatusName(t.projectId, ['Feedback'], !!force);
+        feedback += (r.issues || []).length;
+        (r.issues || []).slice(0, 2).forEach(i => {
+          topItems.push({
+            id: i.id, subject: i.subject || '', tag: 'Feedback', project: label,
+            url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 3
+          });
+        });
       } catch(_){}
     }));
 
     set('attImmediateNew', String(immediate));
     set('attStuckProgress', String(stuck));
     set('attOnDeploy', String(deploy));
-    window.__dashAttention = { immediate, stuck, deploy, at: Date.now() };
+    set('attRework', String(rework));
+    set('attFeedback', String(feedback));
+
+    mark('attCardImmediate', immediate, null);
+    mark('attCardStuck', stuck, 'tone-amber');
+    mark('attCardDeploy', deploy, 'tone-blue');
+    mark('attCardRework', rework, null);
+    mark('attCardFeedback', feedback, 'tone-amber');
+
+    // Preview list (top 8 by urgency rank)
+    topItems.sort((a,b) => a.rank - b.rank || String(b.id).localeCompare(String(a.id)));
+    const uniq = [];
+    const seen = new Set();
+    topItems.forEach(it => {
+      const k = String(it.id);
+      if(seen.has(k)) return;
+      seen.add(k);
+      uniq.push(it);
+    });
+    const preview = $('dashAttPreview');
+    const listEl = $('dashAttPreviewList');
+    if(preview && listEl){
+      const show = uniq.slice(0, 8);
+      if(!show.length){
+        preview.hidden = true;
+        listEl.innerHTML = '';
+      } else {
+        preview.hidden = false;
+        listEl.innerHTML = show.map(it => `
+          <a class="dash-att-item" href="${escapeHtml(it.url)}" target="_blank" rel="noopener">
+            <span class="dash-att-item-id">#${escapeHtml(String(it.id))}</span>
+            <span class="dash-att-item-sub" title="${escapeHtml(it.subject)}">${escapeHtml(it.subject || '—')} · ${escapeHtml(it.project)}</span>
+            <span class="dash-att-item-tag">${escapeHtml(it.tag)}</span>
+          </a>
+        `).join('');
+      }
+    }
+
+    window.__dashAttention = { immediate, stuck, deploy, rework, feedback, at: Date.now(), top: uniq.slice(0, 12) };
   } catch(err){
     console.warn('refreshDashAttention', err);
   }
 }
+
 
 function openWhatNextView(){
   switchView('whatnext');
