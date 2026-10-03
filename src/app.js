@@ -1580,8 +1580,10 @@ function renderPlanCard(d){
     </div>
   `;
 
+  const pk = getPlanProjectKey(d) || 'none';
   const cardClasses = [
     'plan-card',
+    'proj-' + (pk || 'none'),
     'tone-' + planDateTone(d.date),
     isExpanded ? 'expanded' : '',
     isRedmineSynced ? 'from-redmine' : '',

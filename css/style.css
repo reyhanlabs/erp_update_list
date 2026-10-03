@@ -428,210 +428,186 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 /* ============================================================
    PLAN LIST
    ============================================================ */
+/* ============================================================
+   UPDATE PLAN CARDS — clean professional style
+   ============================================================ */
 .plan-list{
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:12px;
 }
 
 .plan-card{
-  /* Soft pastel base — color set by .tone-N (date-based) */
-  background:linear-gradient(135deg, #f0f7ff 0%, #f5f3ff 50%, #faf5ff 100%);
-  border:1px solid #c7d7f5;
-  border-radius:20px;
-  box-shadow:0 2px 8px rgba(37,99,235,.06), 0 1px 3px rgba(11,18,32,.04);
-  overflow:visible;
+  background:var(--bg-elevated, #fff);
+  border:1px solid var(--line, #e2e8f0);
+  border-radius:14px;
+  box-shadow:0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(15,23,42,.03);
+  overflow:hidden;
   position:relative;
-  transition:box-shadow var(--dur) var(--ease),
-             transform var(--dur) var(--ease),
-             border-color var(--dur) var(--ease),
-             background var(--dur) var(--ease);
+  transition:box-shadow .18s ease, border-color .18s ease, transform .15s ease;
+  --card-accent: #94a3b8;
+  --card-shadow: rgba(15,23,42,.08);
 }
 
-/* Date-based pastel tones (same date → same color) */
-.plan-card.tone-0{ /* sky blue */
-  background:linear-gradient(135deg, #eff6ff 0%, #e0f2fe 55%, #f0f9ff 100%);
-  border-color:#bfdbfe;
-  --card-accent: linear-gradient(180deg, #3b82f6 0%, #0ea5e9 100%);
-  --card-hover-border:#93c5fd;
-  --card-shadow:rgba(59,130,246,.12);
-}
-.plan-card.tone-1{ /* violet */
-  background:linear-gradient(135deg, #f5f3ff 0%, #ede9fe 55%, #faf5ff 100%);
-  border-color:#ddd6fe;
-  --card-accent: linear-gradient(180deg, #8b5cf6 0%, #a855f7 100%);
-  --card-hover-border:#c4b5fd;
-  --card-shadow:rgba(139,92,246,.12);
-}
-.plan-card.tone-2{ /* rose / pink */
-  background:linear-gradient(135deg, #fff1f2 0%, #ffe4e6 55%, #fdf2f8 100%);
-  border-color:#fecdd3;
-  --card-accent: linear-gradient(180deg, #f43f5e 0%, #ec4899 100%);
-  --card-hover-border:#fda4af;
-  --card-shadow:rgba(244,63,94,.12);
-}
-.plan-card.tone-3{ /* amber / cream */
-  background:linear-gradient(135deg, #fffbeb 0%, #fef3c7 55%, #fff7ed 100%);
-  border-color:#fde68a;
-  --card-accent: linear-gradient(180deg, #f59e0b 0%, #f97316 100%);
-  --card-hover-border:#fcd34d;
-  --card-shadow:rgba(245,158,11,.14);
-}
-.plan-card.tone-4{ /* mint / green */
-  background:linear-gradient(135deg, #ecfdf5 0%, #d1fae5 55%, #f0fdf4 100%);
-  border-color:#a7f3d0;
-  --card-accent: linear-gradient(180deg, #10b981 0%, #14b8a6 100%);
-  --card-hover-border:#6ee7b7;
-  --card-shadow:rgba(16,185,129,.12);
-}
-.plan-card.tone-5{ /* cyan / teal */
-  background:linear-gradient(135deg, #ecfeff 0%, #cffafe 55%, #f0fdfa 100%);
-  border-color:#a5f3fc;
-  --card-accent: linear-gradient(180deg, #06b6d4 0%, #14b8a6 100%);
-  --card-hover-border:#67e8f9;
-  --card-shadow:rgba(6,182,212,.12);
+/* Project accent (left bar) — more meaningful than date pastel */
+.plan-card.proj-erp{ --card-accent:#2563eb; }
+.plan-card.proj-erp-one{ --card-accent:#0891b2; }
+.plan-card.proj-mfg{ --card-accent:#059669; }
+.plan-card.proj-mrp{ --card-accent:#7c3aed; }
+.plan-card.proj-none{ --card-accent:#94a3b8; }
+
+/* Keep tone-* as subtle fallback (no full pastel fill) */
+.plan-card.tone-0,
+.plan-card.tone-1,
+.plan-card.tone-2,
+.plan-card.tone-3,
+.plan-card.tone-4,
+.plan-card.tone-5{
+  background:var(--bg-elevated, #fff);
+  border-color:var(--line, #e2e8f0);
 }
 
-/* Subtle left accent bar — follows date tone */
 .plan-card::before{
   content:'';
   position:absolute;
-  left:0;
-  top:18px;
-  bottom:18px;
-  width:3.5px;
-  border-radius:0 5px 5px 0;
-  background:var(--card-accent, linear-gradient(180deg, #3b82f6 0%, #8b5cf6 100%));
-  opacity:.85;
-  transition:opacity var(--dur) var(--ease), top var(--dur) var(--ease), bottom var(--dur) var(--ease);
-  z-index:1;
-  pointer-events:none;
-}
-/* Redmine badge still uses rose accent bar for quick recognition */
-.plan-card.from-redmine::before{
-  background:linear-gradient(180deg, #f43f5e 0%, #e11d48 100%);
-}
-.plan-card:hover::before,
-.plan-card.expanded::before{
+  left:0; top:0; bottom:0;
+  width:4px;
+  background:var(--card-accent);
+  border-radius:14px 0 0 14px;
   opacity:1;
+  transition:width .15s ease, opacity .15s ease;
+}
+.plan-card.from-redmine::before{
+  background:linear-gradient(180deg, var(--card-accent) 0%, #ef4444 100%);
 }
 .plan-card:hover{
-  box-shadow:0 6px 20px -4px var(--card-shadow, rgba(37,99,235,.12)), 0 2px 8px rgba(11,18,32,.06);
-  border-color:var(--card-hover-border, #a5bce8);
-  transform:translateY(-2px);
+  border-color:color-mix(in srgb, var(--card-accent) 35%, var(--line, #e2e8f0));
+  box-shadow:0 4px 16px var(--card-shadow), 0 1px 3px rgba(15,23,42,.04);
+  transform:translateY(-1px);
 }
-
-/* Dark mode — date tones as soft tints */
-[data-theme="dark"] .plan-card{
-  box-shadow:0 2px 10px rgba(0,0,0,.35);
+.plan-card:hover::before{ width:5px; }
+.plan-card.expanded{
+  border-color:color-mix(in srgb, var(--card-accent) 45%, var(--line, #e2e8f0));
+  box-shadow:0 8px 28px var(--card-shadow);
+  transform:none;
 }
-[data-theme="dark"] .plan-card.tone-0{
-  background:linear-gradient(135deg, rgba(59,130,246,.14) 0%, rgba(14,165,233,.10) 100%);
-  border-color:rgba(96,165,250,.28);
-}
-[data-theme="dark"] .plan-card.tone-1{
-  background:linear-gradient(135deg, rgba(139,92,246,.14) 0%, rgba(168,85,247,.10) 100%);
-  border-color:rgba(167,139,250,.28);
-}
-[data-theme="dark"] .plan-card.tone-2{
-  background:linear-gradient(135deg, rgba(244,63,94,.12) 0%, rgba(236,72,153,.10) 100%);
-  border-color:rgba(251,113,133,.28);
-}
-[data-theme="dark"] .plan-card.tone-3{
-  background:linear-gradient(135deg, rgba(245,158,11,.12) 0%, rgba(249,115,22,.10) 100%);
-  border-color:rgba(251,191,36,.28);
-}
-[data-theme="dark"] .plan-card.tone-4{
-  background:linear-gradient(135deg, rgba(16,185,129,.12) 0%, rgba(20,184,166,.10) 100%);
-  border-color:rgba(52,211,153,.28);
-}
-[data-theme="dark"] .plan-card.tone-5{
-  background:linear-gradient(135deg, rgba(6,182,212,.12) 0%, rgba(20,184,166,.10) 100%);
-  border-color:rgba(34,211,238,.28);
-}
-[data-theme="dark"] .plan-card::before{
-  opacity:.9;
-  box-shadow:0 0 12px rgba(96,165,250,.25);
-}
-[data-theme="dark"] .plan-card.from-redmine::before{
-  background:linear-gradient(180deg, #fb7185 0%, #f43f5e 100%);
-  box-shadow:0 0 12px rgba(244,63,94,.35);
-}
-[data-theme="dark"] .plan-card:hover::before,
-[data-theme="dark"] .plan-card.expanded::before{
-  opacity:1;
-  box-shadow:0 0 16px rgba(96,165,250,.5);
+.plan-card.has-summary{
+  /* quiet indicator — no loud fill */
 }
 .plan-card.menu-open{ z-index:10000 !important; }
 
-.plan-card-main{
-  padding:22px 24px 22px 28px;
-  cursor:pointer;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:18px;
-  user-select:none;
-  transition:background var(--dur-fast) var(--ease);
-  position:relative;
-  border-radius:20px;
+[data-theme="dark"] .plan-card{
+  background:var(--bg-elevated, #111827);
+  border-color:var(--line, #1f2937);
+  box-shadow:0 1px 3px rgba(0,0,0,.25);
 }
-.plan-card-main:hover{background:rgba(255,255,255,.35)}
-[data-theme="dark"] .plan-card-main:hover{background:rgba(255,255,255,.04)}
-.plan-card.expanded .plan-card-main{
-  border-radius:20px 20px 0 0;
+[data-theme="dark"] .plan-card:hover{
+  border-color:color-mix(in srgb, var(--card-accent) 40%, #334155);
 }
 
-.plan-card-left{min-width:0;flex:1}
+.plan-card-main{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 16px 14px 18px;
+  cursor:pointer;
+  user-select:none;
+  transition:background .12s ease;
+}
+.plan-card-main:hover{ background:rgba(15,23,42,.025); }
+[data-theme="dark"] .plan-card-main:hover{ background:rgba(255,255,255,.03); }
+.plan-card.expanded .plan-card-main{
+  border-bottom:1px solid var(--line, #e2e8f0);
+  background:rgba(15,23,42,.02);
+}
+
+.plan-card-left{ min-width:0; flex:1; }
 
 .plan-card-title{
-  font-size:17px;
-  font-weight:700;
-  letter-spacing:-.015em;
-  color:var(--text);
+  font-size:14.5px;
+  font-weight:650;
+  letter-spacing:-.01em;
+  color:var(--text, #0f172a);
   line-height:1.35;
-  margin-bottom:10px;
+  margin-bottom:6px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 .plan-card-meta{
   display:flex;
-  gap:10px;
   flex-wrap:wrap;
   align-items:center;
+  gap:6px 8px;
+  font-size:12px;
+  color:var(--text-tertiary, #94a3b8);
 }
+
+.plan-card-meta .meta-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11.5px;
+  font-weight:500;
+  color:var(--text-secondary, #64748b);
+  background:transparent;
+  border:none;
+  padding:0;
+}
+.plan-card-meta .meta-chip svg{ width:12px; height:12px; opacity:.7; }
+
+.plan-card-meta .badge{
+  font-size:10.5px;
+  font-weight:650;
+  padding:2px 7px;
+  border-radius:6px;
+  letter-spacing:.01em;
+}
+.plan-card-meta .badge-cyan{
+  background:rgba(37,99,235,.08);
+  color:#2563eb;
+  border:1px solid rgba(37,99,235,.12);
+}
+.plan-card-meta .badge-violet{
+  background:rgba(124,58,237,.08);
+  color:#7c3aed;
+  border:1px solid rgba(124,58,237,.12);
+}
+.plan-card-meta .badge-neutral{
+  background:rgba(100,116,139,.08);
+  color:#64748b;
+  border:1px solid rgba(100,116,139,.12);
+}
+.plan-card-meta .badge-redmine{
+  background:rgba(239,68,68,.08);
+  color:#dc2626;
+  border:1px solid rgba(239,68,68,.14);
+  font-size:10px;
+}
+.plan-card-meta .badge-click{ cursor:pointer; }
+.plan-card-meta .badge-click:hover{ filter:brightness(0.95); }
 
 .plan-card-chevron{
-  width:36px;
-  height:36px;
   flex-shrink:0;
-  border-radius:10px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:var(--text-tertiary);
-  background:var(--bg-subtle);
-  border:1px solid var(--line);
-  transition:all var(--dur) var(--ease);
+  width:28px; height:28px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:8px;
+  color:var(--text-tertiary, #94a3b8);
+  transition:transform .2s ease, background .12s, color .12s;
 }
-.plan-card-chevron svg{
-  transition:transform var(--dur) var(--ease);
+.plan-card-main:hover .plan-card-chevron{
+  background:rgba(15,23,42,.05);
+  color:var(--text-secondary, #64748b);
 }
 .plan-card.expanded .plan-card-chevron{
-  background:var(--brand-soft);
-  color:var(--brand);
-  border-color:var(--brand-ring);
-}
-.plan-card.expanded .plan-card-chevron svg{
   transform:rotate(180deg);
+  color:var(--card-accent);
 }
+.plan-card-chevron svg{ width:16px; height:16px; }
 
 .plan-details{
-  display:none;
-  border-top:1px solid rgba(0,0,0,.06);
-  animation:detailsIn .22s var(--ease);
-}
-[data-theme="dark"] .plan-details{
-  border-top-color:rgba(255,255,255,.08);
+  padding:0;
 }
 .plan-card.expanded .plan-details{
   display:block;
