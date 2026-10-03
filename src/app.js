@@ -4612,6 +4612,22 @@ function restoreIssueStatusCache(){
       }
     });
   } catch(_){}
+  // Drop empty full-caches so they cannot block a real fetch
+  try {
+    Object.keys(window.__issueStatusCache || {}).forEach(k => {
+      const c = window.__issueStatusCache[k];
+      if(!c || !c.byProject) return;
+      const any = Object.values(c.byProject).some(b => b && Array.isArray(b.issues) && b.issues.length);
+      if(!any){
+        window.__issueStatusCache[k] = {
+          byProject: null,
+          meta: c.meta || { total: 0 },
+          at: 0,
+          badgesOnly: true
+        };
+      }
+    });
+  } catch(_){}
 }
 
 function applyIssueStatusBadgesFromCache(){
@@ -4659,12 +4675,20 @@ async function prefetchAllIssueStatusBadges(){
       const el = $(def.badgeId);
       if(el) el.textContent = String(total);
       const prev = window.__issueStatusCache[statusKey] || {};
-      window.__issueStatusCache[statusKey] = {
-        ...prev,
-        meta: { ...(prev.meta || {}), total, fromCache: true },
-        at: prev.at || Date.now(),
-        badgesOnly: !prev.byProject
-      };
+      // Prefer existing full list cache; only update badge total
+      if(prev.byProject && !prev.badgesOnly){
+        window.__issueStatusCache[statusKey] = {
+          ...prev,
+          meta: { ...(prev.meta || {}), total, statusKey }
+        };
+      } else {
+        window.__issueStatusCache[statusKey] = {
+          byProject: null,
+          meta: { total, fromCache: true, statusKey },
+          at: 0,
+          badgesOnly: true
+        };
+      }
     }));
     persistIssueStatusBadges();
   } catch(err){
@@ -4697,34 +4721,43 @@ function openIssueStatusView(statusKey){
   }
   switchView('newissues');
   const cached = window.__issueStatusCache[key];
-  if(cached && cached.byProject){
+  const hasFullCache = !!(cached && cached.byProject && !cached.badgesOnly
+    && Object.keys(cached.byProject).length
+    && Object.values(cached.byProject).some(b => b && Array.isArray(b.issues)));
+
+  if(hasFullCache){
     window.__newIssuesByProject = cached.byProject;
-    window.__newIssuesMeta = cached.meta || null;
+    window.__newIssuesMeta = { ...(cached.meta || {}), statusKey: key, at: cached.at || Date.now() };
     window.__newIssuesError = null;
     try { renderNewIssues(); } catch(_){}
-    const total = (cached.meta && cached.meta.total) != null ? cached.meta.total : 0;
+    const total = (cached.meta && cached.meta.total) != null
+      ? cached.meta.total
+      : Object.values(cached.byProject).reduce((s, b) => s + ((b && b.issues) ? b.issues.length : 0), 0);
     const badge = $('newIssuesTotalBadge');
     if(badge) badge.textContent = String(total);
     const sb = $(def.badgeId);
     if(sb) sb.textContent = String(total);
-    // Soft refresh in background when stale; keep showing cache
     const age = cached.at ? (Date.now() - cached.at) : Infinity;
-    if(age < 15 * 60 * 1000){
-      // still refresh quietly after a short delay so data is not frozen forever
-      if(age > 3 * 60 * 1000) setTimeout(() => { try { loadNewIssues(false); } catch(_){} }, 400);
-      return;
-    }
-    loadNewIssues(false);
+    // Always soft-refresh so counts don't stay stuck; use force when empty
+    const empty = total === 0;
+    setTimeout(() => {
+      try { loadNewIssues(empty || age > 10 * 60 * 1000); } catch(_){}
+    }, empty ? 0 : 300);
     return;
   }
-  // badges-only: show total, then load full list
+
+  // No list cache — clear previous status data so loadNewIssues does not reuse it
+  window.__newIssuesByProject = {};
+  window.__newIssuesMeta = null;
+  window.__newIssuesError = null;
   if(cached && cached.meta && cached.meta.total != null){
     const badge = $('newIssuesTotalBadge');
     if(badge) badge.textContent = String(cached.meta.total);
     const sb = $(def.badgeId);
     if(sb) sb.textContent = String(cached.meta.total);
   }
-  loadNewIssues(false);
+  // Force network load for this status
+  loadNewIssues(true);
 }
 
 /* ============================================================
@@ -4809,17 +4842,22 @@ async function loadNewIssues(force){
 
   const el = $('newIssuesBody');
   const btn = $('btnRefreshNewIssues');
-  const hasMem = !!(window.__newIssuesByProject && Object.keys(window.__newIssuesByProject).length);
+  const memKey = window.__newIssuesMeta && window.__newIssuesMeta.statusKey;
+  const curKey = window.__issueStatusKey || 'new';
+  const hasMem = !!(window.__newIssuesByProject && Object.keys(window.__newIssuesByProject).length
+    && memKey === curKey);
 
-  // Stale-while-revalidate: show last data instantly when not forcing
+  // Stale-while-revalidate: show last data instantly when not forcing AND same status
   if(!force && hasMem){
     renderNewIssues();
     const meta = window.__newIssuesMeta;
     const age = meta ? (Date.now() - (meta.at || 0)) : Infinity;
-    // If fresher than 8 min, skip network
-    if(age < 8 * 60 * 1000){
+    const total = meta && meta.total != null ? meta.total : 0;
+    // Skip network only if we have non-empty fresh data for this status
+    if(age < 8 * 60 * 1000 && total > 0){
       return;
     }
+    // empty or aging → fall through to network
   } else if(!hasMem){
     if(el) el.innerHTML = (typeof testerLoadingSkeleton === 'function') ? testerLoadingSkeleton() : '<p style="padding:20px">Loading…</p>';
   }
@@ -4855,7 +4893,7 @@ async function loadNewIssues(force){
 
     window.__newIssuesByProject = byProject;
     window.__newIssuesError = null;
-    window.__newIssuesMeta = { total, at: Date.now(), fromCache: anyFromCache && !force };
+    window.__newIssuesMeta = { total, at: Date.now(), fromCache: anyFromCache && !force, statusKey: (window.__issueStatusKey || 'new') };
     const sk = window.__issueStatusKey || 'new';
     window.__issueStatusCache[sk] = { byProject, meta: window.__newIssuesMeta, at: Date.now(), badgesOnly: false };
     try { persistIssueStatusCache(); } catch(_){}
