@@ -2904,9 +2904,13 @@ function renderTesterTableRows(list){
     const priority = issue.priority?.name || '—';
     const tracker = issue.tracker?.name || '—';
     const isNew = isNewIssue(issue);
+    // Prefer Redmine category; fall back to tester bucket label
+    if(!issue.category?.name && issue._testerCat){
+      issue = { ...issue, category: { name: (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[issue._testerCat]) || issue._testerCat } };
+    }
     return `<tr class="tester-tr${isNew ? ' is-new' : ''}${priorityClass(issue.priority?.name)==='pri-immediate' ? ' is-immediate' : ''}" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a>${isNew ? '<span class="new-chip">NEW</span>' : ''}</td>
-      <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${escapeHtml(issue.subject || '—')}</td>
+      <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${issueDescriptionCell(issue, { showProject: true })}</td>
       <td class="col-priority">${priorityBadge(priority)}</td>
       <td class="col-tracker">${escapeHtml(tracker)}</td>
       <td class="col-updated">${escapeHtml(updated)}</td>
@@ -2929,8 +2933,12 @@ function renderTesterTable(list){
         <span class="tester-mcard-pri">${priorityBadge(priority)}</span>
       </div>
       <div class="tester-mcard-subject">${escapeHtml(issue.subject || '—')}</div>
+      <div class="issue-chip-row" style="margin:6px 0 4px">
+        ${categoryChip(issue.category?.name || '')}
+        ${assigneeChip(issue.assigned_to)}
+        ${projectChip(issue._projectLabel || issue.project?.name || '')}
+      </div>
       <div class="tester-mcard-meta">
-        <span>${escapeHtml(assignee)}</span>
         <span>${escapeHtml(tracker)}</span>
         <span>${escapeHtml(updated)}</span>
       </div>
@@ -4658,6 +4666,26 @@ function getFilteredNewIssues(issues){
   return list;
 }
 
+
+/** Shared Monday-style description cell: subject + chips */
+function issueDescriptionCell(issue, opts = {}){
+  const showProject = opts.showProject !== false;
+  const showAssignee = opts.showAssignee !== false;
+  const showCategory = opts.showCategory !== false;
+  const extraHtml = opts.extraHtml || '';
+  const cat = showCategory
+    ? (issue.category?.name || (typeof resolveIssueCategory === 'function' ? resolveIssueCategory(issue.id, '', issue.subject) : '') || '')
+    : '';
+  const proj = issue._projectLabel || issue.project?.name || '';
+  const chips = [
+    showCategory ? categoryChip(cat) : '',
+    showAssignee ? assigneeChip(issue.assigned_to) : '',
+    showProject ? projectChip(proj) : ''
+  ].filter(Boolean).join('');
+  return `<div class="issue-subject-line">${escapeHtml(issue.subject || '—')}</div>
+    <div class="issue-chip-row">${chips}${extraHtml}</div>`;
+}
+
 function categoryChip(name){
   const n = String(name || '').trim();
   if(!n) return '<span class="meta-chip chip-muted">—</span>';
@@ -4687,18 +4715,9 @@ function renderIssueStatusTable(issues, { showProject = true } = {}){
     const pri = issue.priority?.name || '—';
     const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0,10)) : '—';
     const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
-    const cat = issue.category?.name || resolveIssueCategory(issue.id, '', issue.subject) || '';
-    const proj = issue._projectLabel || issue.project?.name || '';
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
-      <td class="col-subject">
-        <div class="issue-subject-line">${escapeHtml(issue.subject || '—')}</div>
-        <div class="issue-chip-row">
-          ${categoryChip(cat)}
-          ${assigneeChip(issue.assigned_to)}
-          ${showProject ? projectChip(proj) : ''}
-        </div>
-      </td>
+      <td class="col-subject">${issueDescriptionCell(issue, { showProject })}</td>
       <td class="col-priority">${priHtml}</td>
       <td class="col-updated">${escapeHtml(updated)}</td>
       <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
@@ -5263,16 +5282,12 @@ function renderActiveWorkTable(list){
   }
   const rows = list.map(issue => {
     const url = `https://pjm.zahironline.com/issues/${issue.id}`;
-    const assignee = formatAssignee(issue.assigned_to);
     const pri = issue.priority?.name || '—';
     const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
-    const proj = issue._projectLabel || '—';
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
-      <td class="col-subject">${escapeHtml(issue.subject || '—')}</td>
-      <td class="col-assignee-show">${escapeHtml(assignee)}</td>
+      <td class="col-subject">${issueDescriptionCell(issue, { showProject: true, showAssignee: true })}</td>
       <td class="col-priority">${priHtml}</td>
-      <td class="col-tracker">${escapeHtml(proj)}</td>
       <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
     </tr>`;
   }).join('');
@@ -5281,9 +5296,7 @@ function renderActiveWorkTable(list){
       <thead><tr>
         <th class="col-id">Issue</th>
         <th class="col-subject">Description</th>
-        <th class="col-assignee-show">Assignee</th>
         <th class="col-priority">Priority</th>
-        <th class="col-tracker">Project</th>
         <th class="col-open"></th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -5575,11 +5588,14 @@ function renderWhatNext(){
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
       <td class="col-subject">
         <div class="wn-subject">${escapeHtml(issue.subject || '—')}</div>
+        <div class="issue-chip-row" style="margin:4px 0">
+          ${categoryChip(issue.category?.name || '')}
+          ${assigneeChip(issue.assigned_to)}
+          ${projectChip(issue._projectLabel || '')}
+        </div>
         <div class="wn-reasons">${reasons}</div>
       </td>
       <td class="col-priority">${priHtml}</td>
-      <td class="col-assignee-show">${escapeHtml(assignee)}</td>
-      <td class="col-tracker">${escapeHtml(issue._projectLabel || '—')}</td>
       <td class="col-score" title="Urgency score">${issue._score}</td>
       <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
     </tr>`;
@@ -5597,8 +5613,6 @@ function renderWhatNext(){
           <th class="col-id">Issue</th>
           <th class="col-subject">Description</th>
           <th class="col-priority">Priority</th>
-          <th class="col-assignee-show">Assignee</th>
-          <th class="col-tracker">Project</th>
           <th class="col-score">Score</th>
           <th class="col-open"></th>
         </tr></thead>

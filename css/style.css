@@ -1188,7 +1188,20 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
 }
 .badge-click{cursor:pointer}
 .badge-click:hover{filter:brightness(.95)}
-.toolbar-sticky{position:sticky;top:0;z-index:5}
+.toolbar-sticky{
+  position:sticky;top:0;z-index:20;
+  background:var(--bg, #f4f6fb);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  padding-top:8px;padding-bottom:8px;
+  margin-bottom:4px;
+  border-bottom:1px solid transparent;
+}
+.toolbar-sticky.is-stuck,
+.toolbar-sticky:hover{
+  border-bottom-color:var(--line, #e2e8f0);
+}
+[data-theme="dark"] .toolbar-sticky{background:rgba(11,18,32,.92)}
 .btn.is-busy{opacity:.75;cursor:wait}
 .spinner-sm{
   display:inline-block;width:14px;height:14px;border:2px solid currentColor;
