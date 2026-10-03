@@ -819,6 +819,7 @@ function initRouter(){
 
 function switchView(view){
   currentView = view;
+  try { if(window.__selectedIssueIds && window.__selectedIssueIds.size){ /* keep selection across status tabs */ } } catch(_){}
   // Keep URL in sync for shareable links
   try {
     const cat = view === 'tester' ? (window.__testerCategory || 'all') : '';
@@ -1995,6 +1996,105 @@ function refreshCounts(){
 /* ============================================================
    EMPTY STATE
    ============================================================ */
+
+/* ============================================================
+   BATCH SELECTION (Monday-style multi-select)
+   ============================================================ */
+window.__selectedIssueIds = window.__selectedIssueIds || new Set();
+
+function selectedIssueIdSet(){
+  if(!(window.__selectedIssueIds instanceof Set)){
+    window.__selectedIssueIds = new Set();
+  }
+  return window.__selectedIssueIds;
+}
+
+function toggleIssueSelect(id, checked){
+  const set = selectedIssueIdSet();
+  const k = String(id);
+  if(checked) set.add(k); else set.delete(k);
+  updateBatchBar();
+}
+
+function toggleSelectAllIssues(checkbox, scopeSel){
+  const set = selectedIssueIdSet();
+  const boxes = document.querySelectorAll((scopeSel || '.issue-select-cb') + '');
+  const on = !!checkbox.checked;
+  boxes.forEach(cb => {
+    cb.checked = on;
+    const id = cb.dataset.issueId;
+    if(!id) return;
+    if(on) set.add(String(id)); else set.delete(String(id));
+  });
+  updateBatchBar();
+}
+
+function clearIssueSelection(){
+  selectedIssueIdSet().clear();
+  document.querySelectorAll('.issue-select-cb').forEach(cb => { cb.checked = false; });
+  const master = document.querySelectorAll('.issue-select-all');
+  master.forEach(m => { m.checked = false; m.indeterminate = false; });
+  updateBatchBar();
+}
+
+function updateBatchBar(){
+  const n = selectedIssueIdSet().size;
+  document.querySelectorAll('.batch-bar').forEach(bar => {
+    bar.classList.toggle('is-visible', n > 0);
+    const countEl = bar.querySelector('.batch-count');
+    if(countEl) countEl.textContent = String(n);
+  });
+  // Sync row checkboxes with set
+  document.querySelectorAll('.issue-select-cb').forEach(cb => {
+    const id = String(cb.dataset.issueId || '');
+    cb.checked = selectedIssueIdSet().has(id);
+  });
+}
+
+function issueSelectCell(id){
+  const k = String(id);
+  const on = selectedIssueIdSet().has(k) ? 'checked' : '';
+  return `<td class="col-check" onclick="event.stopPropagation()">
+    <input type="checkbox" class="issue-select-cb" data-issue-id="${escapeHtml(k)}" ${on}
+      onchange="toggleIssueSelect('${escapeHtml(k)}', this.checked)" aria-label="Select issue ${escapeHtml(k)}"/>
+  </td>`;
+}
+
+function issueSelectHeader(){
+  return `<th class="col-check"><input type="checkbox" class="issue-select-all" title="Select all visible"
+    onchange="toggleSelectAllIssues(this, '.issue-select-cb')" aria-label="Select all"/></th>`;
+}
+
+function getSelectedIssueUrls(){
+  const ids = Array.from(selectedIssueIdSet());
+  return ids.map(id => `https://pjm.zahironline.com/issues/${id}`);
+}
+
+async function copySelectedIssueLinks(){
+  const urls = getSelectedIssueUrls();
+  if(!urls.length){ toast('No issues selected', 'error'); return; }
+  try {
+    await navigator.clipboard.writeText(urls.join('\n'));
+    toast(`${urls.length} link(s) copied`);
+  } catch(_){
+    toast('Copy failed', 'error');
+  }
+}
+
+async function copySelectedTelegram(){
+  const urls = getSelectedIssueUrls();
+  if(!urls.length){ toast('No issues selected', 'error'); return; }
+  // Links only — SDET-friendly
+  const text = urls.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`${urls.length} link(s) for Telegram`);
+  } catch(_){
+    toast('Copy failed', 'error');
+  }
+}
+
+
 function emptyState(iconSvg, title, desc, actions){
   const btns = (actions || []).map(a =>
     `<button type="button" class="btn ${a.primary ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="${a.action}">${escapeHtml(a.label)}</button>`
@@ -2909,6 +3009,7 @@ function renderTesterTableRows(list){
       issue = { ...issue, category: { name: (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[issue._testerCat]) || issue._testerCat } };
     }
     return `<tr class="tester-tr${isNew ? ' is-new' : ''}${priorityClass(issue.priority?.name)==='pri-immediate' ? ' is-immediate' : ''}" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      ${issueSelectCell(issue.id)}
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a>${isNew ? '<span class="new-chip">NEW</span>' : ''}</td>
       <td class="col-subject" title="${escapeHtml(issue.subject || '')}">${issueDescriptionCell(issue, { showProject: true })}</td>
       <td class="col-priority">${priorityBadge(priority)}</td>
@@ -2949,6 +3050,7 @@ function renderTesterTable(list){
     <table class="tester-table">
       <thead>
         <tr>
+          ${issueSelectHeader()}
           <th class="col-id">Issue</th>
           <th class="col-subject">Description</th>
           <th class="col-priority">Priority</th>
@@ -3012,8 +3114,9 @@ function renderTesterList(){
 
   const all = window.__testerIssues || [];
   if(!all.length){
-    el.innerHTML = emptyState(ICON.check, 'No testing queue', 'No issues with status Ready for Testing in this project.', [
-      { label: 'Refresh', action: 'loadTesterReminder(true)', primary: true }
+    el.innerHTML = emptyState(ICON.check, 'Queue is clear', 'No Ready for Testing issues right now — nice! Refresh if you expect new ones.', [
+      { label: 'Refresh', action: 'loadTesterReminder(true)', primary: true },
+      { label: 'Open New issues', action: "openIssueStatusView('new')" }
     ]);
     return;
   }
@@ -3088,6 +3191,7 @@ function renderTesterList(){
       ${renderTesterTable(groups[key])}
     </div>
   `).join('') + moreBtn;
+  try { updateBatchBar(); } catch(_){}
 }
 
 async function copyTesterList(){
@@ -4716,6 +4820,7 @@ function renderIssueStatusTable(issues, { showProject = true } = {}){
     const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0,10)) : '—';
     const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      ${issueSelectCell(issue.id)}
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
       <td class="col-subject">${issueDescriptionCell(issue, { showProject })}</td>
       <td class="col-priority">${priHtml}</td>
@@ -4727,6 +4832,7 @@ function renderIssueStatusTable(issues, { showProject = true } = {}){
   return `<div class="tester-table-wrap">
     <table class="tester-table">
       <thead><tr>
+        ${issueSelectHeader()}
         <th class="col-id">Issue</th>
         <th class="col-subject">Description</th>
         <th class="col-priority">Priority</th>
@@ -4798,8 +4904,9 @@ function renderNewIssues(){
   const by = window.__newIssuesByProject || {};
   const order = NEW_ISSUE_PROJECTS.map(p => p.key);
   if(!order.some(k => by[k])){
-    el.innerHTML = emptyState(ICON.inbox, 'No data yet', 'Click Refresh to load issues from Redmine.', [
-      { label: 'Refresh', action: 'loadNewIssues(true)', primary: true }
+    el.innerHTML = emptyState(ICON.inbox, 'Nothing loaded yet', 'Pull the latest issues from Redmine for this status.', [
+      { label: 'Refresh from Redmine', action: 'loadNewIssues(true)', primary: true },
+      { label: 'Dashboard', action: "switchView('dashboard')" }
     ]);
     return;
   }
@@ -4818,8 +4925,9 @@ function renderNewIssues(){
       return `<div class="new-proj-block"><div class="new-proj-head"><div class="new-proj-title"><span>${escapeHtml(block.projectName || block.label || key)}</span></div></div>
         <div class="empty" style="padding:16px"><p style="margin:0;color:#ef4444;font-size:13px">${escapeHtml(block.error)}</p></div></div>`;
     }).join('');
-    el.innerHTML = errBlocks || emptyState(ICON.inbox, `No ${statusLabel} issues`, 'Try changing filters or refresh.', [
-      { label: 'Refresh', action: 'loadNewIssues(true)', primary: true }
+    el.innerHTML = errBlocks || emptyState(ICON.inbox, `No ${statusLabel} issues`, 'Try another filter, or refresh to pull the latest from Redmine.', [
+      { label: 'Refresh', action: 'loadNewIssues(true)', primary: true },
+      { label: 'Clear filters', action: "if($('newIssuesSearch'))$('newIssuesSearch').value='';if($('newIssuesProjectFilter'))$('newIssuesProjectFilter').value='all';renderNewIssues();" }
     ]);
     return;
   }
@@ -4878,6 +4986,7 @@ function renderNewIssues(){
       ${renderIssueStatusTable(issues, { showProject: groupBy !== 'project' })}
     </div>`;
   }).join('');
+  try { updateBatchBar(); } catch(_){}
 }
 
 function copyGroupIssueLinks(groupKey){
@@ -5285,6 +5394,7 @@ function renderActiveWorkTable(list){
     const pri = issue.priority?.name || '—';
     const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      ${issueSelectCell(issue.id)}
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
       <td class="col-subject">${issueDescriptionCell(issue, { showProject: true, showAssignee: true })}</td>
       <td class="col-priority">${priHtml}</td>
@@ -5294,6 +5404,7 @@ function renderActiveWorkTable(list){
   return `<div class="tester-table-wrap">
     <table class="tester-table">
       <thead><tr>
+        ${issueSelectHeader()}
         <th class="col-id">Issue</th>
         <th class="col-subject">Description</th>
         <th class="col-priority">Priority</th>
@@ -5397,6 +5508,7 @@ async function copyActiveWorkLinks(which){
   } catch(_){
     toast('Copy failed', 'error');
   }
+  try { updateBatchBar(); } catch(_){}
 }
 
 function openActiveWorkView(){
@@ -5584,6 +5696,7 @@ function renderWhatNext(){
     const reasons = (issue._reasons || []).map(r => `<span class="wn-chip">${escapeHtml(r)}</span>`).join('');
     const assignee = formatAssignee(issue.assigned_to);
     return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      ${issueSelectCell(issue.id)}
       <td class="col-rank"><span class="${rankClass}">${rank}</span></td>
       <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
       <td class="col-subject">
@@ -5609,6 +5722,7 @@ function renderWhatNext(){
     <div class="tester-table-wrap">
       <table class="tester-table">
         <thead><tr>
+          ${issueSelectHeader()}
           <th class="col-rank">#</th>
           <th class="col-id">Issue</th>
           <th class="col-subject">Description</th>
@@ -5619,6 +5733,7 @@ function renderWhatNext(){
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+  try { updateBatchBar(); } catch(_){}
 }
 
 async function copyWhatNextList(){
@@ -6619,7 +6734,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, openIssueStatusView, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync

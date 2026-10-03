@@ -1251,6 +1251,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.37.4</span>
+                <span class="cl-note">Batch select issues + improved empty states</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.37.3</span>
                 <span class="cl-note">Chips on Tester/Active Work/What Next · sticky filters</span>
               </div>
@@ -1784,6 +1788,14 @@
     <div id="globalSearchResults" class="gs-results"></div>
   </div>
 </div>
+
+
+      <div class="batch-bar" id="batchBarGlobal">
+        <span class="batch-count-wrap"><b class="batch-count">0</b> selected</span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copySelectedIssueLinks()">Copy links</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copySelectedTelegram()">Copy for Telegram</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearIssueSelection()">Clear</button>
+      </div>
 
 <div class="toast" id="toast"></div>
 
