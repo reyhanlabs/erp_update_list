@@ -89,8 +89,30 @@ export default async function handler(req, res) {
       project_id,
       sort,
       assigned_to_id,
-      issue_id
+      issue_id,
+      resource,
+      client_name
     } = req.query;
+
+    // List custom fields (to resolve "Client Name" id, etc.)
+    if (resource === 'custom_fields') {
+      const cfRes = await fetch(`${REDMINE_BASE}/custom_fields.json`, {
+        method: 'GET',
+        headers: {
+          'X-Redmine-API-Key': apiKey,
+          'Accept': 'application/json',
+          'User-Agent': 'Zahir-ERP-Update-Manager/1.0'
+        }
+      });
+      const text = await cfRes.text();
+      if (!cfRes.ok) {
+        return res.status(cfRes.status).json({
+          error: 'Redmine custom_fields error',
+          detail: text.slice(0, 500)
+        });
+      }
+      return res.status(200).json(JSON.parse(text));
+    }
 
     let resolvedStatusId = status_id || null;
     let resolvedStatusMeta = null;
@@ -119,6 +141,17 @@ export default async function handler(req, res) {
     if (assigned_to_id) url.searchParams.set('assigned_to_id', assigned_to_id);
     if (sort)           url.searchParams.set('sort', sort);
     if (issue_id)       url.searchParams.set('issue_id', issue_id);
+
+    // Forward any cf_<id>=value custom field filters
+    Object.keys(req.query || {}).forEach((k) => {
+      if (/^cf_\d+$/i.test(k) && req.query[k] != null && req.query[k] !== '') {
+        url.searchParams.set(k, String(req.query[k]));
+      }
+    });
+    // Convenience: client_name + client_cf_id (set by app after resolving field id)
+    if (client_name && req.query.client_cf_id) {
+      url.searchParams.set('cf_' + String(req.query.client_cf_id), String(client_name));
+    }
 
     // Range builder — Redmine pakai sintaks "><from|to" (eksklusif)
     if (from || to) {
@@ -175,7 +208,8 @@ export default async function handler(req, res) {
         author: issue.author,
         assigned_to: issue.assigned_to,
         created_on: issue.created_on,
-        updated_on: issue.updated_on
+        updated_on: issue.updated_on,
+        custom_fields: issue.custom_fields || []
       }));
     }
 

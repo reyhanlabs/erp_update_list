@@ -195,6 +195,16 @@
       <span class="label">Feedback</span>
       <span class="count" id="countStatusFeedback">0</span>
     </button>
+    <button class="nav-item" data-view="clients" onclick="openClientsView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      <span class="label">By Client</span>
+      <span class="count" id="countClients">0</span>
+    </button>
     <button class="nav-item" data-view="whatnext" onclick="openWhatNextView()">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -898,6 +908,46 @@
     </section>
 
     <!-- WHAT NEXT — prioritized New issues -->
+    
+    <section class="view" id="view-clients">
+      <div class="card tester-card">
+        <div class="card-head">
+          <h3>
+            <span class="mark" style="background:linear-gradient(135deg,#8b5cf6,#6366f1)"></span>
+            By Client
+            <span class="badge badge-violet" id="clientsTotalBadge" style="margin-left:8px">—</span>
+          </h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshClients" onclick="loadClientIssues(window.__clientQuery, true)">Refresh</button>
+          </div>
+        </div>
+        <div class="toolbar toolbar-float toolbar-sticky" style="margin:12px 12px 0;box-shadow:none">
+          <div class="search-wrap" style="flex:1;min-width:200px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="clientSearchInput" placeholder="Client Name (e.g. company name)…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();loadClientIssues(this.value,true);}"/>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="loadClientIssues($('clientSearchInput').value, true)">Search</button>
+          <select class="select" id="clientProjectFilter" onchange="renderClientIssues()" style="display:none">
+            <option value="all">Project: All</option>
+          </select>
+        </div>
+        <div class="list-secondary-bar">
+          <div class="quick-filter-bar">
+            <button type="button" class="quick-chip active" data-quick="all" onclick="setQuickFilter('all', renderClientIssues)">All</button>
+            <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderClientIssues)">Immediate</button>
+            <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderClientIssues)">Unassigned</button>
+            <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderClientIssues)">Updated 7d</button>
+          </div>
+        </div>
+        <div class="card-body tight" id="clientsBody">
+          <div class="empty" style="padding:28px 16px">
+            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Enter a Client Name to load issues from Redmine.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="view" id="view-whatnext">
       <div class="card tester-card">
         <div class="card-head">
@@ -1302,6 +1352,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.0</span>
+                <span class="cl-note">By Client — issues via Redmine Client Name field</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.37.10</span>
                 <span class="cl-note">Issue Status badges prefetch on app boot (was missing)</span>
