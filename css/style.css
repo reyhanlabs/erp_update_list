@@ -2251,3 +2251,26 @@ body.share-mode .main{padding:16px;max-width:960px;margin:0 auto}
 .batch-bar .btn{border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.1);color:#fff}
 .batch-bar .btn:hover{background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.35)}
 [data-theme="dark"] .batch-bar{background:#1e293b}
+
+/* G) Quick filters + H) Density */
+.list-secondary-bar{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:8px 12px 4px;margin:0 4px;
+}
+.quick-filter-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.quick-chip,.density-chip{
+  border:1px solid var(--line,#e2e8f0);background:var(--bg,#fff);color:var(--text-secondary,#64748b);
+  font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;cursor:pointer;
+  transition:background .12s,border-color .12s,color .12s;
+}
+.quick-chip:hover,.density-chip:hover{border-color:var(--brand,#2563eb);color:var(--brand,#2563eb)}
+.quick-chip.active,.density-chip.active{
+  background:rgba(37,99,235,.1);border-color:rgba(37,99,235,.35);color:#2563eb;
+}
+.density-toggle{display:flex;gap:4px;align-items:center}
+[data-density="compact"] .tester-table td{padding:6px 8px}
+[data-density="compact"] .issue-subject-line{font-size:12.5px}
+[data-density="compact"] .issue-chip-row{display:none}
+[data-density="compact"] .tester-mcard{padding:8px 10px}
+[data-density="compact"] .tester-mcard-subject{font-size:13px}
+[data-density="compact"] .wn-reasons{display:none}

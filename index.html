@@ -713,6 +713,19 @@
             <option value="none">No grouping</option>
           </select>
         </div>
+
+        <div class="list-secondary-bar">
+          <div class="quick-filter-bar">
+            <button type="button" class="quick-chip active" data-quick="all" onclick="setQuickFilter('all', renderTesterList)">All</button>
+            <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderTesterList)">Immediate</button>
+            <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderTesterList)">Unassigned</button>
+            <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderTesterList)">Updated 7d</button>
+          </div>
+          <div class="density-toggle">
+            <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
+            <button type="button" class="density-chip" data-density="compact" onclick="setListDensity('compact')">Compact</button>
+          </div>
+        </div>
         <div class="card-body tight" id="testerReminder">
           <div class="empty" style="padding:28px 16px">
             <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load issues…</p>
@@ -787,6 +800,19 @@
           <input type="date" id="newIssuesDateFrom" class="select" style="display:none;min-width:140px" onchange="renderNewIssues()" title="From"/>
           <input type="date" id="newIssuesDateTo" class="select" style="display:none;min-width:140px" onchange="renderNewIssues()" title="To"/>
         </div>
+
+        <div class="list-secondary-bar">
+          <div class="quick-filter-bar">
+            <button type="button" class="quick-chip active" data-quick="all" onclick="setQuickFilter('all', renderNewIssues)">All</button>
+            <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderNewIssues)">Immediate</button>
+            <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderNewIssues)">Unassigned</button>
+            <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderNewIssues)">Updated 7d</button>
+          </div>
+          <div class="density-toggle">
+            <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
+            <button type="button" class="density-chip" data-density="compact" onclick="setListDensity('compact')">Compact</button>
+          </div>
+        </div>
         <div class="card-body tight" id="newIssuesBody">
           <div class="empty" style="padding:28px 16px">
             <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load New issues…</p>
@@ -850,7 +876,20 @@
             <option value="none">No grouping</option>
           </select>
         </div>
-        <div class="card-body tight" id="activeWorkBody">
+        
+        <div class="list-secondary-bar">
+          <div class="quick-filter-bar">
+            <button type="button" class="quick-chip active" data-quick="all" onclick="setQuickFilter('all', renderActiveWork)">All</button>
+            <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderActiveWork)">Immediate</button>
+            <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderActiveWork)">Unassigned</button>
+            <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderActiveWork)">Updated 7d</button>
+          </div>
+          <div class="density-toggle">
+            <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
+            <button type="button" class="density-chip" data-density="compact" onclick="setListDensity('compact')">Compact</button>
+          </div>
+        </div>
+<div class="card-body tight" id="activeWorkBody">
           <div class="empty" style="padding:28px 16px">
             <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to load In Progress &amp; On Deploy issues…</p>
           </div>
@@ -903,7 +942,20 @@
             <option value="0">Show all</option>
           </select>
         </div>
-        <div class="card-body tight" id="whatNextBody">
+        
+        <div class="list-secondary-bar">
+          <div class="quick-filter-bar">
+            <button type="button" class="quick-chip active" data-quick="all" onclick="setQuickFilter('all', renderWhatNext)">All</button>
+            <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderWhatNext)">Immediate</button>
+            <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderWhatNext)">Unassigned</button>
+            <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderWhatNext)">Updated 7d</button>
+          </div>
+          <div class="density-toggle">
+            <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
+            <button type="button" class="density-chip" data-density="compact" onclick="setListDensity('compact')">Compact</button>
+          </div>
+        </div>
+<div class="card-body tight" id="whatNextBody">
           <div class="empty" style="padding:28px 16px">
             <p style="margin:0;color:var(--text-tertiary);font-size:13px">Open this menu to analyse which New issues to pick first…</p>
           </div>
@@ -1250,6 +1302,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.5</span>
+                <span class="cl-note">Quick filters (Immediate/Unassigned/7d) + Compact density</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.37.4</span>
                 <span class="cl-note">Batch select issues + improved empty states</span>

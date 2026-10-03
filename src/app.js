@@ -2095,6 +2095,84 @@ async function copySelectedTelegram(){
 }
 
 
+
+/* ============================================================
+   G) QUICK FILTER CHIPS + H) DENSITY MODE
+   ============================================================ */
+window.__quickFilter = window.__quickFilter || 'all'; // all | immediate | unassigned | updated7d
+
+function setQuickFilter(key, renderFn){
+  window.__quickFilter = key || 'all';
+  document.querySelectorAll('.quick-chip').forEach(b => {
+    b.classList.toggle('active', b.dataset.quick === window.__quickFilter);
+  });
+  try { savePersistedFilters({ quickFilter: window.__quickFilter }); } catch(_){}
+  if(typeof renderFn === 'function') renderFn();
+  else {
+    try { renderTesterList(); } catch(_){}
+    try { renderNewIssues(); } catch(_){}
+    try { renderActiveWork(); } catch(_){}
+    try { renderWhatNext(); } catch(_){}
+  }
+}
+
+function matchesQuickFilter(issue){
+  const qf = window.__quickFilter || 'all';
+  if(qf === 'all') return true;
+  if(qf === 'immediate'){
+    return (typeof priorityClass === 'function' ? priorityClass(issue.priority?.name) : '') === 'pri-immediate';
+  }
+  if(qf === 'unassigned'){
+    const name = (typeof formatAssignee === 'function') ? formatAssignee(issue.assigned_to) : (issue.assigned_to?.name || '');
+    return !issue.assigned_to || name === 'Unassigned';
+  }
+  if(qf === 'updated7d'){
+    const days = (typeof daysSince === 'function') ? daysSince(issue.updated_on || issue.created_on) : 999;
+    return days <= 7;
+  }
+  return true;
+}
+
+function quickFilterBarHtml(renderCall){
+  const qf = window.__quickFilter || 'all';
+  const chips = [
+    ['all', 'All'],
+    ['immediate', 'Immediate'],
+    ['unassigned', 'Unassigned'],
+    ['updated7d', 'Updated 7d']
+  ];
+  return `<div class="quick-filter-bar">
+    ${chips.map(([k, label]) =>
+      `<button type="button" class="quick-chip${qf === k ? ' active' : ''}" data-quick="${k}"
+        onclick="setQuickFilter('${k}', ${renderCall})">${label}</button>`
+    ).join('')}
+  </div>`;
+}
+
+/* H) Density */
+function getListDensity(){
+  try { return localStorage.getItem('erp_list_density') || 'comfortable'; } catch(_){ return 'comfortable'; }
+}
+function setListDensity(mode){
+  const m = mode === 'compact' ? 'compact' : 'comfortable';
+  try { localStorage.setItem('erp_list_density', m); } catch(_){}
+  document.documentElement.setAttribute('data-density', m);
+  document.querySelectorAll('.density-chip').forEach(b => {
+    b.classList.toggle('active', b.dataset.density === m);
+  });
+}
+function densityToggleHtml(){
+  const m = getListDensity();
+  return `<div class="density-toggle" title="Row density">
+    <button type="button" class="density-chip${m === 'comfortable' ? ' active' : ''}" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
+    <button type="button" class="density-chip${m === 'compact' ? ' active' : ''}" data-density="compact" onclick="setListDensity('compact')">Compact</button>
+  </div>`;
+}
+function applyDensityOnBoot(){
+  document.documentElement.setAttribute('data-density', getListDensity());
+}
+
+
 function emptyState(iconSvg, title, desc, actions){
   const btns = (actions || []).map(a =>
     `<button type="button" class="btn ${a.primary ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="${a.action}">${escapeHtml(a.label)}</button>`
@@ -2941,15 +3019,14 @@ function getFilteredTesterIssues(){
     if(!matchesProjectFilter(i, projFilter)) return false;
     if(priFilter !== 'all'){
       const pc = priorityClass(i.priority?.name);
-      // map filter value to class suffix
       const want = 'pri-' + priFilter;
-      // high filter also matches urgent class already in priorityClass
       if(priFilter === 'high'){
         if(pc !== 'pri-high') return false;
       } else if(pc !== want){
         return false;
       }
     }
+    if(!matchesQuickFilter(i)) return false;
     if(!q) return true;
     const hay = [
       i.id, i.subject, i.assigned_to?.name, i.priority?.name,
@@ -4749,6 +4826,9 @@ function getFilteredNewIssues(issues){
     });
   }
 
+  if(!list) list = issues || [];
+  list = (list || issues || []).filter(i => matchesQuickFilter(i));
+  // re-bind if list was const
   if(q){
     list = list.filter(i => {
       const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i.tracker?.name]
@@ -5386,6 +5466,7 @@ function filterActiveWorkList(list){
 }
 
 function renderActiveWorkTable(list){
+  list = (list || []).filter(i => matchesQuickFilter(i));
   if(!list.length){
     return `<div class="empty" style="padding:16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">No issues</p></div>`;
   }
@@ -5449,6 +5530,8 @@ function renderActiveWork(){
     return;
   }
   const data = window.__activeWorkData || { progress: [], deploy: [] };
+  // quick filters
+  const _qf = (arr) => (arr || []).filter(i => matchesQuickFilter(i));
   const statusFilter = ($('activeWorkStatusFilter')?.value) || 'all';
   const progress = filterActiveWorkList(data.progress || []);
   const deploy = filterActiveWorkList(data.deploy || []);
@@ -5665,7 +5748,7 @@ function getFilteredWhatNext(){
   }
   // already sorted by score
   if(limit > 0) list = list.slice(0, limit);
-  return list;
+  return list.filter(i => matchesQuickFilter(i));
 }
 
 function renderWhatNext(){
@@ -6734,7 +6817,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, openIssueStatusView, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
