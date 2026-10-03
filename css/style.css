@@ -2168,3 +2168,20 @@ body.share-mode .main{padding:16px;max-width:960px;margin:0 auto}
 .gs-label{font-size:13px;font-weight:600}
 .gs-sub{font-size:11px;color:var(--text-tertiary)}
 .list-meta-row{font-size:12px;color:var(--text-tertiary);padding:8px 12px 0}
+
+/* Monday-style issue chips */
+.issue-subject-line{font-weight:500;margin-bottom:4px;line-height:1.35}
+.issue-chip-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+.meta-chip{
+  display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;
+  padding:2px 7px;border-radius:999px;line-height:1.3;
+  background:var(--bg-subtle,#f1f5f9);color:var(--text-secondary,#64748b);
+  border:1px solid var(--line,#e2e8f0);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.meta-chip.chip-fe{background:rgba(37,99,235,.1);color:#2563eb;border-color:rgba(37,99,235,.25)}
+.meta-chip.chip-be{background:rgba(16,185,129,.1);color:#059669;border-color:rgba(16,185,129,.25)}
+.meta-chip.chip-design{background:rgba(168,85,247,.1);color:#7c3aed;border-color:rgba(168,85,247,.25)}
+.meta-chip.chip-other{background:rgba(100,116,139,.1);color:#475569;border-color:rgba(100,116,139,.2)}
+.meta-chip.chip-assignee{background:rgba(245,158,11,.1);color:#d97706;border-color:rgba(245,158,11,.25)}
+.meta-chip.chip-project{background:rgba(6,182,212,.1);color:#0891b2;border-color:rgba(6,182,212,.25)}
+.meta-chip.chip-muted{opacity:.75;font-weight:500}

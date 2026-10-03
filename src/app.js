@@ -4657,9 +4657,116 @@ function getFilteredNewIssues(issues){
   return list;
 }
 
+function categoryChip(name){
+  const n = String(name || '').trim();
+  if(!n) return '<span class="meta-chip chip-muted">—</span>';
+  const k = n.toLowerCase();
+  let cls = 'chip-cat';
+  if(/front/.test(k) || k === 'fe') cls += ' chip-fe';
+  else if(/back/.test(k) || k === 'be') cls += ' chip-be';
+  else if(/design/.test(k)) cls += ' chip-design';
+  else cls += ' chip-other';
+  return `<span class="meta-chip ${cls}">${escapeHtml(n)}</span>`;
+}
+
+function projectChip(label){
+  const n = String(label || '').trim() || '—';
+  return `<span class="meta-chip chip-project">${escapeHtml(n)}</span>`;
+}
+
+function assigneeChip(assigned){
+  const name = (typeof formatAssignee === 'function') ? formatAssignee(assigned) : (assigned?.name || 'Unassigned');
+  const cls = (!assigned || name === 'Unassigned') ? 'chip-muted' : 'chip-assignee';
+  return `<span class="meta-chip ${cls}">${escapeHtml(name)}</span>`;
+}
+
+function renderIssueStatusTable(issues, { showProject = true } = {}){
+  const rows = issues.map(issue => {
+    const url = `https://pjm.zahironline.com/issues/${issue.id}`;
+    const pri = issue.priority?.name || '—';
+    const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0,10)) : '—';
+    const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
+    const cat = issue.category?.name || resolveIssueCategory(issue.id, '', issue.subject) || '';
+    const proj = issue._projectLabel || issue.project?.name || '';
+    return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
+      <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
+      <td class="col-subject">
+        <div class="issue-subject-line">${escapeHtml(issue.subject || '—')}</div>
+        <div class="issue-chip-row">
+          ${categoryChip(cat)}
+          ${assigneeChip(issue.assigned_to)}
+          ${showProject ? projectChip(proj) : ''}
+        </div>
+      </td>
+      <td class="col-priority">${priHtml}</td>
+      <td class="col-updated">${escapeHtml(updated)}</td>
+      <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="tester-table-wrap">
+    <table class="tester-table">
+      <thead><tr>
+        <th class="col-id">Issue</th>
+        <th class="col-subject">Description</th>
+        <th class="col-priority">Priority</th>
+        <th class="col-updated">Updated</th>
+        <th class="col-open"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function collectNewIssuesFlat(){
+  const by = window.__newIssuesByProject || {};
+  const order = NEW_ISSUE_PROJECTS.map(p => p.key);
+  const projFilter = ($('newIssuesProjectFilter')?.value || 'all');
+  const out = [];
+  order.forEach(key => {
+    const block = by[key];
+    if(!block) return;
+    if(projFilter !== 'all' && key !== projFilter) return;
+    if(block.error) return;
+    const issues = getFilteredNewIssues(block.issues || []);
+    issues.forEach(i => {
+      out.push({
+        ...i,
+        _projectKey: key,
+        _projectLabel: block.projectName || block.label || key
+      });
+    });
+  });
+  // Priority first (Immediate → Low), then updated desc
+  out.sort((a, b) => {
+    const rank = (p) => {
+      const s = String(p?.name || '').toLowerCase();
+      if(/immediate|critical|blocker/.test(s)) return 0;
+      if(/urgent|high|major/.test(s)) return 1;
+      if(/normal|medium/.test(s)) return 2;
+      if(/low|minor|trivial/.test(s)) return 3;
+      return 4;
+    };
+    const ra = rank(a.priority), rb = rank(b.priority);
+    if(ra !== rb) return ra - rb;
+    return String(b.updated_on || '').localeCompare(String(a.updated_on || ''));
+  });
+  return out;
+}
+
 function renderNewIssues(){
   const el = $('newIssuesBody');
   if(!el) return;
+
+  // Date filter toggle
+  try {
+    const df = $('newIssuesDateFilter')?.value;
+    const showCustom = df === 'custom';
+    ['newIssuesDateFrom','newIssuesDateTo'].forEach(id => {
+      const n = $(id);
+      if(n) n.style.display = showCustom ? '' : 'none';
+    });
+  } catch(_){}
 
   if(window.__newIssuesError){
     el.innerHTML = emptyState(ICON.alert, window.__newIssuesError.title || 'Error', window.__newIssuesError.message || '', [
@@ -4671,73 +4778,97 @@ function renderNewIssues(){
   const by = window.__newIssuesByProject || {};
   const order = NEW_ISSUE_PROJECTS.map(p => p.key);
   if(!order.some(k => by[k])){
-    el.innerHTML = emptyState(ICON.inbox, 'No data yet', 'Click Refresh to load New issues from Redmine.', [
+    el.innerHTML = emptyState(ICON.inbox, 'No data yet', 'Click Refresh to load issues from Redmine.', [
       { label: 'Refresh', action: 'loadNewIssues(true)', primary: true }
     ]);
     return;
   }
 
-  const projFilter = ($('newIssuesProjectFilter')?.value || 'all');
-  el.innerHTML = order.map(key => {
-    const block = by[key];
-    if(!block) return '';
-    if(projFilter !== 'all' && key !== projFilter) return '';
-    const issues = getFilteredNewIssues(block.issues || []);
-    const title = block.projectName || block.label;
+  const groupBy = ($('newIssuesGroupBy')?.value || 'project');
+  const list = collectNewIssuesFlat();
+  const statusLabel = (typeof getIssueStatusDef === 'function')
+    ? getIssueStatusDef(window.__issueStatusKey || 'new').label
+    : 'issues';
+
+  if(!list.length){
+    // Still show project errors if any
+    const errBlocks = order.map(key => {
+      const block = by[key];
+      if(!block || !block.error) return '';
+      return `<div class="new-proj-block"><div class="new-proj-head"><div class="new-proj-title"><span>${escapeHtml(block.projectName || block.label || key)}</span></div></div>
+        <div class="empty" style="padding:16px"><p style="margin:0;color:#ef4444;font-size:13px">${escapeHtml(block.error)}</p></div></div>`;
+    }).join('');
+    el.innerHTML = errBlocks || emptyState(ICON.inbox, `No ${statusLabel} issues`, 'Try changing filters or refresh.', [
+      { label: 'Refresh', action: 'loadNewIssues(true)', primary: true }
+    ]);
+    return;
+  }
+
+  // groupBy: project | assignee | none
+  if(groupBy === 'none'){
+    el.innerHTML = renderIssueStatusTable(list, { showProject: true });
+    return;
+  }
+
+  const groups = {};
+  list.forEach(i => {
+    let key;
+    if(groupBy === 'assignee') key = formatAssignee(i.assigned_to);
+    else key = i._projectLabel || i.project?.name || 'Unknown project';
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(i);
+  });
+
+  const projectOrder = ['Zahir ERP', 'Zahir ERP One', 'Zahir ERP Manufacturing', 'Zahir MRP'];
+  const keys = Object.keys(groups).sort((a,b) => {
+    if(groupBy === 'project'){
+      const rank = (name) => {
+        const n = name.toLowerCase();
+        if(/^zahir\s*erp$/i.test(name.trim()) || n === 'zahir erp') return 0;
+        if(/erp\s*one/i.test(n)) return 1;
+        if(/manufactur|mfg/i.test(n)) return 2;
+        if(/mrp/i.test(n)) return 3;
+        return 50;
+      };
+      const ra = rank(a), rb = rank(b);
+      if(ra !== rb) return ra - rb;
+    }
+    if(groupBy === 'assignee'){
+      if(a === 'Unassigned') return 1;
+      if(b === 'Unassigned') return -1;
+    }
+    return groups[b].length - groups[a].length || a.localeCompare(b);
+  });
+
+  el.innerHTML = keys.map(key => {
+    const issues = groups[key];
     const head = `
       <div class="new-proj-head">
         <div class="new-proj-title">
-          <span>${escapeHtml(title)}</span>
+          <span>${escapeHtml(key)}</span>
           <span class="badge badge-cyan">${issues.length}</span>
-          ${block.projectId ? `<span class="meta-chip" style="font-size:11px">#${block.projectId}</span>` : ''}
         </div>
         <div class="new-proj-actions">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="copyNewIssueLinks('${key}')" ${!issues.length ? 'disabled' : ''}>
+          <button type="button" class="btn btn-secondary btn-sm" data-group-key="${escapeHtml(key)}" onclick="copyGroupIssueLinks(this.getAttribute('data-group-key'))" ${!issues.length ? 'disabled' : ''}>
             Copy links
           </button>
         </div>
       </div>`;
-
-    if(block.error){
-      return `<div class="new-proj-block">${head}
-        <div class="empty" style="padding:16px"><p style="margin:0;color:#ef4444;font-size:13px">${escapeHtml(block.error)}</p></div>
-      </div>`;
-    }
-    if(!issues.length){
-      return `<div class="new-proj-block">${head}
-        <div class="empty" style="padding:16px"><p style="margin:0;color:var(--text-tertiary);font-size:13px">No New issues</p></div>
-      </div>`;
-    }
-
-    const rows = issues.map(issue => {
-      const url = `https://pjm.zahironline.com/issues/${issue.id}`;
-      const pri = issue.priority?.name || '—';
-      const updated = issue.updated_on ? formatDate(issue.updated_on.slice(0,10)) : '—';
-      const priHtml = (typeof priorityBadge === 'function') ? priorityBadge(pri) : escapeHtml(pri);
-      return `<tr class="tester-tr" onclick="window.open('${escapeHtml(url)}','_blank','noopener')">
-        <td class="col-id"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">#${issue.id}</a></td>
-        <td class="col-subject">${escapeHtml(issue.subject || '—')}</td>
-        <td class="col-priority">${priHtml}</td>
-        <td class="col-updated">${escapeHtml(updated)}</td>
-        <td class="col-open"><a href="${escapeHtml(url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${ICON.externalLink}</a></td>
-      </tr>`;
-    }).join('');
-
-    return `<div class="new-proj-block">${head}
-      <div class="tester-table-wrap">
-        <table class="tester-table">
-          <thead><tr>
-            <th class="col-id">Issue</th>
-            <th class="col-subject">Description</th>
-            <th class="col-priority">Priority</th>
-            <th class="col-updated">Updated</th>
-            <th class="col-open"></th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
+    return `<div class="new-proj-block tester-group">${head}
+      ${renderIssueStatusTable(issues, { showProject: groupBy !== 'project' })}
     </div>`;
   }).join('');
+}
+
+function copyGroupIssueLinks(groupKey){
+  const groupBy = ($('newIssuesGroupBy')?.value || 'project');
+  const list = collectNewIssuesFlat().filter(i => {
+    if(groupBy === 'assignee') return formatAssignee(i.assigned_to) === groupKey;
+    return (i._projectLabel || i.project?.name || 'Unknown project') === groupKey;
+  });
+  if(!list.length){ toast('No links to copy', 'error'); return; }
+  const text = list.map(i => `https://pjm.zahironline.com/issues/${i.id}`).join('\n');
+  navigator.clipboard.writeText(text).then(() => toast('Links copied')).catch(() => toast('Copy failed', 'error'));
 }
 
 function buildNewIssueLinksText(key){
@@ -6370,7 +6501,7 @@ function exposeAppGlobals(){
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
-    openNewIssuesView, openIssueStatusView, loadNewIssues, renderNewIssues, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
+    openNewIssuesView, openIssueStatusView, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,

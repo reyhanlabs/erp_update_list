@@ -728,6 +728,11 @@
             </svg>
             <input type="text" id="newIssuesSearch" placeholder="Search subject, #id, priority..." oninput="renderNewIssues()"/>
           </div>
+          <select class="select" id="newIssuesGroupBy" onchange="renderNewIssues()">
+            <option value="project" selected>Group: Project</option>
+            <option value="assignee">Group: Assignee</option>
+            <option value="none">Group: None</option>
+          </select>
           <select class="select" id="newIssuesProjectFilter" onchange="renderNewIssues()">
             <option value="all">Project: All</option>
             <option value="erp">Zahir ERP</option>
@@ -735,14 +740,15 @@
             <option value="mfg">Manufacturing</option>
             <option value="mrp">Zahir MRP</option>
           </select>
-          <select class="select" id="newIssuesStatusFilter" onchange="loadNewIssues(true)">
+          <select class="select" id="newIssuesStatusFilter" onchange="loadNewIssues(true)" title="Override status name if Redmine differs">
             <option value="New" selected>Status: New</option>
             <option value="In Progress">In Progress</option>
-            <option value="Ready for Testing">Ready for Testing</option>
+            <option value="On Deploy">On Deploy</option>
+            <option value="Rework">Rework</option>
             <option value="Feedback">Feedback</option>
+            <option value="Ready for Testing">Ready for Testing</option>
             <option value="Resolved">Resolved</option>
             <option value="Closed">Closed</option>
-            <option value="Rejected">Rejected</option>
           </select>
           <select class="select" id="newIssuesPriorityFilter" onchange="renderNewIssues()">
             <option value="all">Priority: All</option>
@@ -1224,6 +1230,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.1</span>
+                <span class="cl-note">Issue Status: group by project/assignee + FE/BE/assignee chips</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.37.0</span>
                 <span class="cl-note">Issue Status: New, On Progress, On Deploy, Rework, Feedback · hide Showing N of N</span>
