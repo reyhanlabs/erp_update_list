@@ -910,29 +910,24 @@
     <!-- WHAT NEXT — prioritized New issues -->
     
     <section class="view" id="view-clients">
-      <div class="card tester-card">
+      <div class="card tester-card clients-card">
         <div class="card-head">
           <h3>
             <span class="mark" style="background:linear-gradient(135deg,#8b5cf6,#6366f1)"></span>
             By Client
             <span class="badge badge-violet" id="clientsTotalBadge" style="margin-left:8px">—</span>
           </h3>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshClients" onclick="loadClientIssues(window.__clientQuery, true)">Refresh</button>
-          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshClients" onclick="loadClientIssues(window.__clientQuery, true)">Refresh</button>
         </div>
-        <div class="toolbar toolbar-float toolbar-sticky" style="margin:12px 12px 0;box-shadow:none">
-          <div class="search-wrap" style="flex:1;min-width:200px">
+        <div class="clients-search-row">
+          <div class="search-wrap clients-search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="clientSearchInput" placeholder="Client Name (e.g. company name)…"
+            <input type="text" id="clientSearchInput" placeholder="Type Client Name then press Enter…"
               onkeydown="if(event.key==='Enter'){event.preventDefault();loadClientIssues(this.value,true);}"/>
           </div>
           <button type="button" class="btn btn-primary btn-sm" onclick="loadClientIssues($('clientSearchInput').value, true)">Search</button>
-          <select class="select" id="clientProjectFilter" onchange="renderClientIssues()" style="display:none">
-            <option value="all">Project: All</option>
-          </select>
         </div>
-        <div class="list-secondary-bar">
+        <div class="list-secondary-bar clients-filters hidden" id="clientsFiltersBar">
           <div class="quick-filter-bar">
             <button type="button" class="quick-chip active" data-quick="all" onclick="setQuickFilter('all', renderClientIssues)">All</button>
             <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderClientIssues)">Immediate</button>
@@ -941,8 +936,9 @@
           </div>
         </div>
         <div class="card-body tight" id="clientsBody">
-          <div class="empty" style="padding:28px 16px">
-            <p style="margin:0;color:var(--text-tertiary);font-size:13px">Enter a Client Name to load issues from Redmine.</p>
+          <div class="empty clients-empty">
+            <p class="clients-empty-title">Search by client</p>
+            <p class="clients-empty-desc">Enter a name from the Redmine field <b>Client Name</b>, then press Search.</p>
           </div>
         </div>
       </div>
@@ -1352,6 +1348,14 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.2</span>
+                <span class="cl-note">Fix broken layout: topbar title, batch bar, By Client page</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.1</span>
+                <span class="cl-note">By Client: fix header text + clearer search hint</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.38.0</span>
                 <span class="cl-note">By Client — issues via Redmine Client Name field</span>

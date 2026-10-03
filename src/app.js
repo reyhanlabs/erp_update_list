@@ -687,7 +687,7 @@ const VIEW_META = {
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
   newissues:{ title:'Issue Status', sub:'New · On Progress · On Deploy · Rework · Feedback', addBtn:false },
-  clients:  { title:'By Client', sub:'Issues filtered by Client Name', addBtn:false },
+  clients:  { title:'By Client', sub:'Search issues by Client Name', addBtn:false },
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
@@ -820,7 +820,7 @@ function initRouter(){
 
 function switchView(view){
   currentView = view;
-  try { if(window.__selectedIssueIds && window.__selectedIssueIds.size){ /* keep selection across status tabs */ } } catch(_){}
+  try { updateBatchBar(); } catch(_){}
   // Keep URL in sync for shareable links
   try {
     const cat = view === 'tester' ? (window.__testerCategory || 'all') : '';
@@ -7042,9 +7042,14 @@ async function resolveClientNameFieldId(force){
 
 function openClientsView(){
   switchView('clients');
+  try {
+    if($('pageTitle')) $('pageTitle').textContent = 'By Client';
+    if($('pageSubtitle')) $('pageSubtitle').textContent = 'Search issues by Client Name';
+  } catch(_){}
   const q = ($('clientSearchInput')?.value || '').trim();
   if(q) loadClientIssues(q, false);
   else renderClientIssues();
+  setTimeout(() => { try { $('clientSearchInput')?.focus(); } catch(_){} }, 100);
 }
 
 async function loadClientIssues(clientName, force){
@@ -7166,7 +7171,9 @@ async function loadClientIssues(clientName, force){
 function renderClientIssues(){
   const el = $('clientsBody');
   if(!el) return;
+  const filtersBar = $('clientsFiltersBar');
   if(window.__clientError){
+    if(filtersBar) filtersBar.classList.add('hidden');
     el.innerHTML = emptyState(ICON.alert, window.__clientError.title || 'Error', window.__clientError.message || '', [
       { label: 'Try again', action: "loadClientIssues(window.__clientQuery, true)", primary: true }
     ]);
@@ -7174,18 +7181,22 @@ function renderClientIssues(){
   }
   const q = window.__clientQuery || '';
   if(!q){
-    el.innerHTML = emptyState(ICON.inbox, 'Search by client', 'Type a Client Name (Redmine custom field) and press Search.', [
-      { label: 'Focus search', action: "$('clientSearchInput')?.focus()", primary: true }
-    ]);
+    if(filtersBar) filtersBar.classList.add('hidden');
+    el.innerHTML = `<div class="empty clients-empty">
+      <p class="clients-empty-title">Search by client</p>
+      <p class="clients-empty-desc">Enter a name from the Redmine field <b>Client Name</b>, then press Search.</p>
+    </div>`;
     return;
   }
   const list = (window.__clientIssues || []).filter(i => matchesQuickFilter(i));
   if(!list.length){
-    el.innerHTML = emptyState(ICON.inbox, 'No issues', `No issues matched “${q}”. Try another spelling or clear quick filters.`, [
+    if(filtersBar) filtersBar.classList.add('hidden');
+    el.innerHTML = emptyState(ICON.inbox, 'No issues', `No issues matched “${escapeHtml(q)}”. Try the exact Client Name from Redmine.`, [
       { label: 'Search again', action: "loadClientIssues(window.__clientQuery, true)", primary: true }
     ]);
     return;
   }
+  if(filtersBar) filtersBar.classList.remove('hidden');
 
   // Group by status
   const groups = {};
