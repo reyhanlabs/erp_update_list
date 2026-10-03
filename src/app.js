@@ -4648,15 +4648,16 @@ async function prefetchAllIssueStatusBadges(){
       try { await loadRedmineProjects(); } catch(_){}
     }
     const targets = (typeof resolveNewIssueProjectIds === 'function') ? resolveNewIssueProjectIds() : [];
-    if(!targets.length) return;
+    if(!targets.length){
+      console.warn('[issue-status badges] no projects resolved');
+      return;
+    }
 
-    await Promise.all(Object.keys(ISSUE_STATUS_DEFS).map(async (statusKey) => {
+    // Run statuses sequentially to avoid stampeding Redmine; projects in parallel per status
+    for(const statusKey of Object.keys(ISSUE_STATUS_DEFS)){
       const def = ISSUE_STATUS_DEFS[statusKey];
-      let total = 0;
-      let ok = false;
-      await Promise.all(targets.map(async (t) => {
-        if(!t.projectId) return;
-        // try each status name until one resolves
+      const perProject = await Promise.all(targets.map(async (t) => {
+        if(!t.projectId) return 0;
         for(const name of def.names){
           try {
             const params = new URLSearchParams();
@@ -4664,18 +4665,17 @@ async function prefetchAllIssueStatusBadges(){
             params.set('project_id', String(t.projectId));
             params.set('limit', '1');
             const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`, { force: false });
-            const n = (typeof data.total_count === 'number') ? data.total_count : (data.issues || []).length;
-            total += n;
-            ok = true;
-            break;
-          } catch(_){}
+            return (typeof data.total_count === 'number') ? data.total_count : (data.issues || []).length;
+          } catch(err){
+            // try next name
+          }
         }
+        return 0;
       }));
-      if(!ok) return;
+      const total = perProject.reduce((a, b) => a + (b || 0), 0);
       const el = $(def.badgeId);
       if(el) el.textContent = String(total);
       const prev = window.__issueStatusCache[statusKey] || {};
-      // Prefer existing full list cache; only update badge total
       if(prev.byProject && !prev.badgesOnly){
         window.__issueStatusCache[statusKey] = {
           ...prev,
@@ -4689,8 +4689,9 @@ async function prefetchAllIssueStatusBadges(){
           badgesOnly: true
         };
       }
-    }));
-    persistIssueStatusBadges();
+      console.info('[issue-status badges]', statusKey, total);
+    }
+    try { persistIssueStatusBadges(); } catch(_){}
   } catch(err){
     console.warn('prefetchAllIssueStatusBadges', err);
   }
@@ -6240,6 +6241,8 @@ function startBackgroundAutoRefresh(){
       if(currentView !== 'tester'){
         prefetchTesterCount().catch(()=>{});
       }
+      // Keep Issue Status sidebar badges warm
+      prefetchAllIssueStatusBadges().catch(()=>{});
     } catch(e){ console.warn('auto-refresh', e); }
   }, AUTO_REFRESH_MS);
 }
@@ -7034,8 +7037,9 @@ export async function startApp(){
     // Lightweight sidebar counts (limit=1 per project)
     setTimeout(() => {
       prefetchNewIssueCounts().catch(()=>{});
+      prefetchAllIssueStatusBadges().catch(()=>{});
       prefetchActiveWorkCounts().catch(()=>{});
-    }, 2500);
+    }, 1800);
     document.addEventListener('click', (e) => {
       const wrap = $('notifBellWrap');
       if(wrap && !wrap.contains(e.target)) closeNotifPanel();
