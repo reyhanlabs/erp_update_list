@@ -2176,6 +2176,15 @@ function applyDensityOnBoot(){
 }
 
 
+function setNavCount(idOrEl, n){
+  const el = typeof idOrEl === 'string' ? $(idOrEl) : idOrEl;
+  if(!el) return;
+  const v = (n == null || n === '' || n === '—') ? '—' : String(n);
+  el.textContent = v;
+  const num = parseInt(v, 10);
+  el.dataset.zero = (!isNaN(num) && num === 0) || v === '—' ? '1' : '0';
+}
+
 function emptyState(iconSvg, title, desc, actions){
   const btns = (actions || []).map(a =>
     `<button type="button" class="btn ${a.primary ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="${a.action}">${escapeHtml(a.label)}</button>`
@@ -4638,7 +4647,7 @@ function applyIssueStatusBadgesFromCache(){
     const total = c && c.meta && c.meta.total != null ? c.meta.total : null;
     if(total == null) return;
     const el = $(def.badgeId);
-    if(el) el.textContent = String(total);
+    if(el) setNavCount(el, total);
   });
 }
 
@@ -4675,7 +4684,7 @@ async function prefetchAllIssueStatusBadges(){
       }));
       const total = perProject.reduce((a, b) => a + (b || 0), 0);
       const el = $(def.badgeId);
-      if(el) el.textContent = String(total);
+      if(el) setNavCount(el, total);
       const prev = window.__issueStatusCache[statusKey] || {};
       if(prev.byProject && !prev.badgesOnly){
         window.__issueStatusCache[statusKey] = {
@@ -4738,7 +4747,7 @@ function openIssueStatusView(statusKey){
     const badge = $('newIssuesTotalBadge');
     if(badge) badge.textContent = String(total);
     const sb = $(def.badgeId);
-    if(sb) sb.textContent = String(total);
+    if(sb) setNavCount(sb, total);
     const age = cached.at ? (Date.now() - cached.at) : Infinity;
     // Always soft-refresh so counts don't stay stuck; use force when empty
     const empty = total === 0;
@@ -4901,7 +4910,7 @@ async function loadNewIssues(force){
     try { persistIssueStatusCache(); } catch(_){}
     const defB = getIssueStatusDef(sk);
     const sb = defB.badgeId ? $(defB.badgeId) : null;
-    if(sb) sb.textContent = String(total);
+    if(sb) setNavCount(sb, total);
     // legacy badge
     const leg = $('countNewIssues');
     if(leg && sk === 'new') leg.textContent = String(total);
@@ -7288,7 +7297,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
