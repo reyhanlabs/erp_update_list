@@ -2743,6 +2743,20 @@ function pushNotifRecent(issues){
   updateNotifToggleUI();
 }
 
+function positionNotifPanel(){
+  const panel = $('notifPanel');
+  const btn = $('btnNotifBell');
+  if(!panel || !btn || panel.classList.contains('hidden')) return;
+  const r = btn.getBoundingClientRect();
+  const pw = Math.min(340, window.innerWidth - 24);
+  let left = r.right - pw;
+  if(left < 12) left = 12;
+  if(left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  let top = r.bottom + 8;
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+  panel.style.right = 'auto';
+}
 function toggleNotifPanel(ev){
   if(ev){
     ev.preventDefault();
@@ -2753,9 +2767,8 @@ function toggleNotifPanel(ev){
   const opening = panel.classList.contains('hidden');
   if(opening){
     panel.classList.remove('hidden');
-    // Opening panel marks recent as seen (badge clears)
+    positionNotifPanel();
     (window.__notifRecent || []).forEach(x => { x.seen = true; });
-    // Prevent the same click from immediately closing via document listener
     window.__notifOpenedAt = Date.now();
   } else {
     closeNotifPanel();
@@ -7299,7 +7312,7 @@ function exposeAppGlobals(){
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
-    toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel,
+    toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel, positionNotifPanel,
     // Plan cards
     togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, installPwaApp, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
     // Summaries
@@ -7345,9 +7358,10 @@ export async function startApp(){
       const wrap = $('notifBellWrap');
       const panel = $('notifPanel');
       if(!panel || panel.classList.contains('hidden')) return;
-      // Ignore the click that just opened the panel
-      if(window.__notifOpenedAt && (Date.now() - window.__notifOpenedAt) < 250) return;
-      if(wrap && wrap.contains(e.target)) return;
+      if(window.__notifOpenedAt && (Date.now() - window.__notifOpenedAt) < 300) return;
+      const t = e.target;
+      if(wrap && wrap.contains(t)) return;
+      if(panel.contains(t)) return;
       closeNotifPanel();
     });
     document.addEventListener('keydown', (e) => {
@@ -7356,6 +7370,7 @@ export async function startApp(){
         if(panel && !panel.classList.contains('hidden')) closeNotifPanel();
       }
     });
+    window.addEventListener('resize', () => { try { positionNotifPanel(); } catch(_){} });
   } catch(_){}
 
   // Formerly DOMContentLoaded handler

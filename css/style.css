@@ -349,13 +349,14 @@ svg{display:block;flex-shrink:0;width:14px;height:14px;max-width:100%;max-height
   backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
   border-bottom:1px solid var(--line);padding:0 28px;
   display:flex;align-items:center;justify-content:space-between;
-  flex-shrink:0;z-index:20;gap:16px;flex-wrap:nowrap;
+  flex-shrink:0;z-index:100;gap:16px;flex-wrap:nowrap;
+  overflow:visible;
   transition:background-color .3s var(--ease), border-color .3s var(--ease);
 }
 .topbar-left{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto;overflow:hidden}
 .topbar-right{flex:0 0 auto}
 .page-heading p{font-size:12.5px;color:var(--text-tertiary);margin-top:1px;font-weight:450;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.topbar-right{display:flex;align-items:center;gap:10px}
+.topbar-right{display:flex;align-items:center;gap:10px;overflow:visible;position:relative;z-index:101}
 .menu-toggle{display:none;padding:8px;border-radius:var(--r-sm);color:var(--text-secondary)}
 .menu-toggle:hover{background:var(--bg-subtle)}
 .page-heading{min-width:0;flex:1 1 auto;overflow:hidden}
@@ -1944,7 +1945,7 @@ body.auth-locked .main{
 
 
 /* Topbar notification bell */
-.notif-bell-wrap{position:relative}
+.notif-bell-wrap{position:relative;z-index:102}
 .notif-bell-btn{
   width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
   background:var(--surface);color:var(--text-secondary);
@@ -1958,10 +1959,11 @@ body.auth-locked .main{
   background:#ef4444;box-shadow:0 0 0 2px var(--surface);
 }
 .notif-panel{
-  position:absolute;top:calc(100% + 8px);right:0;z-index:200;
-  width:280px;padding:14px;
+  position:fixed;z-index:500;
+  width:min(340px, calc(100vw - 24px));padding:14px;
   background:var(--surface);border:1px solid var(--line);border-radius:14px;
   box-shadow:var(--shadow-xl);
+  max-height:min(70vh, 520px);overflow-y:auto;
 }
 .notif-panel.hidden{display:none !important}
 .notif-panel-head{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:6px}
@@ -2082,7 +2084,8 @@ button.dash-new-stat:hover{transform:translateY(-1px);box-shadow:var(--shadow-md
 }
 .notif-bell-badge.hidden{display:none !important}
 .notif-panel{
-  width:min(340px,calc(100vw - 24px));padding:14px 14px 12px;
+  /* position/size set above — keep padding consistent */
+  padding:14px 14px 12px;
 }
 .notif-panel-head{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
