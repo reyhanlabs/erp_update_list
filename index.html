@@ -481,7 +481,7 @@
       <div class="dash-actions">
         <button type="button" class="dash-action-btn" onclick="switchView('plans'); openAddModal()">
           <span class="da-icon blue">+</span>
-          <span class="da-text"><strong>New Plan</strong><small>Tambah update plan manual</small></span>
+          <span class="da-text"><strong>New Plan</strong><small>Add update plan manually</small></span>
         </button>
         <button type="button" class="dash-action-btn" onclick="openTesterCategory('frontend')">
           <span class="da-icon amber">T</span>
@@ -555,7 +555,7 @@
               <span class="sp-dot"></span>
               <span id="redmineStatusText">Ready</span>
             </span>
-            <button type="button" class="btn-icon" onclick="toggleSyncPanel(false)" title="Tutup">
+            <button type="button" class="btn-icon" onclick="toggleSyncPanel(false)" title="Close">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
@@ -1362,6 +1362,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.42.1</span>
+                <span class="cl-note">UI language: English across Documentation, Knowledge Base, and navigation</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.42.0</span>
                 <span class="cl-note">New Knowledge Base: write and share how-to guides for Zahir ERP, ERP One, Manufacturing & MRP, with screenshots</span>
               </div>
@@ -1814,8 +1818,8 @@
       <div class="kb">
         <div id="kbBrowse">
           <div class="kb-bar">
-            <div class="kb-products" role="group" aria-label="Produk">
-              <button type="button" data-kb-product="all" class="is-active" aria-pressed="true">Semua produk</button>
+            <div class="kb-products" role="group" aria-label="Product">
+              <button type="button" data-kb-product="all" class="is-active" aria-pressed="true">All products</button>
               <button type="button" data-kb-product="erp" aria-pressed="false">Zahir ERP</button>
               <button type="button" data-kb-product="one" aria-pressed="false">ERP One</button>
               <button type="button" data-kb-product="mfg" aria-pressed="false">Manufacturing</button>
@@ -1823,16 +1827,16 @@
             </div>
             <label class="kb-search">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              <input type="search" id="kbSearch" placeholder="Cari panduan, mis. faktur, stok opname, closing" autocomplete="off" aria-label="Cari panduan">
+              <input type="search" id="kbSearch" placeholder="Search guides, e.g. invoice, stock opname, closing" autocomplete="off" aria-label="Search guides">
             </label>
             <button type="button" class="btn btn-primary btn-sm kb-new" data-kb-act="new">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-              Tulis panduan
+              Write guide
             </button>
           </div>
-          <select class="input kb-module-select" id="kbModuleSelect" aria-label="Modul"></select>
+          <select class="input kb-module-select" id="kbModuleSelect" aria-label="Module"></select>
           <div class="kb-main" id="kbMain">
-            <nav class="kb-modules" id="kbModules" aria-label="Modul"></nav>
+            <nav class="kb-modules" id="kbModules" aria-label="Module"></nav>
             <div class="kb-list" id="kbList"></div>
             <article class="kb-reader" id="kbReader" aria-live="polite"></article>
           </div>
@@ -1840,22 +1844,22 @@
 
         <div class="kb-editor hidden" id="kbEditor">
           <div class="kb-editor-head">
-            <h2 id="kbEditorHeading">Tulis panduan baru</h2>
+            <h2 id="kbEditorHeading">Write new guide</h2>
             <div class="kb-editor-actions">
               <span class="kb-editor-hint" id="kbEditorHint" role="status"></span>
-              <button type="button" class="btn btn-secondary btn-sm" data-kb-act="cancel">Batal</button>
-              <button type="button" class="btn btn-primary btn-sm" id="kbSaveBtn" data-kb-act="save">Simpan panduan</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-kb-act="cancel">Cancel</button>
+              <button type="button" class="btn btn-primary btn-sm" id="kbSaveBtn" data-kb-act="save">Save guide</button>
             </div>
           </div>
           <div class="kb-form">
             <label class="kb-field kb-field-wide">
-              <span>Judul <i>wajib</i></span>
-              <input class="input" id="kbTitle" maxlength="160" placeholder="Cara membuat Faktur Penjualan dari Sales Order">
+              <span>Title <i>required</i></span>
+              <input class="input" id="kbTitle" maxlength="160" placeholder="How to create a Sales Invoice from a Sales Order">
             </label>
             <label class="kb-field">
-              <span>Produk <i>wajib</i></span>
+              <span>Product <i>required</i></span>
               <select class="input" id="kbProduct">
-                <option value="">Pilih produk</option>
+                <option value="">Select product</option>
                 <option value="erp">Zahir ERP</option>
                 <option value="one">Zahir ERP One</option>
                 <option value="mfg">Zahir Manufacturing</option>
@@ -1863,49 +1867,49 @@
               </select>
             </label>
             <label class="kb-field">
-              <span>Modul <i>wajib</i></span>
-              <input class="input" id="kbModule" list="kbModuleList" maxlength="60" placeholder="Penjualan">
+              <span>Module <i>required</i></span>
+              <input class="input" id="kbModule" list="kbModuleList" maxlength="60" placeholder="Sales">
               <datalist id="kbModuleList"></datalist>
             </label>
             <label class="kb-field">
-              <span>Berlaku untuk versi</span>
-              <input class="input" id="kbVersion" maxlength="40" placeholder="V2.26.09 ke atas">
+              <span>Applies to version</span>
+              <input class="input" id="kbVersion" maxlength="40" placeholder="V2.26.09 and above">
             </label>
             <label class="kb-field">
               <span>Tag</span>
-              <input class="input" id="kbTags" maxlength="200" placeholder="faktur, pajak, diskon">
+              <input class="input" id="kbTags" maxlength="200" placeholder="invoice, tax, discount">
             </label>
             <label class="kb-field kb-field-wide">
-              <span>Ringkasan satu kalimat</span>
-              <input class="input" id="kbSummary" maxlength="220" placeholder="Muncul di daftar dan membantu pencarian">
+              <span>One-line summary</span>
+              <input class="input" id="kbSummary" maxlength="220" placeholder="Shown in the list and helps search">
             </label>
           </div>
 
           <div class="kb-compose">
             <div class="kb-compose-bar">
               <div class="kb-tabs" role="tablist">
-                <button type="button" role="tab" data-kb-tab="write" class="is-active" aria-selected="true">Tulis</button>
-                <button type="button" role="tab" data-kb-tab="preview" aria-selected="false">Pratinjau</button>
+                <button type="button" role="tab" data-kb-tab="write" class="is-active" aria-selected="true">Write</button>
+                <button type="button" role="tab" data-kb-tab="preview" aria-selected="false">Preview</button>
               </div>
               <div class="kb-md-tools" id="kbMdTools" role="toolbar" aria-label="Format">
-                <button type="button" data-kb-md="h" title="Judul bagian">Judul</button>
-                <button type="button" data-kb-md="bold" title="Tebal (Ctrl+B)"><b>B</b></button>
-                <button type="button" data-kb-md="ol" title="Langkah bernomor">1. Langkah</button>
-                <button type="button" data-kb-md="ul" title="Daftar poin">• Poin</button>
-                <button type="button" data-kb-md="path" title="Jalur menu, mis. Penjualan > Faktur">Menu ›</button>
-                <button type="button" data-kb-md="note" title="Kotak catatan">Catatan</button>
-                <button type="button" data-kb-md="warn" title="Kotak peringatan">Penting</button>
-                <button type="button" data-kb-md="table" title="Tabel field">Tabel</button>
+                <button type="button" data-kb-md="h" title="Section heading">Heading</button>
+                <button type="button" data-kb-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                <button type="button" data-kb-md="ol" title="Numbered steps">1. Steps</button>
+                <button type="button" data-kb-md="ul" title="Bullet list">• List</button>
+                <button type="button" data-kb-md="path" title="Menu path, e.g. Sales > Invoice">Menu ›</button>
+                <button type="button" data-kb-md="note" title="Note box">Note</button>
+                <button type="button" data-kb-md="warn" title="Warning box">Important</button>
+                <button type="button" data-kb-md="table" title="Field table">Table</button>
                 <button type="button" data-kb-md="link" title="Link">Link</button>
-                <button type="button" data-kb-md="image" title="Sisipkan screenshot" class="kb-tool-img">
+                <button type="button" data-kb-md="image" title="Insert screenshot" class="kb-tool-img">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
-                  Gambar
+                  Image
                 </button>
               </div>
             </div>
-            <textarea class="kb-textarea" id="kbContent" spellcheck="true" aria-label="Isi panduan"></textarea>
+            <textarea class="kb-textarea" id="kbContent" spellcheck="true" aria-label="Guide content"></textarea>
             <div class="kb-preview md-body hidden" id="kbPreview"></div>
-            <p class="kb-compose-foot">Tempel screenshot dengan <kbd>Ctrl</kbd>+<kbd>V</kbd> atau seret file gambar ke kolom tulis. Simpan dengan <kbd>Ctrl</kbd>+<kbd>S</kbd>. Tulis <code>Penjualan &gt; Faktur</code> untuk jalur menu.</p>
+            <p class="kb-compose-foot">Paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd> or drop image files into the editor. Save with <kbd>Ctrl</kbd>+<kbd>S</kbd>. Write <code>Sales &gt; Invoice</code> for menu paths.</p>
             <input type="file" id="kbImgInput" accept="image/*" multiple hidden>
           </div>
         </div>
@@ -1916,316 +1920,269 @@
       <div class="docs">
         <header class="docs-hero">
           <div class="docs-hero-text">
-            <h1>Panduan Zahir ERP Update Manager</h1>
-            <p>Semua yang bisa dilakukan aplikasi ini: dari menarik issue Redmine, menyusun update plan, sampai membagikan ringkasan ke grup WA dan Telegram.</p>
+            <h1>Zahir ERP Update Manager Guide</h1>
+            <p>Everything this app can do: pull issues from Redmine, build update plans, and share summaries to WA and Telegram groups.</p>
           </div>
           <label class="docs-search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input type="search" id="docsSearch" placeholder="Cari di panduan, mis. telegram, backup, summary" autocomplete="off" aria-label="Cari di panduan">
+            <input type="search" id="docsSearch" placeholder="Search the guide, e.g. telegram, backup, summary" autocomplete="off" aria-label="Search documentation">
           </label>
         </header>
 
-        <nav class="docs-flow" aria-label="Alur kerja harian">
-          <p class="docs-flow-title">Alur kerja harian</p>
+        <nav class="docs-flow" aria-label="Daily workflow">
+          <p class="docs-flow-title">Daily workflow</p>
           <ol>
-            <li><a href="#docs-sync" data-docs-jump="docs-sync"><span class="docs-flow-n">1</span><b>Tarik issue dari Redmine</b><small>Sync from Redmine</small></a></li>
-            <li><a href="#docs-plans" data-docs-jump="docs-plans"><span class="docs-flow-n">2</span><b>Rapikan jadi Update Plan</b><small>Update Plans</small></a></li>
-            <li><a href="#docs-summaries" data-docs-jump="docs-summaries"><span class="docs-flow-n">3</span><b>Buat ringkasan rilis</b><small>Update Summaries</small></a></li>
-            <li><a href="#docs-share" data-docs-jump="docs-share"><span class="docs-flow-n">4</span><b>Bagikan ke tim</b><small>Copy, share link, Telegram</small></a></li>
+            <li><a href="#docs-sync" data-docs-jump="docs-sync"><span class="docs-flow-n">1</span><b>Pull issues from Redmine</b><small>Sync from Redmine</small></a></li>
+            <li><a href="#docs-plans" data-docs-jump="docs-plans"><span class="docs-flow-n">2</span><b>Organize into an Update Plan</b><small>Update Plans</small></a></li>
+            <li><a href="#docs-summaries" data-docs-jump="docs-summaries"><span class="docs-flow-n">3</span><b>Create a release summary</b><small>Update Summaries</small></a></li>
+            <li><a href="#docs-share" data-docs-jump="docs-share"><span class="docs-flow-n">4</span><b>Share with the team</b><small>Copy, share link, Telegram</small></a></li>
           </ol>
         </nav>
 
         <div class="docs-layout">
-          <aside class="docs-toc" aria-label="Daftar isi">
+          <aside class="docs-toc" aria-label="Table of contents">
             <div class="docs-toc-group">
-              <p>Memulai</p>
-              <a href="#docs-account">Login &amp; akun</a>
-              <a href="#docs-workspace">Workspace tim</a>
-              <a href="#docs-look">Tampilan &amp; sidebar</a>
-              <a href="#docs-pwa">Pasang di HP</a>
+              <span>Getting started</span>
+              <a href="#docs-account">Login &amp; account</a>
+              <a href="#docs-workspace">Team workspace</a>
+              <a href="#docs-look">Appearance &amp; sidebar</a>
+              <a href="#docs-pwa">Install on phone</a>
             </div>
             <div class="docs-toc-group">
-              <p>Alur update</p>
+              <span>Update flow</span>
               <a href="#docs-sync">Sync from Redmine</a>
               <a href="#docs-plans">Update Plans</a>
               <a href="#docs-summaries">Update Summaries</a>
-              <a href="#docs-share">Membagikan plan</a>
+              <a href="#docs-share">Share &amp; copy</a>
             </div>
             <div class="docs-toc-group">
-              <p>Memantau issue</p>
+              <span>Daily features</span>
               <a href="#docs-dashboard">Dashboard</a>
               <a href="#docs-tester">Tester Queue</a>
               <a href="#docs-status">Issue Status</a>
               <a href="#docs-activework">Active Work</a>
               <a href="#docs-whatnext">What Next</a>
               <a href="#docs-clients">By Client</a>
-              <a href="#docs-lists">Filter &amp; pilih banyak</a>
+              <a href="#docs-lists">Filters &amp; multi-select</a>
             </div>
             <div class="docs-toc-group">
-              <p>Alat bantu</p>
+              <span>Create &amp; docs</span>
               <a href="#docs-newissue">New Issue</a>
               <a href="#docs-kb">Knowledge Base</a>
-              <a href="#docs-telegram">Telegram &amp; notifikasi</a>
-              <a href="#docs-search">Pencarian &amp; Notes</a>
-              <a href="#docs-shortcuts">Shortcut keyboard</a>
             </div>
             <div class="docs-toc-group">
-              <p>Data &amp; bantuan</p>
+              <span>Other</span>
+              <a href="#docs-telegram">Telegram &amp; notifications</a>
+              <a href="#docs-search">Search &amp; Notes</a>
               <a href="#docs-backup">Backup &amp; restore</a>
-              <a href="#docs-faq">Kalau ada masalah</a>
+              <a href="#docs-faq">Troubleshooting</a>
             </div>
           </aside>
 
           <div class="docs-body">
-            <p class="docs-empty hidden" id="docsEmpty">Tidak ada bagian yang cocok. Coba kata lain, misalnya <i>plan</i>, <i>telegram</i>, atau <i>login</i>.</p>
+            <p class="docs-empty hidden" id="docsEmpty">No matching section. Try another word, e.g. <i>plan</i>, <i>telegram</i>, or <i>login</i>.</p>
 
-            <!-- ============ MEMULAI ============ -->
-            <h2 class="docs-group-title" data-docs-group>Memulai</h2>
+            <h2 class="docs-group-title" data-docs-group>Getting started</h2>
 
-            <article class="docs-sec" id="docs-account" data-keywords="login google guest akun sign in sign out logout uid">
-              <header><span class="docs-ico" data-docs-icon="account"></span><h3>Login &amp; akun</h3><button type="button" class="docs-go" data-docs-go="settings">Buka Settings</button></header>
-              <p>Masuk dengan <b>Sign in with Google</b> supaya plan dan summary yang sama muncul di laptop dan HP. Fitur yang mengambil data Redmine dan mengirim Telegram hanya bisa dipakai oleh akun Google yang sudah didaftarkan pemilik aplikasi.</p>
-              <p><b>Continue as guest</b> tetap bisa dipakai untuk mencatat plan dan summary, tapi datanya terikat ke perangkat itu saja dan menu Redmine/Telegram tidak aktif.</p>
-              <div class="docs-tip"><b>Pindah dari guest ke Google?</b> Login Google dari perangkat yang sama. Data guest otomatis ikut dipindahkan ke akun Google kamu.</div>
+            <article class="docs-sec" id="docs-account" data-keywords="login google guest account sign in sign out logout uid">
+              <header><span class="docs-ico" data-docs-icon="account"></span><h3>Login &amp; account</h3><button type="button" class="docs-go" data-docs-go="settings">Open Settings</button></header>
+              <p>Sign in with <b>Google</b> so the same plans and summaries appear on laptop and phone. Features that pull Redmine data or send Telegram require a Google account allowed by the app owner.</p>
+              <p><b>Continue as guest</b> still works for plans and summaries, but data stays on that device and Redmine/Telegram menus stay inactive.</p>
+              <div class="docs-tip"><b>Moving from guest to Google?</b> Sign in with Google on the same device. Guest data is moved into your Google account automatically when possible.</div>
             </article>
 
-            <article class="docs-sec" id="docs-workspace" data-keywords="workspace tim team kode join share data bersama">
-              <header><span class="docs-ico" data-docs-icon="workspace"></span><h3>Workspace tim</h3><button type="button" class="docs-go" data-docs-go="settings">Buka Settings</button></header>
-              <p>Workspace membuat satu tim melihat plan dan summary yang sama secara realtime. Semua orang yang bergabung ke kode workspace yang sama berbagi data.</p>
+            <article class="docs-sec" id="docs-workspace" data-keywords="workspace team code join share data">
+              <header><span class="docs-ico" data-docs-icon="workspace"></span><h3>Team workspace</h3><button type="button" class="docs-go" data-docs-go="settings">Open Settings</button></header>
+              <p>A workspace lets one team see the same plans and summaries in realtime. Everyone who joins with the same workspace code shares that data.</p>
               <ol class="docs-steps">
-                <li>Satu orang membuka <b>Settings → Team Workspace</b>, lalu klik <b>Copy code</b>.</li>
-                <li>Rekan tim menempelkan kode itu di kolom workspace, lalu klik <b>Join</b>.</li>
-                <li>Untuk kembali ke data pribadi, klik <b>Use personal</b>.</li>
+                <li>One person opens <b>Settings → Team Workspace</b>, then clicks <b>Copy code</b>.</li>
+                <li>Teammates paste the code in the workspace field and click <b>Join</b>.</li>
+                <li>To return to personal data, click <b>Use personal</b>.</li>
               </ol>
-              <div class="docs-tip">Kode workspace berfungsi seperti kata sandi. Bagikan hanya ke anggota tim, dan jangan memakai kode pendek yang mudah ditebak.</div>
+              <div class="docs-tip">The workspace code works like a password. Share it only with teammates, and avoid short codes that are easy to guess.</div>
             </article>
 
-            <article class="docs-sec" id="docs-look" data-keywords="tema theme dark light gelap terang sidebar ciut kecil ikon collapse">
-              <header><span class="docs-ico" data-docs-icon="look"></span><h3>Tampilan &amp; sidebar</h3></header>
-              <p>Pilih tema <b>Light</b>, <b>Dark</b>, atau <b>Auto</b> (mengikuti pengaturan perangkat) dari tombol di kanan atas atau dari <b>Settings → Appearance</b>.</p>
-              <p>Tombol <b>☰</b> di kiri judul halaman mengecilkan sidebar menjadi deretan ikon supaya area kerja lebih lebar. Arahkan kursor ke ikon untuk melihat nama menu dan jumlah issue-nya. Pilihan ini diingat browser.</p>
+            <article class="docs-sec" id="docs-look" data-keywords="theme dark light sidebar collapse icon">
+              <header><span class="docs-ico" data-docs-icon="look"></span><h3>Appearance &amp; sidebar</h3></header>
+              <p>Choose <b>Light</b>, <b>Dark</b>, or <b>Auto</b> (follow device settings) from the top-right buttons or <b>Settings → Appearance</b>.</p>
+              <p>The <b>☰</b> button left of the page title collapses the sidebar to an icon rail for a wider workspace. Hover an icon to see its label and count.</p>
             </article>
 
-            <article class="docs-sec" id="docs-pwa" data-keywords="pwa install hp android iphone aplikasi home screen">
-              <header><span class="docs-ico" data-docs-icon="pwa"></span><h3>Pasang di HP</h3><button type="button" class="docs-go" data-docs-go="settings">Buka Settings</button></header>
-              <p>Aplikasi ini bisa dipasang seperti aplikasi biasa supaya cepat dibuka dari layar utama.</p>
+            <article class="docs-sec" id="docs-pwa" data-keywords="pwa install phone home screen">
+              <header><span class="docs-ico" data-docs-icon="pwa"></span><h3>Install on phone</h3><button type="button" class="docs-go" data-docs-go="settings">Open Settings</button></header>
+              <p>You can install this app like a normal app for quick access from your home screen.</p>
               <ul class="docs-list">
-                <li><b>Android (Chrome):</b> buka <b>Settings → Install app</b>, atau menu ⋮ → <i>Install app</i>.</li>
-                <li><b>iPhone (Safari):</b> tombol Share → <i>Add to Home Screen</i>.</li>
+                <li><b>Android (Chrome):</b> open <b>Settings → Install app</b>, or menu ⋮ → <i>Install app</i>.</li>
+                <li><b>iPhone (Safari):</b> Share → <i>Add to Home Screen</i>.</li>
               </ul>
             </article>
 
-            <!-- ============ ALUR UPDATE ============ -->
-            <h2 class="docs-group-title" data-docs-group>Alur update</h2>
+            <h2 class="docs-group-title" data-docs-group>Update flow</h2>
 
-            <article class="docs-sec" id="docs-sync" data-keywords="sync redmine tarik issue resolved ready for testing preview test connection tanggal">
-              <header><span class="docs-ico" data-docs-icon="sync"></span><h3>Sync from Redmine</h3><button type="button" class="docs-go" data-docs-go="sync">Buka panel sync</button></header>
-              <p>Menarik issue dari <b>pjm.zahironline.com</b> lalu menyimpannya sebagai Update Plan baru, tanpa perlu menyalin URL satu per satu.</p>
+            <article class="docs-sec" id="docs-sync" data-keywords="sync redmine resolved ready for testing preview test connection date">
+              <header><span class="docs-ico" data-docs-icon="sync"></span><h3>Sync from Redmine</h3><button type="button" class="docs-go" data-docs-go="sync">Open sync panel</button></header>
+              <p>Pull issues from <b>pjm.zahironline.com</b> and save them as a new Update Plan, without copying URLs one by one.</p>
               <ol class="docs-steps">
-                <li>Buka <b>Update Plans</b>, lalu klik <b>Sync Redmine</b>.</li>
-                <li>Pilih <b>Project</b>, <b>Status Filter</b> (biasanya <i>Resolved</i> atau <i>Ready for Testing</i>), dan <b>Date range</b>.</li>
-                <li>Klik <b>Preview</b> untuk melihat daftar issue. Issue yang sudah pernah masuk plan ditandai <i>Already added</i>.</li>
-                <li>Klik <b>Sync Now</b>. Issue baru tersimpan sebagai plan dengan tanda <i>Redmine</i>.</li>
+                <li>Open <b>Update Plans</b>, then click <b>Sync Redmine</b>.</li>
+                <li>Choose <b>Project</b>, <b>Status Filter</b> (usually <i>Resolved</i> or <i>Ready for Testing</i>), and <b>Date range</b>.</li>
+                <li>Click <b>Preview</b> to review issues. Ones already in a plan are marked <i>Already added</i>.</li>
+                <li>Click <b>Sync Now</b>. New issues are saved as a plan with a <i>Redmine</i> tag.</li>
               </ol>
-              <div class="docs-tip">Hindari pilihan tanggal <b>All</b> kecuali benar-benar perlu: semua issue di project ikut ditarik dan prosesnya lama. Kalau ragu koneksinya jalan, klik <b>Test Connection</b> dulu.</div>
+              <div class="docs-tip">Avoid the <b>All</b> date option unless you really need it — every issue in the project is pulled and it can be slow. If the connection is uncertain, click <b>Test Connection</b> first.</div>
             </article>
 
-            <article class="docs-sec" id="docs-plans" data-keywords="update plan tambah edit hapus issue url sdet project filter cari copy">
-              <header><span class="docs-ico" data-docs-icon="plans"></span><h3>Update Plans</h3><button type="button" class="docs-go" data-docs-go="plans">Buka Update Plans</button></header>
-              <p>Satu plan berisi daftar issue untuk satu rilis di satu lini produk (Zahir ERP, Zahir ERP One, Manufacturing, atau MRP).</p>
+            <article class="docs-sec" id="docs-plans" data-keywords="update plan add edit delete issue url sdet project filter search copy">
+              <header><span class="docs-ico" data-docs-icon="plans"></span><h3>Update Plans</h3><button type="button" class="docs-go" data-docs-go="plans">Open Update Plans</button></header>
+              <p>One plan holds the issue list for one release on one product line (Zahir ERP, Zahir ERP One, Manufacturing, or MRP).</p>
               <ol class="docs-steps">
-                <li>Klik <b>Add New Plan</b> (atau tekan <kbd>N</kbd>).</li>
-                <li>Isi <b>Title</b>, <b>Date</b>, dan <b>Project</b>.</li>
-                <li>Di <b>SDET Issue List</b>, tempel satu URL issue per baris. Nomor issue terdeteksi otomatis, deskripsi boleh dikosongkan.</li>
-                <li>Klik <b>Save Plan</b>.</li>
+                <li>Click <b>Add New Plan</b> (or press <kbd>N</kbd>).</li>
+                <li>Enter title, issue URLs (one per line), and notes if needed.</li>
+                <li>Click <b>Save Plan</b>.</li>
               </ol>
-              <p>Di daftar plan, kartu bisa dibuka untuk melihat isinya. Gunakan kolom pencarian (<kbd>/</kbd>), filter project, urutan terbaru/terlama, serta chip <i>No summary</i>, <i>Has summary</i>, dan <i>Redmine</i> untuk menyaring.</p>
+              <p>In the plan list, expand a card to see its issues. Use search (<kbd>/</kbd>), project filter, and the <i>No summary</i> / <i>Has summary</i> / <i>Redmine</i> chips to find plans quickly.</p>
             </article>
 
-            <article class="docs-sec" id="docs-summaries" data-keywords="summary ringkasan versi fe v2 v3 auto generate wa formal singkat telegram release">
-              <header><span class="docs-ico" data-docs-icon="summaries"></span><h3>Update Summaries</h3><button type="button" class="docs-go" data-docs-go="summaries">Buka Update Summaries</button></header>
-              <p>Ringkasan rilis yang siap ditempel ke grup WA atau Telegram, dibuat dari sebuah Update Plan.</p>
+            <article class="docs-sec" id="docs-summaries" data-keywords="summary version fe v2 v3 auto generate whatsapp telegram">
+              <header><span class="docs-ico" data-docs-icon="summaries"></span><h3>Update Summaries</h3><button type="button" class="docs-go" data-docs-go="summaries">Open Update Summaries</button></header>
+              <p>A release summary ready to paste into a WA or Telegram group, built from an Update Plan.</p>
               <ol class="docs-steps">
-                <li>Klik <b>Add New Summary</b>, lalu pilih <b>Update Plan</b>-nya.</li>
-                <li>Isi <b>FE Version</b>, <b>V2 Version</b>, <b>V3 Version</b> (opsional), dan <b>Release Date</b>.</li>
-                <li>Pilih template <b>WA formal</b>, <b>WA singkat</b>, atau <b>Telegram</b>, lalu klik <b>Auto-generate</b>. Issue dikelompokkan otomatis berdasarkan jenisnya (bug, enhancement, dan sebagainya) dengan membaca tracker di Redmine.</li>
-                <li>Sunting hasilnya bila perlu, atau tempel hasil GPT kamu sendiri, lalu klik <b>Save Summary</b>.</li>
+                <li>Click <b>Add New Summary</b>, then select its <b>Update Plan</b>.</li>
+                <li>Enter FE / V2 / V3 versions and the release date.</li>
+                <li>Choose template <b>WA formal</b>, <b>WA singkat</b>, or <b>Telegram</b>, then click <b>Auto-generate</b>. Issues are grouped by type using the Redmine tracker.</li>
+                <li>Edit the result if needed, then click <b>Save Summary</b>.</li>
               </ol>
-              <div class="docs-tip">Plan yang belum punya summary muncul di kartu <b>Needs Summary</b> di Dashboard.</div>
+              <div class="docs-tip">Plans without a summary show up on the <b>Needs Summary</b> card on the Dashboard.</div>
             </article>
 
-            <article class="docs-sec" id="docs-share" data-keywords="share link bagikan copy telegram markdown numbered plain url sdet tanpa login">
-              <header><span class="docs-ico" data-docs-icon="share"></span><h3>Membagikan plan</h3></header>
-              <p>Tombol copy di setiap kartu plan menyediakan beberapa format sekaligus:</p>
+            <article class="docs-sec" id="docs-share" data-keywords="share copy telegram markdown plain urls sdet">
+              <header><span class="docs-ico" data-docs-icon="share"></span><h3>Share &amp; copy</h3></header>
+              <p>From a plan card, open the copy menu for several formats:</p>
               <dl class="docs-defs">
-                <dt>Share link</dt><dd>Link pendek read-only yang bisa dibuka siapa saja tanpa login. Cocok untuk SDET.</dd>
-                <dt>Telegram (links only / link + desc)</dt><dd>Nomor issue menjadi link yang bisa diklik di Telegram.</dd>
-                <dt>Markdown</dt><dd>Untuk Slack atau Discord.</dd>
-                <dt>Numbered list</dt><dd>Untuk WhatsApp, yang tidak mendukung markdown.</dd>
-                <dt>Plain URLs</dt><dd>Daftar URL polos untuk catatan atau backup.</dd>
+                <dt>Share link</dt><dd>A short read-only link anyone can open without login. Ideal for SDET.</dd>
+                <dt>Telegram (links only / link + desc)</dt><dd>Issue numbers become clickable links in Telegram.</dd>
+                <dt>Markdown</dt><dd>For Slack or Discord.</dd>
+                <dt>Numbered list</dt><dd>For WhatsApp, which does not support markdown.</dd>
+                <dt>Plain URLs</dt><dd>Plain URL list for notes or backup.</dd>
               </dl>
             </article>
 
-            <!-- ============ MEMANTAU ISSUE ============ -->
-            <h2 class="docs-group-title" data-docs-group>Memantau issue</h2>
+            <h2 class="docs-group-title" data-docs-group>Daily features</h2>
 
-            <article class="docs-sec" id="docs-dashboard" data-keywords="dashboard ringkasan total needs attention immediate stuck">
-              <header><span class="docs-ico" data-docs-icon="dashboard"></span><h3>Dashboard</h3><button type="button" class="docs-go" data-docs-go="dashboard">Buka Dashboard</button></header>
-              <p>Halaman pertama yang merangkum semuanya: total plan, summary, dan issue; jumlah issue baru per project; serta <b>Needs attention today</b>, yaitu issue Immediate yang masih New, issue On Progress yang tidak bergerak lebih dari 7 hari, On Deploy, Rework, dan Feedback.</p>
-              <p>Klik kartu mana pun untuk langsung membuka daftar issue di baliknya.</p>
+            <article class="docs-sec" id="docs-dashboard" data-keywords="dashboard total needs attention immediate stuck">
+              <header><span class="docs-ico" data-docs-icon="dashboard"></span><h3>Dashboard</h3><button type="button" class="docs-go" data-docs-go="dashboard">Open Dashboard</button></header>
+              <p>The home page that summarizes everything: total plans, summaries, and issues; new issues per project; and <b>Needs attention today</b> — Immediate still New, On Progress stuck over 7 days, On Deploy, Rework, and Feedback.</p>
+              <p>Click any card to open the issue list behind it.</p>
             </article>
 
-            <article class="docs-sec" id="docs-tester" data-keywords="tester queue rft ready for testing front end backend design other kategori copy list briefing">
-              <header><span class="docs-ico" data-docs-icon="tester"></span><h3>Tester Queue</h3><button type="button" class="docs-go" data-docs-go="tester">Buka Tester Queue</button></header>
-              <p>Daftar issue berstatus <b>Ready for Testing</b> dari Zahir ERP, Zahir ERP One, dan Manufacturing, dibagi per kategori: <b>Front End</b>, <b>Backend</b>, <b>Design</b>, dan <b>Other</b>. Kategori dibaca dari field <i>Category</i> di Redmine.</p>
+            <article class="docs-sec" id="docs-tester" data-keywords="tester queue ready for testing front end backend design category">
+              <header><span class="docs-ico" data-docs-icon="tester"></span><h3>Tester Queue</h3><button type="button" class="docs-go" data-docs-go="tester">Open Tester Queue</button></header>
+              <p>Issues with status <b>Ready for Testing</b> from Zahir ERP, Zahir ERP One, and Manufacturing, split by category: <b>Front End</b>, <b>Backend</b>, <b>Design</b>, and <b>Other</b>. Category comes from the Redmine <i>Category</i> field.</p>
               <ul class="docs-list">
-                <li>Saring dengan pencarian, project, dan prioritas; kelompokkan per project, assignee, atau prioritas.</li>
-                <li>Titik merah di sidebar menandakan ada issue RFT baru sejak terakhir kategori itu dibuka.</li>
-                <li><b>Copy list</b> menyalin daftar siap tempel untuk briefing tester.</li>
+                <li>Filter with search, project, and priority; group by project, assignee, or priority.</li>
+                <li><b>Copy list</b> copies a paste-ready list for tester briefing.</li>
               </ul>
             </article>
 
-            <article class="docs-sec" id="docs-status" data-keywords="issue status new on progress deploy rework feedback status override">
-              <header><span class="docs-ico" data-docs-icon="status"></span><h3>Issue Status</h3><button type="button" class="docs-go" data-docs-go="status">Buka Issue Status</button></header>
-              <p>Lima menu di bawah <i>Issue Status</i> menampilkan issue per tahap kerja: <b>New</b>, <b>On Progress</b>, <b>On Deploy</b>, <b>Rework</b>, dan <b>Feedback</b>, gabungan dari ketiga project Zahir. Angka di sidebar menunjukkan jumlah issue di tiap tahap.</p>
-              <p>Kalau nama status di Redmine berbeda, ganti lewat pilihan <b>Status</b> di toolbar. <b>Copy all links</b> menyalin semua link issue yang sedang tampil.</p>
+            <article class="docs-sec" id="docs-status" data-keywords="issue status new progress deploy rework feedback">
+              <header><span class="docs-ico" data-docs-icon="status"></span><h3>Issue Status</h3><button type="button" class="docs-go" data-docs-go="status">Open Issue Status</button></header>
+              <p>The five menus under <i>Issue Status</i> show issues by work stage: <b>New</b>, <b>On Progress</b>, <b>On Deploy</b>, <b>Rework</b>, and <b>Feedback</b>, combined across the Zahir projects. Sidebar numbers show the count per stage.</p>
+              <p>If Redmine status names differ, change them with the <b>Status</b> control in the toolbar. <b>Copy all links</b> copies every visible issue link.</p>
             </article>
 
-            <article class="docs-sec" id="docs-activework" data-keywords="active work in progress on deploy assignee siapa mengerjakan">
-              <header><span class="docs-ico" data-docs-icon="activework"></span><h3>Active Work</h3><button type="button" class="docs-go" data-docs-go="activework">Buka Active Work</button></header>
-              <p>Siapa sedang mengerjakan apa. Menampilkan issue <b>In Progress</b> dan <b>On Deploy</b>, dikelompokkan per assignee secara default, sehingga beban kerja tiap orang terlihat sekilas.</p>
-              <p class="docs-muted">Menu ini belum punya tombol di sidebar. Buka lewat tombol <b>Buka Active Work</b> di atas.</p>
+            <article class="docs-sec" id="docs-activework" data-keywords="active work in progress on deploy assignee">
+              <header><span class="docs-ico" data-docs-icon="activework"></span><h3>Active Work</h3><button type="button" class="docs-go" data-docs-go="activework">Open Active Work</button></header>
+              <p>Shows <b>In Progress</b> and <b>On Deploy</b> issues, grouped by assignee by default, so each person’s load is easy to see.</p>
             </article>
 
-            <article class="docs-sec" id="docs-whatnext" data-keywords="what next prioritas urutan skor top create plan">
-              <header><span class="docs-ico" data-docs-icon="whatnext"></span><h3>What Next</h3><button type="button" class="docs-go" data-docs-go="whatnext">Buka What Next</button></header>
-              <p>Mengurutkan issue <b>New</b> dari yang paling perlu dikerjakan lebih dulu. Skornya dihitung dari prioritas (Immediate paling tinggi), lama issue menunggu, dan apakah issue belum punya assignee. Alasan skornya ditampilkan di setiap baris.</p>
+            <article class="docs-sec" id="docs-whatnext" data-keywords="what next priority score rank create plan">
+              <header><span class="docs-ico" data-docs-icon="whatnext"></span><h3>What Next</h3><button type="button" class="docs-go" data-docs-go="whatnext">Open What Next</button></header>
+              <p>Ranks <b>New</b> issues by what should be done first. Score uses priority (Immediate highest), wait time, and whether the issue is unassigned. Reasons appear on each row.</p>
               <ul class="docs-list">
-                <li><b>Copy top list</b> menyalin daftar teratas untuk dibahas di rapat.</li>
-                <li><b>Create plan from top</b> membuat Update Plan baru dari issue teratas.</li>
+                <li><b>Copy top list</b> copies the top list for discussion in meetings.</li>
+                <li><b>Create plan from top</b> creates a new Update Plan from the top issues.</li>
               </ul>
             </article>
 
-            <article class="docs-sec" id="docs-clients" data-keywords="by client klien pelanggan client name custom field">
-              <header><span class="docs-ico" data-docs-icon="clients"></span><h3>By Client</h3><button type="button" class="docs-go" data-docs-go="clients">Buka By Client</button></header>
-              <p>Mencari semua issue milik satu klien berdasarkan field <b>Client Name</b> di Redmine. Ketik nama klien, tekan <kbd>Enter</kbd>, lalu hasilnya dikelompokkan per status.</p>
+            <article class="docs-sec" id="docs-clients" data-keywords="by client customer client name custom field">
+              <header><span class="docs-ico" data-docs-icon="clients"></span><h3>By Client</h3><button type="button" class="docs-go" data-docs-go="clients">Open By Client</button></header>
+              <p>Finds all issues for one client using the Redmine <b>Client Name</b> field. Type the client name, press <kbd>Enter</kbd>, and results are grouped by status.</p>
             </article>
 
-            <article class="docs-sec" id="docs-lists" data-keywords="filter chip immediate unassigned updated compact comfortable pilih banyak checkbox batch copy">
-              <header><span class="docs-ico" data-docs-icon="lists"></span><h3>Filter &amp; pilih banyak</h3></header>
-              <p>Semua daftar issue memakai kontrol yang sama:</p>
+            <article class="docs-sec" id="docs-lists" data-keywords="filter chip immediate unassigned updated compact comfortable multi-select checkbox batch copy">
+              <header><span class="docs-ico" data-docs-icon="lists"></span><h3>Filters &amp; multi-select</h3></header>
+              <p>All issue lists use the same controls:</p>
               <dl class="docs-defs">
-                <dt>Chip cepat</dt><dd><i>All</i>, <i>Immediate</i>, <i>Unassigned</i>, dan <i>Updated 7d</i> untuk menyaring dengan sekali klik.</dd>
-                <dt>Kepadatan</dt><dd><i>Comfortable</i> atau <i>Compact</i>, untuk melihat lebih banyak baris sekaligus.</dd>
-                <dt>Pilih banyak</dt><dd>Centang beberapa issue, lalu gunakan bar di bawah layar untuk <b>Copy links</b> atau <b>Copy for Telegram</b>.</dd>
+                <dt>Quick chips</dt><dd><i>All</i>, <i>Immediate</i>, <i>Unassigned</i>, and <i>Updated 7d</i> to filter in one click.</dd>
+                <dt>Density</dt><dd><i>Comfortable</i> or <i>Compact</i>, to see more rows at once.</dd>
+                <dt>Multi-select</dt><dd>Check several issues, then use the bottom bar for <b>Copy links</b> or <b>Copy for Telegram</b>.</dd>
               </dl>
-              <p>Filter yang kamu pakai diingat, jadi tetap sama saat halaman dibuka lagi.</p>
             </article>
 
-            <!-- ============ ALAT BANTU ============ -->
-            <h2 class="docs-group-title" data-docs-group>Alat bantu</h2>
+            <h2 class="docs-group-title" data-docs-group>Create &amp; documentation</h2>
 
-            <article class="docs-sec" id="docs-newissue" data-keywords="new issue buat issue redmine push tracker priority category deskripsi generate">
-              <header><span class="docs-ico" data-docs-icon="newissue"></span><h3>New Issue</h3><button type="button" class="docs-go" data-docs-go="createissue">Buka New Issue</button></header>
-              <p>Membuat issue baru langsung di Redmine tanpa membuka Redmine.</p>
+            <article class="docs-sec" id="docs-newissue" data-keywords="new issue create redmine tracker priority category generate">
+              <header><span class="docs-ico" data-docs-icon="newissue"></span><h3>New Issue</h3><button type="button" class="docs-go" data-docs-go="createissue">Open New Issue</button></header>
+              <p>Create a Redmine issue from the app without opening PJM first.</p>
               <ol class="docs-steps">
-                <li>Pilih <b>Project</b>, lalu <b>Tracker</b>, <b>Priority</b>, dan <b>Category</b> (pilihan dimuat dari Redmine).</li>
-                <li>Tulis <b>Subject</b>, misalnya <i>FE - Error when saving Purchase Order</i>. Awalan FE, BE, atau DE membantu pengelompokan kategori.</li>
-                <li>Tulis poin singkat di <b>Notes for description generator</b>, lalu klik <b>Generate description</b> untuk menyusun deskripsi lengkap.</li>
-                <li>Periksa deskripsinya, lalu klik <b>Push to Redmine</b>. Link issue baru langsung ditampilkan.</li>
+                <li>Choose <b>Project</b>, then <b>Tracker</b>, <b>Priority</b>, and <b>Category</b> (options load from Redmine).</li>
+                <li>Type the subject, fill the description (you can generate it), then submit.</li>
               </ol>
+              <p>The issue is created on the selected project using the configured Redmine API key.</p>
             </article>
 
-            <article class="docs-sec" id="docs-kb" data-keywords="knowledge base panduan zahir erp one manufacturing mrp dokumentasi cara pakai screenshot artikel">
-              <header><span class="docs-ico" data-docs-icon="kb"></span><h3>Knowledge Base</h3><button type="button" class="docs-go" data-docs-go="kb">Buka Knowledge Base</button></header>
-              <p>Tempat tim menulis cara pemakaian fitur <b>Zahir ERP</b>, <b>ERP One</b>, <b>Manufacturing</b>, dan <b>MRP</b>, supaya semua orang support menjawab klien dengan langkah yang sama. Panduan tersimpan di workspace, jadi langsung terlihat oleh semua anggota tim.</p>
+            <article class="docs-sec" id="docs-kb" data-keywords="knowledge base guide how-to screenshot markdown">
+              <header><span class="docs-ico" data-docs-icon="kb"></span><h3>Knowledge Base</h3><button type="button" class="docs-go" data-docs-go="kb">Open Knowledge Base</button></header>
+              <p>Where the team writes how-to guides for <b>Zahir ERP</b>, <b>ERP One</b>, <b>Manufacturing</b>, and <b>MRP</b> so support answers clients with the same steps. Guides are stored in the workspace and visible to every member.</p>
               <ol class="docs-steps">
-                <li>Klik <b>Tulis panduan</b>, lalu isi judul, produk, dan modul (mis. Penjualan, Persediaan).</li>
-                <li>Isi langkah-langkahnya. Template awal sudah berisi Tujuan, Sebelum mulai, Langkah-langkah, dan Hasil.</li>
-                <li>Tempel screenshot langsung dengan <kbd>Ctrl</kbd>+<kbd>V</kbd>, seret file gambar, atau klik <b>Gambar</b>. Gambar dikompres otomatis.</li>
-                <li>Cek di tab <b>Pratinjau</b>, lalu <b>Simpan panduan</b> (atau <kbd>Ctrl</kbd>+<kbd>S</kbd>).</li>
+                <li>Click <b>Write guide</b>, choose product and module.</li>
+                <li>Write steps in markdown; paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+                <li>Check <b>Preview</b>, then <b>Save guide</b> (or <kbd>Ctrl</kbd>+<kbd>S</kbd>).</li>
               </ol>
-              <p>Saat membaca, <b>Copy teks</b> menyalin panduan dalam format yang rapi untuk WhatsApp, dan <b>Copy link</b> menyalin alamat langsung ke panduan itu untuk rekan tim.</p>
-              <dl class="docs-defs">
-                <dt>Langkah bernomor</dt><dd>Tulis <code>1.</code>, <code>2.</code>, dan seterusnya di awal baris.</dd>
-                <dt>Jalur menu</dt><dd>Tulis <code>Penjualan &gt; Faktur Penjualan</code>, tampil sebagai Penjualan › Faktur Penjualan.</dd>
-                <dt>Kotak catatan</dt><dd>Awali baris dengan <code>&gt; **Catatan:**</code> atau <code>&gt; **Penting:**</code> untuk peringatan.</dd>
-                <dt>Screenshot di bawah langkah</dt><dd>Beri dua spasi di depan baris gambar supaya menempel ke langkah di atasnya.</dd>
-              </dl>
-              <div class="docs-tip">Panduan Knowledge Base belum ikut dalam <b>Export JSON</b>. Panduan tersimpan aman di cloud workspace.</div>
+              <div class="docs-tip">Knowledge Base guides are not included in <b>Export JSON</b>. They stay in the cloud workspace.</div>
             </article>
 
-            <article class="docs-sec" id="docs-telegram" data-keywords="telegram chat id briefing notifikasi rft lonceng bell alert otomatis cron">
-              <header><span class="docs-ico" data-docs-icon="telegram"></span><h3>Telegram &amp; notifikasi</h3><button type="button" class="docs-go" data-docs-go="settings">Buka Settings</button></header>
-              <p>Pengaturannya ada di <b>Settings → Telegram</b>.</p>
-              <ol class="docs-steps">
-                <li>Isi <b>Chat ID</b> grup atau channel tujuan, lalu klik <b>Save</b>. Chat ID harus sudah didaftarkan pemilik aplikasi di server; kalau belum, pengiriman akan ditolak.</li>
-                <li><b>Send briefing</b> mengirim ringkasan kondisi issue saat ini ke chat tersebut.</li>
-                <li>Aktifkan <b>Auto-notify</b> agar Telegram diberi kabar setiap ada issue <i>Ready for Testing</i> baru, lalu coba dengan <b>Send test RFT alert</b>.</li>
-              </ol>
-              <p>Ikon lonceng di kanan atas menampilkan riwayat alert dan bisa mengaktifkan notifikasi browser. Selama tab aplikasi terbuka, issue RFT baru dicek kira-kira tiap 90 detik. Saat tab tertutup, server tetap mengecek sekali sehari pukul 09.00 WIB.</p>
-            </article>
+            <h2 class="docs-group-title" data-docs-group>Other</h2>
 
-            <article class="docs-sec" id="docs-search" data-keywords="cari pencarian global search notes catatan">
-              <header><span class="docs-ico" data-docs-icon="search"></span><h3>Pencarian &amp; Notes</h3><button type="button" class="docs-go" data-docs-go="search">Buka pencarian</button></header>
-              <p>Ikon kaca pembesar di kanan atas membuka pencarian global yang mencari sekaligus di plan, issue, klien, dan catatan. Klik hasilnya untuk langsung menuju lokasinya.</p>
-              <p><b>Notes</b> adalah catatan cepat untuk pengingat pribadi. Catatan ini tersimpan di browser perangkat yang dipakai, bukan di cloud. Notes tidak ada di sidebar; buka lewat pencarian global atau <button type="button" class="docs-inline-link" data-docs-go="notes">buka Notes di sini</button>.</p>
-            </article>
-
-            <article class="docs-sec" id="docs-shortcuts" data-keywords="shortcut keyboard tombol cepat kbd esc">
-              <header><span class="docs-ico" data-docs-icon="keyboard"></span><h3>Shortcut keyboard</h3></header>
-              <table class="docs-kbd-table">
-                <tbody>
-                  <tr><td><kbd>/</kbd></td><td>Fokus ke kolom pencarian di Update Plans atau Update Summaries</td></tr>
-                  <tr><td><kbd>N</kbd></td><td>Buat plan baru (di Dashboard/Plans) atau summary baru (di Summaries)</td></tr>
-                  <tr><td><kbd>Esc</kbd></td><td>Tutup dialog, menu copy, atau panel notifikasi yang sedang terbuka</td></tr>
-                </tbody>
-              </table>
-              <p class="docs-muted">Shortcut tidak aktif saat kursor sedang berada di kolom isian.</p>
-            </article>
-
-            <!-- ============ DATA & BANTUAN ============ -->
-            <h2 class="docs-group-title" data-docs-group>Data &amp; bantuan</h2>
-
-            <article class="docs-sec" id="docs-backup" data-keywords="backup restore export import json hapus delete all data sync cloud">
-              <header><span class="docs-ico" data-docs-icon="backup"></span><h3>Backup &amp; restore</h3><button type="button" class="docs-go" data-docs-go="settings">Buka Settings</button></header>
-              <p>Data plan dan summary tersimpan di cloud dan tersinkron otomatis. Status terakhirnya terlihat di <b>Settings → Cloud Sync</b> dan di pojok kiri bawah sidebar.</p>
+            <article class="docs-sec" id="docs-telegram" data-keywords="telegram bot chat id rft notify browser">
+              <header><span class="docs-ico" data-docs-icon="telegram"></span><h3>Telegram &amp; notifications</h3><button type="button" class="docs-go" data-docs-go="settings">Open Settings</button></header>
               <ul class="docs-list">
-                <li><b>Export JSON</b> mengunduh salinan semua data ke komputer.</li>
-                <li><b>Import JSON</b> memulihkan data dari file backup tersebut.</li>
-                <li><b>Delete All Data</b> menghapus semua plan dan summary di workspace aktif secara permanen.</li>
+                <li>Set <b>Chat ID</b> for the target group or channel, then click <b>Save</b>.</li>
+                <li>Enable <b>Auto-notify</b> so Telegram is alerted for new <i>Ready for Testing</i> issues; test with <b>Send test RFT</b>.</li>
               </ul>
-              <div class="docs-tip docs-tip-warn">Kalau sedang memakai workspace tim, <b>Delete All Data</b> juga menghapus data rekan setim. Lakukan Export JSON dulu sebelum menghapus.</div>
+              <p>The bell icon shows recent alerts and can enable browser notifications while the app tab is open.</p>
             </article>
 
-            <article class="docs-sec" id="docs-faq" data-keywords="masalah error troubleshooting sign-in required not allowed chat id projects data tidak muncul">
-              <header><span class="docs-ico" data-docs-icon="faq"></span><h3>Kalau ada masalah</h3></header>
-              <details class="docs-faq">
-                <summary>Muncul "Sign-in required" atau "Not available in guest mode"</summary>
-                <p>Fitur Redmine dan Telegram butuh login Google. Buka <b>Settings → Sign in with Google</b>.</p>
-              </details>
-              <details class="docs-faq">
-                <summary>Muncul "Account … is not allowed"</summary>
-                <p>Email Google kamu belum didaftarkan di server. Minta pemilik aplikasi menambahkannya, lalu reload halaman.</p>
-              </details>
-              <details class="docs-faq">
-                <summary>Muncul "Chat ID not allowed" saat kirim Telegram</summary>
-                <p>Chat ID di Settings berbeda dengan yang didaftarkan di server. Samakan Chat ID-nya, atau minta pemilik aplikasi mendaftarkan chat tersebut.</p>
-              </details>
-              <details class="docs-faq">
-                <summary>Plan di HP berbeda dengan di laptop</summary>
-                <p>Pastikan kedua perangkat login dengan akun Google yang sama dan berada di workspace yang sama (cek <b>Settings → Team Workspace</b>).</p>
-              </details>
-              <details class="docs-faq">
-                <summary>Notifikasi RFT tidak datang saat tab ditutup</summary>
-                <p>Saat tab tertutup, pengecekan dari server berjalan sekali sehari pukul 09.00 WIB. Untuk kabar yang lebih cepat, biarkan tab aplikasi tetap terbuka.</p>
-              </details>
-              <details class="docs-faq">
-                <summary>Tampilan belum berubah setelah update</summary>
-                <p>Reload halaman sekali. Versi aplikasi terlihat di pojok kiri bawah sidebar dan di <b>Settings → What's New</b>.</p>
-              </details>
+            <article class="docs-sec" id="docs-search" data-keywords="search notes global slash shortcut">
+              <header><span class="docs-ico" data-docs-icon="search"></span><h3>Search &amp; Notes</h3><button type="button" class="docs-go" data-docs-go="search">Open search</button></header>
+              <p>The magnifier icon (or <kbd>/</kbd>) opens global search across plans, issues, clients, and notes. Click a result to jump there.</p>
+              <p><b>Notes</b> are quick personal reminders stored in the browser on this device (not cloud-synced).</p>
+              <p class="docs-muted">Shortcuts are inactive while the cursor is in an input field.</p>
             </article>
 
+            <article class="docs-sec" id="docs-backup" data-keywords="export import json delete backup restore">
+              <header><span class="docs-ico" data-docs-icon="backup"></span><h3>Backup &amp; restore</h3><button type="button" class="docs-go" data-docs-go="settings">Open Settings</button></header>
+              <ul class="docs-list">
+                <li><b>Export JSON</b> saves plans and summaries for backup.</li>
+                <li><b>Import JSON</b> restores data from that backup file.</li>
+              </ul>
+              <div class="docs-tip docs-tip-warn">If you are on a team workspace, <b>Delete All Data</b> also deletes teammates’ data. Export JSON first before deleting.</div>
+            </article>
+
+            <article class="docs-sec" id="docs-faq" data-keywords="faq troubleshooting error login telegram badge zero">
+              <header><span class="docs-ico" data-docs-icon="faq"></span><h3>Troubleshooting</h3></header>
+              <dl class="docs-defs">
+                <dt>Redmine / Telegram unavailable</dt>
+                <dd>These features need Google sign-in. Open <b>Settings → Sign in with Google</b>.</dd>
+                <dt>Email not allowed</dt>
+                <dd>Your Google email is not on the server allow-list. Ask the app owner to add it, then reload.</dd>
+                <dt>Telegram not sending</dt>
+                <dd>The Chat ID in Settings must match what is registered on the server.</dd>
+                <dt>Data differs between devices</dt>
+                <dd>Use the same Google account and the same workspace (<b>Settings → Team Workspace</b>).</dd>
+                <dt>RFT alerts while tab is closed</dt>
+                <dd>Server cron runs about once per day on the Hobby plan. Keep the app tab open for faster browser checks, or rely on Telegram.</dd>
+              </dl>
+            </article>
           </div>
         </div>
       </div>

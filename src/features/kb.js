@@ -23,25 +23,25 @@ const PRODUCTS = {
   mrp: { label: 'Zahir MRP', short: 'MRP' }
 };
 const DEFAULT_MODULES = [
-  'Penjualan', 'Pembelian', 'Persediaan', 'Kas & Bank', 'Buku Besar', 'Aset Tetap',
-  'Produksi', 'Data Master', 'Laporan', 'Pengaturan', 'Import & Export'
+  'Sales', 'Purchase', 'Inventory', 'Cash & Bank', 'General Ledger', 'Fixed Assets',
+  'Production', 'Master Data', 'Reports', 'Settings', 'Import & Export'
 ];
-const TEMPLATE = `## Tujuan
-Jelaskan singkat apa yang dicapai dengan panduan ini.
+const TEMPLATE = `## Goal
+Briefly describe what this guide achieves.
 
-## Sebelum mulai
-- Hak akses yang dibutuhkan
-- Data yang harus sudah ada
+## Before you start
+- Required access rights
+- Data that must already exist
 
-## Langkah-langkah
-1. Buka menu **Modul > Sub menu**
-2. Klik **Baru**, lalu isi field yang wajib
-3. Klik **Simpan**
+## Steps
+1. Open menu **Module > Sub menu**
+2. Click **New**, then fill required fields
+3. Click **Save**
 
-> **Catatan:** hal yang sering ditanyakan klien.
+> **Note:** points clients often ask about.
 
-## Hasil
-Apa yang terlihat jika langkah di atas berhasil.
+## Result
+What you should see when the steps succeed.
 `;
 const MAX_IMG_EDGE = 1400;
 const SAFE_DATA_URL = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
@@ -64,7 +64,7 @@ const S = {
 
 /* ---------------- data ---------------- */
 function kbRef(){
-  if(!CloudSync.workspaceId) throw new Error('Workspace belum siap');
+  if(!CloudSync.workspaceId) throw new Error('Workspace not ready');
   return db.collection('workspaces').doc(CloudSync.workspaceId).collection('kb');
 }
 
@@ -93,10 +93,10 @@ function subscribe(){
     S.loaded = true;
     const reader = $('kbReader');
     if(reader){
-      reader.innerHTML = `<div class="kb-state"><h3>Knowledge Base belum bisa dibuka</h3>
+      reader.innerHTML = `<div class="kb-state"><h3>Knowledge Base cannot be opened</h3>
         <p>${escapeHtml(err.code === 'permission-denied'
-          ? 'Firestore menolak akses ke koleksi kb. Publish firestore.rules versi terbaru di Firebase Console (lihat FIRESTORE_RULES.md).'
-          : (err.message || 'Gagal memuat data.'))}</p></div>`;
+          ? 'Firestore denied access to the kb collection. Publish the latest firestore.rules in the Firebase Console (see FIRESTORE_RULES.md).'
+          : (err.message || 'Failed to load data.'))}</p></div>`;
     }
   });
 }
@@ -126,7 +126,7 @@ function visibleArticles(){
   const q = S.query.toLowerCase().trim();
   return S.articles
     .filter(a => S.product === 'all' || a.product === S.product)
-    .filter(a => S.module === 'all' || (a.module || 'Lainnya') === S.module)
+    .filter(a => S.module === 'all' || (a.module || 'Other') === S.module)
     .filter(a => matchesQuery(a, q))
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
@@ -138,10 +138,10 @@ function moduleCounts(){
     .filter(a => S.product === 'all' || a.product === S.product)
     .filter(a => matchesQuery(a, q))
     .forEach(a => {
-      const m = a.module || 'Lainnya';
+      const m = a.module || 'Other';
       counts.set(m, (counts.get(m) || 0) + 1);
     });
-  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'id'));
+  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'en'));
 }
 
 /* ---------------- rendering ---------------- */
@@ -181,10 +181,10 @@ function renderModules(){
   if(S.module !== 'all' && !counts.some(([m]) => m === S.module)) S.module = 'all';
   const btn = (key, label, n) => `<button type="button" class="kb-mod${S.module === key ? ' is-active' : ''}" data-kb-module="${escapeHtml(key)}">
       <span>${escapeHtml(label)}</span><span class="kb-mod-n">${n}</span></button>`;
-  el.innerHTML = `<p class="kb-mod-title">Modul</p>${btn('all', 'Semua modul', total)}${counts.map(([m, n]) => btn(m, m, n)).join('')}`;
+  el.innerHTML = `<p class="kb-mod-title">Modules</p>${btn('all', 'All modules', total)}${counts.map(([m, n]) => btn(m, m, n)).join('')}`;
   const sel = $('kbModuleSelect');
   if(sel){
-    sel.innerHTML = `<option value="all">Semua modul (${total})</option>` +
+    sel.innerHTML = `<option value="all">All modules (${total})</option>` +
       counts.map(([m, n]) => `<option value="${escapeHtml(m)}"${S.module === m ? ' selected' : ''}>${escapeHtml(m)} (${n})</option>`).join('');
     sel.value = S.module;
   }
@@ -194,7 +194,7 @@ function renderList(){
   const el = $('kbList');
   if(!el) return;
   if(!S.loaded){
-    el.innerHTML = '<div class="kb-state kb-state-sm"><div class="spinner-sm"></div><p>Memuat panduan…</p></div>';
+    el.innerHTML = '<div class="kb-state kb-state-sm"><div class="spinner-sm"></div><p>Loading guides…</p></div>';
     return;
   }
   const list = visibleArticles();
@@ -203,15 +203,15 @@ function renderList(){
     return;
   }
   if(!list.length){
-    el.innerHTML = `<div class="kb-state kb-state-sm"><p>Tidak ada panduan yang cocok${S.query ? ` dengan “${escapeHtml(S.query)}”` : ''}.</p></div>`;
+    el.innerHTML = `<div class="kb-state kb-state-sm"><p>No matching guides${S.query ? ` for “${escapeHtml(S.query)}”` : ''}.</p></div>`;
     return;
   }
   el.innerHTML = list.map(a => `
     <button type="button" class="kb-item${a.id === S.selectedId ? ' is-active' : ''}" data-kb-open="${escapeHtml(a.id)}">
-      <span class="kb-item-top">${S.product === 'all' ? productChip(a.product) : ''}<span class="kb-item-mod">${escapeHtml(a.module || 'Lainnya')}</span></span>
-      <span class="kb-item-title">${escapeHtml(a.title || 'Tanpa judul')}</span>
+      <span class="kb-item-top">${S.product === 'all' ? productChip(a.product) : ''}<span class="kb-item-mod">${escapeHtml(a.module || 'Other')}</span></span>
+      <span class="kb-item-title">${escapeHtml(a.title || 'Untitled')}</span>
       ${a.summary ? `<span class="kb-item-sum">${escapeHtml(a.summary)}</span>` : ''}
-      <span class="kb-item-date">Diperbarui ${escapeHtml(fmtDate(a.updatedAt))}</span>
+      <span class="kb-item-date">Updated ${escapeHtml(fmtDate(a.updatedAt))}</span>
     </button>`).join('');
 }
 
@@ -224,14 +224,14 @@ function renderReader(){
   if(!S.articles.length){
     main?.classList.add('kb-is-empty');
     el.innerHTML = `<div class="kb-welcome">
-      <h3>Tulis panduan pertama tim</h3>
-      <p>Simpan cara pemakaian fitur Zahir ERP, ERP One, Manufacturing, dan MRP di satu tempat, supaya semua orang support menjawab klien dengan langkah yang sama.</p>
+      <h3>Write the team’s first guide</h3>
+      <p>Store how-to guides for Zahir ERP, ERP One, Manufacturing, and MRP in one place so support answers clients with the same steps.</p>
       <ol>
-        <li>Klik <b>Tulis panduan</b>, pilih produk dan modulnya.</li>
-        <li>Isi langkah-langkahnya. Tempel screenshot langsung dengan <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
-        <li>Simpan. Panduan langsung terlihat oleh semua anggota workspace.</li>
+        <li>Click <b>Write guide</b>, then choose product and module.</li>
+        <li>Write the steps. Paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+        <li>Save. Guides are visible to every workspace member.</li>
       </ol>
-      <button type="button" class="btn btn-primary" data-kb-act="new">Tulis panduan</button>
+      <button type="button" class="btn btn-primary" data-kb-act="new">Write guide</button>
     </div>`;
     return;
   }
@@ -240,31 +240,31 @@ function renderReader(){
   const a = S.articles.find(x => x.id === S.selectedId);
   if(!a){
     main?.classList.remove('kb-reading');
-    el.innerHTML = `<div class="kb-state"><p>Pilih panduan dari daftar untuk membacanya.</p></div>`;
+    el.innerHTML = `<div class="kb-state"><p>Select a guide from the list to read it.</p></div>`;
     return;
   }
 
   const p = PRODUCTS[a.product];
   const tags = (a.tags || []).filter(Boolean);
   const meta = [
-    a.version ? `Berlaku untuk <b>${escapeHtml(a.version)}</b>` : '',
-    `Diperbarui ${escapeHtml(fmtDate(a.updatedAt))}${a.updatedBy ? ` oleh ${escapeHtml(a.updatedBy)}` : ''}`
+    a.version ? `Applies to <b>${escapeHtml(a.version)}</b>` : '',
+    `Updated ${escapeHtml(fmtDate(a.updatedAt))}${a.updatedBy ? ` by ${escapeHtml(a.updatedBy)}` : ''}`
   ].filter(Boolean).join('<span class="kb-sep" aria-hidden="true"></span>');
 
   el.innerHTML = `
     <div class="kb-read-top">
-      <button type="button" class="kb-back" data-kb-act="back" aria-label="Kembali ke daftar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg> Daftar
+      <button type="button" class="kb-back" data-kb-act="back" aria-label="Back to list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg> List
       </button>
       <div class="kb-read-actions">
-        <button type="button" class="btn btn-secondary btn-sm" data-kb-act="copy-text">Copy teks</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-kb-act="copy-text">Copy text</button>
         <button type="button" class="btn btn-secondary btn-sm" data-kb-act="copy-link">Copy link</button>
         <button type="button" class="btn btn-secondary btn-sm" data-kb-act="edit">Edit</button>
-        <button type="button" class="btn btn-secondary btn-sm kb-danger" data-kb-act="delete" aria-label="Hapus panduan">Hapus</button>
+        <button type="button" class="btn btn-secondary btn-sm kb-danger" data-kb-act="delete" aria-label="Delete guide">Delete</button>
       </div>
     </div>
-    <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(a.module || 'Lainnya')}</span></p>
-    <h1 class="kb-title">${escapeHtml(a.title || 'Tanpa judul')}</h1>
+    <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(a.module || 'Other')}</span></p>
+    <h1 class="kb-title">${escapeHtml(a.title || 'Untitled')}</h1>
     ${a.summary ? `<p class="kb-lede">${escapeHtml(a.summary)}</p>` : ''}
     <p class="kb-meta">${meta}</p>
     ${tags.length ? `<p class="kb-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</p>` : ''}
@@ -300,7 +300,7 @@ function openLightbox(src, alt){
   const box = document.createElement('div');
   box.className = 'kb-lightbox';
   box.setAttribute('role', 'dialog');
-  box.setAttribute('aria-label', alt || 'Gambar');
+  box.setAttribute('aria-label', alt || 'Image');
   const big = document.createElement('img');
   big.src = src;
   big.alt = alt || '';
@@ -333,15 +333,15 @@ async function copyArticleText(){
   if(!a) return;
   const p = PRODUCTS[a.product];
   const text = `*${a.title}*\n${p ? p.label : ''} › ${a.module || ''}${a.version ? ` (${a.version})` : ''}\n\n${markdownToText(a.content)}`;
-  try { await navigator.clipboard.writeText(text); toast('Teks panduan disalin'); }
-  catch(_){ toast('Tidak bisa menyalin ke clipboard', 'error'); }
+  try { await navigator.clipboard.writeText(text); toast('Guide text copied'); }
+  catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
 
 async function copyArticleLink(){
   if(!S.selectedId) return;
   const url = `${location.origin}${location.pathname}?view=kb&doc=${encodeURIComponent(S.selectedId)}`;
-  try { await navigator.clipboard.writeText(url); toast('Link panduan disalin'); }
-  catch(_){ toast('Tidak bisa menyalin ke clipboard', 'error'); }
+  try { await navigator.clipboard.writeText(url); toast('Guide link copied'); }
+  catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
 
 async function deleteArticle(){
@@ -349,10 +349,10 @@ async function deleteArticle(){
   if(!a) return;
   const ok = await confirmDialog({
     type: 'danger',
-    title: 'Hapus panduan?',
-    message: `“${escapeHtml(a.title || 'Tanpa judul')}” dan semua gambarnya akan dihapus untuk seluruh anggota workspace.`,
-    okText: 'Hapus panduan',
-    cancelText: 'Batal'
+    title: 'Delete guide?',
+    message: `“${escapeHtml(a.title || 'Untitled')}” and all its images will be deleted for every workspace member.`,
+    okText: 'Delete guide',
+    cancelText: 'Cancel'
   });
   if(!ok) return;
   try {
@@ -361,10 +361,10 @@ async function deleteArticle(){
     await kbRef().doc(a.id).delete();
     S.selectedId = null;
     $('kbMain')?.classList.remove('kb-reading');
-    toast('Panduan dihapus');
+    toast('Guide deleted');
   } catch(err){
     console.error(err);
-    toast('Gagal menghapus: ' + (err.message || err), 'error');
+    toast('Failed to delete: ' + (err.message || err), 'error');
   }
 }
 
@@ -378,10 +378,10 @@ function moduleSuggestions(){
 function openEditor(article){
   let id;
   try { id = article ? article.id : kbRef().doc().id; }
-  catch(err){ toast('Workspace belum siap, coba lagi sebentar', 'error'); return; }
+  catch(err){ toast('Workspace not ready, try again shortly', 'error'); return; }
   S.editing = { id, isNew: !article, uploaded: new Set(), dirty: false };
 
-  $('kbEditorHeading').textContent = article ? 'Edit panduan' : 'Tulis panduan baru';
+  $('kbEditorHeading').textContent = article ? 'Edit guide' : 'Write new guide';
   $('kbTitle').value = article?.title || '';
   $('kbProduct').value = article?.product || (S.product !== 'all' ? S.product : '');
   $('kbModule').value = article?.module || (S.module !== 'all' ? S.module : '');
@@ -411,9 +411,9 @@ async function cancelEditor(){
   if(!ed) return closeEditor();
   if(ed.dirty){
     const ok = await confirmDialog({
-      title: 'Buang perubahan?',
-      message: 'Perubahan yang belum disimpan akan hilang.',
-      okText: 'Buang', cancelText: 'Lanjut menulis'
+      title: 'Discard changes?',
+      message: 'Unsaved changes will be lost.',
+      okText: 'Discard', cancelText: 'Continue writing'
     });
     if(!ok) return;
   }
@@ -443,7 +443,7 @@ function setTab(tab){
   const prev = $('kbPreview');
   prev.classList.toggle('hidden', write);
   if(!write && S.editing){
-    prev.innerHTML = renderMarkdown($('kbContent').value) || '<p class="kb-muted">Belum ada isi.</p>';
+    prev.innerHTML = renderMarkdown($('kbContent').value) || '<p class="kb-muted">Nothing written yet.</p>';
     hydrateImages(prev, S.editing.id);
   }
 }
@@ -455,9 +455,9 @@ async function saveEditor(){
   const product = $('kbProduct').value;
   const module = $('kbModule').value.trim();
   const content = $('kbContent').value.replace(/\s+$/, '') + '\n';
-  if(!title){ setEditorHint('Judul wajib diisi.', true); $('kbTitle').focus(); return; }
-  if(!PRODUCTS[product]){ setEditorHint('Pilih produknya.', true); $('kbProduct').focus(); return; }
-  if(!module){ setEditorHint('Modul wajib diisi, misalnya Penjualan.', true); $('kbModule').focus(); return; }
+  if(!title){ setEditorHint('Title is required.', true); $('kbTitle').focus(); return; }
+  if(!PRODUCTS[product]){ setEditorHint('Select a product.', true); $('kbProduct').focus(); return; }
+  if(!module){ setEditorHint('Module is required, e.g. Sales.', true); $('kbModule').focus(); return; }
 
   const btn = $('kbSaveBtn');
   btn.disabled = true;
@@ -482,15 +482,15 @@ async function saveEditor(){
       const imgs = await kbRef().doc(ed.id).collection('images').get();
       await Promise.all(imgs.docs.filter(d => !used.has(d.id)).map(d => d.ref.delete()));
     } catch(e){ console.warn('kb image cleanup', e); }
-    toast(ed.isNew ? 'Panduan disimpan' : 'Perubahan disimpan');
+    toast(ed.isNew ? 'Guide saved' : 'Changes saved');
     const id = ed.id;
     closeEditor();
     selectArticle(id);
   } catch(err){
     console.error(err);
     setEditorHint(err.code === 'permission-denied'
-      ? 'Ditolak Firestore. Publish firestore.rules versi terbaru dulu (lihat FIRESTORE_RULES.md).'
-      : 'Gagal menyimpan: ' + (err.message || err), true);
+      ? 'Denied by Firestore. Publish the latest firestore.rules first (see FIRESTORE_RULES.md).'
+      : 'Failed to save: ' + (err.message || err), true);
   } finally {
     btn.disabled = false;
   }
@@ -552,15 +552,15 @@ function prefixLines(prefixFn){
 function mdAction(kind){
   if(!S.editing) return;
   switch(kind){
-    case 'bold': return surround('**', '**', 'teks tebal');
+    case 'bold': return surround('**', '**', 'bold text');
     case 'h': return prefixLines(() => '## ');
     case 'ul': return prefixLines(() => '- ');
     case 'ol': return prefixLines(i => `${i + 1}. `);
-    case 'path': return surround('**', '**', 'Penjualan > Faktur Penjualan');
-    case 'note': return insertBlock('> **Catatan:** ');
-    case 'warn': return insertBlock('> **Penting:** ');
-    case 'table': return insertBlock('| Field | Keterangan |\n|---|---|\n| Nama field | Penjelasan |');
-    case 'link': return surround('[', '](https://)', 'teks link');
+    case 'path': return surround('**', '**', 'Sales > Sales Invoice');
+    case 'note': return insertBlock('> **Note:** ');
+    case 'warn': return insertBlock('> **Important:** ');
+    case 'table': return insertBlock('| Field | Description |\n|---|---|\n| Field name | Explanation |');
+    case 'link': return surround('[', '](https://)', 'link text');
     case 'image': return $('kbImgInput').click();
   }
 }
@@ -575,7 +575,7 @@ function loadImage(file){
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('File bukan gambar yang valid')); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('File is not a valid image')); };
     img.src = url;
   });
 }
@@ -599,7 +599,7 @@ async function compressImage(file){
     if(bytes <= MAX_IMG_BYTES) return { data, w, h, bytes };
     if(attempt >= 2) scale *= 0.8;
   }
-  throw new Error('Gambar terlalu besar setelah dikompres');
+  throw new Error('Image too large after compression');
 }
 
 async function uploadImages(files){
@@ -607,7 +607,7 @@ async function uploadImages(files){
   if(!ed || !files.length) return;
   for(const file of files){
     if(!/^image\//.test(file.type)) continue;
-    setEditorHint('Mengunggah gambar…');
+    setEditorHint('Uploading image…');
     try {
       const { data, w, h, bytes } = await compressImage(file);
       const ref = kbRef().doc(ed.id).collection('images').doc();
@@ -616,12 +616,12 @@ async function uploadImages(files){
       S.imgCache.set(ref.id, data);
       const name = (file.name && !/^image\.\w+$/i.test(file.name)) ? file.name.replace(/\.[^.]+$/, '') : 'Screenshot';
       insertImage(`![${name}](kbimg:${ref.id})`);
-      setEditorHint(`Gambar ditambahkan (${Math.round(bytes / 1024)} KB).`);
+      setEditorHint(`Image added (${Math.round(bytes / 1024)} KB).`);
     } catch(err){
       console.error(err);
       setEditorHint(err.code === 'permission-denied'
-        ? 'Upload ditolak Firestore. Publish firestore.rules versi terbaru dulu.'
-        : 'Gagal mengunggah gambar: ' + (err.message || err), true);
+        ? 'Upload denied by Firestore. Publish the latest firestore.rules first.'
+        : 'Failed to upload image: ' + (err.message || err), true);
     }
   }
 }

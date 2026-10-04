@@ -35,8 +35,8 @@ const VIEW_META = {
   notes:      { title:'Notes', sub:'Quick notes and reminders', addBtn:false },
   share:     { title:'Shared Plan', sub:'Read-only plan link', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false },
-  docs:      { title:'Documentation', sub:'Panduan lengkap semua fitur', addBtn:false },
-  kb:        { title:'Knowledge Base', sub:'Panduan pemakaian Zahir ERP, ERP One, Manufacturing & MRP', addBtn:false }
+  docs:      { title:'Documentation', sub:'Complete guide to every feature', addBtn:false },
+  kb:        { title:'Knowledge Base', sub:'How-to guides for Zahir ERP, ERP One, Manufacturing & MRP', addBtn:false }
 };
 
 function toggleSyncPanel(force){

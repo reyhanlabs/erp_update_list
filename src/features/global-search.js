@@ -70,8 +70,8 @@ function renderGlobalSearchResults(q){
     if(hay.includes(q)){
       const prod = KB_PRODUCTS[a.product]?.short || '';
       hits.push({
-        type: 'Panduan',
-        label: a.title || 'Tanpa judul',
+        type: 'Guide',
+        label: a.title || 'Untitled',
         sub: [prod, a.module].filter(Boolean).join(' › '),
         action: `openKbArticle('${String(a.id).replace(/[^A-Za-z0-9_-]/g, '')}');closeGlobalSearch();`
       });
