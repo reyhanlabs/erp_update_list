@@ -172,6 +172,7 @@ import {
   searchClientFromGlobal
 } from './features/clients.js';
 import { openDocsView } from './features/docs.js';
+import { openKbArticle, openKbView } from './features/kb.js';
 
 function exposeAppGlobals(){
   const map = {
@@ -192,7 +193,7 @@ function exposeAppGlobals(){
     openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
-    applyRouteFromUrl, syncUrlToRoute, openDocsView,
+    applyRouteFromUrl, syncUrlToRoute, openDocsView, openKbView, openKbArticle,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
   };

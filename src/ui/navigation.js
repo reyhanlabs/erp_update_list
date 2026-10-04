@@ -15,6 +15,7 @@ import { openActiveWorkView } from '../features/active-work.js';
 import { openWhatNextView, refreshDashAttention } from '../features/what-next.js';
 import { renderNotes } from '../features/notes.js';
 import { onDocsShown } from '../features/docs.js';
+import { onKbShown } from '../features/kb.js';
 
 /* ============================================================
    NAVIGATION
@@ -34,7 +35,8 @@ const VIEW_META = {
   notes:      { title:'Notes', sub:'Quick notes and reminders', addBtn:false },
   share:     { title:'Shared Plan', sub:'Read-only plan link', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false },
-  docs:      { title:'Documentation', sub:'Panduan lengkap semua fitur', addBtn:false }
+  docs:      { title:'Documentation', sub:'Panduan lengkap semua fitur', addBtn:false },
+  kb:        { title:'Knowledge Base', sub:'Panduan pemakaian Zahir ERP, ERP One, Manufacturing & MRP', addBtn:false }
 };
 
 function toggleSyncPanel(force){
@@ -75,7 +77,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
      /?view=summaries
      /?view=settings
    ============================================================ */
-const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','clients','share','settings','docs']);
+const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','clients','share','settings','docs','kb']);
 const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
 let __applyingRoute = false; // prevent pushState loop
 
@@ -205,6 +207,7 @@ function switchView(view){
   refreshCounts();
   if(view === 'settings') updateLastSync();
   if(view === 'docs'){ try { onDocsShown(); } catch(_){} }
+  if(view === 'kb'){ try { onKbShown(); } catch(e){ console.error('kb', e); } }
   if(view === 'plans') loadRedmineProjects();
   if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }
   if(view === 'tester'){

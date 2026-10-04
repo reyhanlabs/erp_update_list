@@ -25,7 +25,8 @@ const SIDEBAR_ICON_FROM = {
   whatnext: '.nav-item[data-view="whatnext"] svg',
   clients: '.nav-item[data-view="clients"] svg',
   newissue: '.nav-item[data-view="createissue"] svg',
-  account: '.nav-item[data-view="settings"] svg'
+  account: '.nav-item[data-view="settings"] svg',
+  kb: '.nav-item[data-view="kb"] svg'
 };
 const svg = (body) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 const EXTRA_ICONS = {
@@ -58,7 +59,8 @@ const GO = {
   createissue: () => openCreateIssueView(),
   notes: () => openNotesView(),
   search: () => openGlobalSearch(),
-  settings: () => switchView('settings')
+  settings: () => switchView('settings'),
+  kb: () => switchView('kb')
 };
 
 let wired = false;

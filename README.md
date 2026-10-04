@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mengelola history update Zahir ERP (sync dari Redmine `pjm.zahironline.com`), antrean Ready for Testing, dan generate ringkasan untuk dibagikan ke WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.41.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.42.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -31,7 +31,7 @@ erp_update_list/
 │   ├── app.js                     ← orchestrator: exposeAppGlobals() + startApp()
 │   ├── config.js                  ← APP_VERSION (satu-satunya sumber versi)
 │   ├── firebase.js · api.js · icons.js
-│   ├── core/                      ← state, helpers, cloud-sync (Firestore)
+│   ├── core/                      ← state, helpers, cloud-sync (Firestore), markdown
 │   ├── ui/                        ← navigation/routing, modal, confirm, theme,
 │   │                                sync-status, batch-selection, list-controls
 │   ├── redmine/                   ← client (fetch/cache/error), projects + date range
@@ -42,7 +42,7 @@ erp_update_list/
 │                                    account, settings, issue-status, new-issues,
 │                                    active-work, what-next, auto-refresh,
 │                                    telegram-briefing, create-issue, share, pwa,
-│                                    notes, global-search, clients, docs
+│                                    notes, global-search, clients, docs, kb
 ├── api/                           ← Vercel serverless functions
 │   ├── _lib/auth.js               ← guard: Google sign-in + allowlist email
 │   ├── _lib/firebase-admin.js     ← firebase-admin bootstrap
@@ -171,6 +171,7 @@ Run pertama hanya **seed** baseline (tanpa spam); run berikutnya hanya mengirim 
 
 ## 📝 Changelog (ringkas)
 
+- **v4.42.0** — Menu baru **Knowledge Base**: tim bisa menulis panduan pemakaian Zahir ERP, ERP One, Manufacturing, dan MRP (per produk & modul), lengkap dengan screenshot (tempel Ctrl+V, dikompres otomatis), pratinjau, pencarian, copy teks untuk WA, dan link langsung per panduan. Data di `workspaces/{id}/kb` — **publish ulang `firestore.rules`**.
 - **v4.41.0** — Menu baru **Documentation**: panduan lengkap semua fitur (alur kerja harian, daftar isi, pencarian, tombol langsung ke tiap menu, FAQ). Sidebar mode ikon: angka count diganti titik (angka besar sebelumnya menumpuk di atas ikon), jumlahnya pindah ke tooltip.
 - **v4.40.4** — Sidebar bisa dibuka-tutup di desktop lewat tombol ☰ (mode ikon 68px, label jadi tooltip, status tersimpan). Fix: drawer sidebar di HP tidak lagi tertutup topbar.
 - **v4.40.3** — Angka count di sidebar jadi putih (termasuk yang bernilai nol).

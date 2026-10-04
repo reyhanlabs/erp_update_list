@@ -119,6 +119,12 @@
       <span class="label">Update Summaries</span>
       <span class="count" id="countSummaries" data-zero="1">0</span>
     </button>
+    <button class="nav-item" data-view="kb">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span class="label">Knowledge Base</span>
+    </button>
     <div class="nav-section">Tester Queue</div>
     <button class="nav-item" data-view="tester" data-tester-cat="all" onclick="openTesterCategory('all')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1356,6 +1362,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.42.0</span>
+                <span class="cl-note">New Knowledge Base: write and share how-to guides for Zahir ERP, ERP One, Manufacturing & MRP, with screenshots</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.41.0</span>
                 <span class="cl-note">New Documentation page (full feature guide with search); collapsed sidebar shows dots instead of overlapping numbers</span>
               </div>
@@ -1800,6 +1810,108 @@
       </div>
     </section>
 
+    <section class="view" id="view-kb">
+      <div class="kb">
+        <div id="kbBrowse">
+          <div class="kb-bar">
+            <div class="kb-products" role="group" aria-label="Produk">
+              <button type="button" data-kb-product="all" class="is-active" aria-pressed="true">Semua produk</button>
+              <button type="button" data-kb-product="erp" aria-pressed="false">Zahir ERP</button>
+              <button type="button" data-kb-product="one" aria-pressed="false">ERP One</button>
+              <button type="button" data-kb-product="mfg" aria-pressed="false">Manufacturing</button>
+              <button type="button" data-kb-product="mrp" aria-pressed="false">MRP</button>
+            </div>
+            <label class="kb-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input type="search" id="kbSearch" placeholder="Cari panduan, mis. faktur, stok opname, closing" autocomplete="off" aria-label="Cari panduan">
+            </label>
+            <button type="button" class="btn btn-primary btn-sm kb-new" data-kb-act="new">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Tulis panduan
+            </button>
+          </div>
+          <select class="input kb-module-select" id="kbModuleSelect" aria-label="Modul"></select>
+          <div class="kb-main" id="kbMain">
+            <nav class="kb-modules" id="kbModules" aria-label="Modul"></nav>
+            <div class="kb-list" id="kbList"></div>
+            <article class="kb-reader" id="kbReader" aria-live="polite"></article>
+          </div>
+        </div>
+
+        <div class="kb-editor hidden" id="kbEditor">
+          <div class="kb-editor-head">
+            <h2 id="kbEditorHeading">Tulis panduan baru</h2>
+            <div class="kb-editor-actions">
+              <span class="kb-editor-hint" id="kbEditorHint" role="status"></span>
+              <button type="button" class="btn btn-secondary btn-sm" data-kb-act="cancel">Batal</button>
+              <button type="button" class="btn btn-primary btn-sm" id="kbSaveBtn" data-kb-act="save">Simpan panduan</button>
+            </div>
+          </div>
+          <div class="kb-form">
+            <label class="kb-field kb-field-wide">
+              <span>Judul <i>wajib</i></span>
+              <input class="input" id="kbTitle" maxlength="160" placeholder="Cara membuat Faktur Penjualan dari Sales Order">
+            </label>
+            <label class="kb-field">
+              <span>Produk <i>wajib</i></span>
+              <select class="input" id="kbProduct">
+                <option value="">Pilih produk</option>
+                <option value="erp">Zahir ERP</option>
+                <option value="one">Zahir ERP One</option>
+                <option value="mfg">Zahir Manufacturing</option>
+                <option value="mrp">Zahir MRP</option>
+              </select>
+            </label>
+            <label class="kb-field">
+              <span>Modul <i>wajib</i></span>
+              <input class="input" id="kbModule" list="kbModuleList" maxlength="60" placeholder="Penjualan">
+              <datalist id="kbModuleList"></datalist>
+            </label>
+            <label class="kb-field">
+              <span>Berlaku untuk versi</span>
+              <input class="input" id="kbVersion" maxlength="40" placeholder="V2.26.09 ke atas">
+            </label>
+            <label class="kb-field">
+              <span>Tag</span>
+              <input class="input" id="kbTags" maxlength="200" placeholder="faktur, pajak, diskon">
+            </label>
+            <label class="kb-field kb-field-wide">
+              <span>Ringkasan satu kalimat</span>
+              <input class="input" id="kbSummary" maxlength="220" placeholder="Muncul di daftar dan membantu pencarian">
+            </label>
+          </div>
+
+          <div class="kb-compose">
+            <div class="kb-compose-bar">
+              <div class="kb-tabs" role="tablist">
+                <button type="button" role="tab" data-kb-tab="write" class="is-active" aria-selected="true">Tulis</button>
+                <button type="button" role="tab" data-kb-tab="preview" aria-selected="false">Pratinjau</button>
+              </div>
+              <div class="kb-md-tools" id="kbMdTools" role="toolbar" aria-label="Format">
+                <button type="button" data-kb-md="h" title="Judul bagian">Judul</button>
+                <button type="button" data-kb-md="bold" title="Tebal (Ctrl+B)"><b>B</b></button>
+                <button type="button" data-kb-md="ol" title="Langkah bernomor">1. Langkah</button>
+                <button type="button" data-kb-md="ul" title="Daftar poin">• Poin</button>
+                <button type="button" data-kb-md="path" title="Jalur menu, mis. Penjualan > Faktur">Menu ›</button>
+                <button type="button" data-kb-md="note" title="Kotak catatan">Catatan</button>
+                <button type="button" data-kb-md="warn" title="Kotak peringatan">Penting</button>
+                <button type="button" data-kb-md="table" title="Tabel field">Tabel</button>
+                <button type="button" data-kb-md="link" title="Link">Link</button>
+                <button type="button" data-kb-md="image" title="Sisipkan screenshot" class="kb-tool-img">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+                  Gambar
+                </button>
+              </div>
+            </div>
+            <textarea class="kb-textarea" id="kbContent" spellcheck="true" aria-label="Isi panduan"></textarea>
+            <div class="kb-preview md-body hidden" id="kbPreview"></div>
+            <p class="kb-compose-foot">Tempel screenshot dengan <kbd>Ctrl</kbd>+<kbd>V</kbd> atau seret file gambar ke kolom tulis. Simpan dengan <kbd>Ctrl</kbd>+<kbd>S</kbd>. Tulis <code>Penjualan &gt; Faktur</code> untuk jalur menu.</p>
+            <input type="file" id="kbImgInput" accept="image/*" multiple hidden>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="view" id="view-docs">
       <div class="docs">
         <header class="docs-hero">
@@ -1852,6 +1964,7 @@
             <div class="docs-toc-group">
               <p>Alat bantu</p>
               <a href="#docs-newissue">New Issue</a>
+              <a href="#docs-kb">Knowledge Base</a>
               <a href="#docs-telegram">Telegram &amp; notifikasi</a>
               <a href="#docs-search">Pencarian &amp; Notes</a>
               <a href="#docs-shortcuts">Shortcut keyboard</a>
@@ -2021,6 +2134,25 @@
                 <li>Tulis poin singkat di <b>Notes for description generator</b>, lalu klik <b>Generate description</b> untuk menyusun deskripsi lengkap.</li>
                 <li>Periksa deskripsinya, lalu klik <b>Push to Redmine</b>. Link issue baru langsung ditampilkan.</li>
               </ol>
+            </article>
+
+            <article class="docs-sec" id="docs-kb" data-keywords="knowledge base panduan zahir erp one manufacturing mrp dokumentasi cara pakai screenshot artikel">
+              <header><span class="docs-ico" data-docs-icon="kb"></span><h3>Knowledge Base</h3><button type="button" class="docs-go" data-docs-go="kb">Buka Knowledge Base</button></header>
+              <p>Tempat tim menulis cara pemakaian fitur <b>Zahir ERP</b>, <b>ERP One</b>, <b>Manufacturing</b>, dan <b>MRP</b>, supaya semua orang support menjawab klien dengan langkah yang sama. Panduan tersimpan di workspace, jadi langsung terlihat oleh semua anggota tim.</p>
+              <ol class="docs-steps">
+                <li>Klik <b>Tulis panduan</b>, lalu isi judul, produk, dan modul (mis. Penjualan, Persediaan).</li>
+                <li>Isi langkah-langkahnya. Template awal sudah berisi Tujuan, Sebelum mulai, Langkah-langkah, dan Hasil.</li>
+                <li>Tempel screenshot langsung dengan <kbd>Ctrl</kbd>+<kbd>V</kbd>, seret file gambar, atau klik <b>Gambar</b>. Gambar dikompres otomatis.</li>
+                <li>Cek di tab <b>Pratinjau</b>, lalu <b>Simpan panduan</b> (atau <kbd>Ctrl</kbd>+<kbd>S</kbd>).</li>
+              </ol>
+              <p>Saat membaca, <b>Copy teks</b> menyalin panduan dalam format yang rapi untuk WhatsApp, dan <b>Copy link</b> menyalin alamat langsung ke panduan itu untuk rekan tim.</p>
+              <dl class="docs-defs">
+                <dt>Langkah bernomor</dt><dd>Tulis <code>1.</code>, <code>2.</code>, dan seterusnya di awal baris.</dd>
+                <dt>Jalur menu</dt><dd>Tulis <code>Penjualan &gt; Faktur Penjualan</code>, tampil sebagai Penjualan › Faktur Penjualan.</dd>
+                <dt>Kotak catatan</dt><dd>Awali baris dengan <code>&gt; **Catatan:**</code> atau <code>&gt; **Penting:**</code> untuk peringatan.</dd>
+                <dt>Screenshot di bawah langkah</dt><dd>Beri dua spasi di depan baris gambar supaya menempel ke langkah di atasnya.</dd>
+              </dl>
+              <div class="docs-tip">Panduan Knowledge Base belum ikut dalam <b>Export JSON</b>. Panduan tersimpan aman di cloud workspace.</div>
             </article>
 
             <article class="docs-sec" id="docs-telegram" data-keywords="telegram chat id briefing notifikasi rft lonceng bell alert otomatis cron">

@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.41.0';
+export const APP_VERSION = '4.42.0';
 export const APP_VERSION_DATE = '2026-10-04';
-export const APP_VERSION_NOTE = 'Documentation page + tidy collapsed sidebar counts';
+export const APP_VERSION_NOTE = 'Knowledge Base for Zahir product guides';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

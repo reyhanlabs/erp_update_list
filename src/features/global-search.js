@@ -8,6 +8,7 @@ import { formatAssignee } from './tester/queue.js';
 import { ISSUE_STATUS_DEFS } from './issue-status.js';
 import { getNotes } from './notes.js';
 import { getIssueClientName } from './clients.js';
+import { getKbArticles, KB_PRODUCTS } from './kb.js';
 
 /* ============================================================
    GLOBAL SEARCH (plans + notes + issue lines)
@@ -62,6 +63,19 @@ function renderGlobalSearchResults(q){
         });
       }
     });
+  });
+  // Knowledge Base guides (only those already loaded this session)
+  getKbArticles().forEach(a => {
+    const hay = [a.title, a.module, a.summary, (a.tags || []).join(' ')].join(' ').toLowerCase();
+    if(hay.includes(q)){
+      const prod = KB_PRODUCTS[a.product]?.short || '';
+      hits.push({
+        type: 'Panduan',
+        label: a.title || 'Tanpa judul',
+        sub: [prod, a.module].filter(Boolean).join(' › '),
+        action: `openKbArticle('${String(a.id).replace(/[^A-Za-z0-9_-]/g, '')}');closeGlobalSearch();`
+      });
+    }
   });
   getNotes().forEach(n => {
     if((n.title||'').toLowerCase().includes(q) || (n.body||'').toLowerCase().includes(q)){
