@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.38.8';
+export const APP_VERSION = '4.38.9';
 export const APP_VERSION_DATE = '2026-09-29';
-export const APP_VERSION_NOTE = 'Sidebar elegant blue theme';
+export const APP_VERSION_NOTE = 'Sidebar burgundy theme';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';
