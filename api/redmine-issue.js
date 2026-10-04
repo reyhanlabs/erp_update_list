@@ -4,6 +4,8 @@
  * POST body { project_id, subject, description, tracker_id, priority_id, category_id }
  * Env: REDMINE_API_KEY
  */
+import { requireUser } from './_lib/auth.js';
+
 const REDMINE_BASE = 'https://pjm.zahironline.com';
 
 function headers(apiKey) {
@@ -27,10 +29,10 @@ async function readBody(req) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Cache-Control', 'no-store');
+  const user = await requireUser(req, res);
+  if (!user) return;
+
 
   const apiKey = process.env.REDMINE_API_KEY;
   if (!apiKey) {

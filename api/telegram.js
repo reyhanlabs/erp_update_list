@@ -1,12 +1,19 @@
 /* Telegram send helper — Vercel serverless
- * Env: TELEGRAM_BOT_TOKEN
- * Body: { chatId, text }
+ * Auth: Google sign-in (see api/_lib/auth.js)
+ * Env:
+ *   TELEGRAM_BOT_TOKEN          — required
+ *   TELEGRAM_CHAT_ID            — default chat (used when body.chatId is empty)
+ *   TELEGRAM_ALLOWED_CHAT_IDS   — optional comma list of extra allowed chats
+ * Body: { chatId?, text }
+ * The bot can only post to chats on the server-side allowlist.
  */
+import { requireUser } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Cache-Control', 'no-store');
+  const user = await requireUser(req, res);
+  if (!user) return;
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -22,10 +29,30 @@ export default async function handler(req, res) {
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (_) { body = {}; }
     }
-    const chatId = body?.chatId;
+    const defaultChat = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+    const allowedChats = new Set(
+      [defaultChat, ...String(process.env.TELEGRAM_ALLOWED_CHAT_IDS || '').split(',')]
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+    if (!allowedChats.size) {
+      return res.status(500).json({
+        error: 'TELEGRAM_CHAT_ID not configured',
+        hint: 'Add TELEGRAM_CHAT_ID (and optionally TELEGRAM_ALLOWED_CHAT_IDS) in Vercel → Environment Variables → Redeploy'
+      });
+    }
+
+    const chatId = String(body?.chatId || '').trim() || defaultChat;
     const text = body?.text;
-    if (!chatId || !text) {
-      return res.status(400).json({ error: 'chatId and text required' });
+    if (!text) {
+      return res.status(400).json({ error: 'text required' });
+    }
+    if (!allowedChats.has(chatId)) {
+      return res.status(403).json({
+        error: 'Chat ID not allowed',
+        code: 'TELEGRAM_CHAT_FORBIDDEN',
+        hint: `Chat ${chatId} is not in TELEGRAM_CHAT_ID / TELEGRAM_ALLOWED_CHAT_IDS on the server.`
+      });
     }
 
     const msg = String(text).slice(0, 4000);
@@ -46,7 +73,7 @@ export default async function handler(req, res) {
       if (/chat not found/i.test(desc)) hint = 'Chat ID wrong, or bot not added to the group / not started with /start';
       if (/blocked/i.test(desc)) hint = 'Bot was blocked by the user';
       if (/parse/i.test(desc)) hint = 'Message format error';
-      return res.status(502).json({ error: desc, hint, data });
+      return res.status(502).json({ error: desc, hint });
     }
     return res.status(200).json({ ok: true });
   } catch (err) {

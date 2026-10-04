@@ -5,6 +5,7 @@
 import { APP_VERSION, APP_VERSION_DATE, APP_VERSION_NOTE, RFT_STATUS_CACHE_KEY, MIGRATE_SNAP_KEY, REDMINE_STORAGE_KEY } from './config.js';
 import { ICON } from './icons.js';
 import { auth, db } from './firebase.js';
+import { apiFetch } from './api.js';
 
 /* ============================================================
    ZAHIR ERP UPDATE MANAGER — APP LOGIC
@@ -2303,6 +2304,21 @@ const RedmineCache = {
 
 function friendlyRedmineError(status, data){
   const detail = (data && (data.detail || data.error || data.hint)) || '';
+  // App-level access errors (our own API guard), not Redmine's
+  const appCode = data && data.code ? String(data.code) : '';
+  if(appCode.startsWith('APP_')){
+    const titles = {
+      APP_AUTH_REQUIRED: 'Sign-in required',
+      APP_AUTH_INVALID: 'Session expired',
+      APP_GUEST_FORBIDDEN: 'Not available in guest mode',
+      APP_FORBIDDEN: 'Account not allowed',
+      APP_AUTH_NOT_CONFIGURED: 'Server access list not configured'
+    };
+    return {
+      title: titles[appCode] || 'Access denied',
+      message: [data.error, data.hint].filter(Boolean).join(' — ')
+    };
+  }
   if(status === 401){
     return {
       title: 'Invalid API key (401)',
@@ -2355,7 +2371,7 @@ async function fetchRedmine(pathAndQuery, { force = false } = {}){
 
   let r;
   try {
-    r = await fetch(url);
+    r = await apiFetch(url);
   } catch(err){
     const friendly = friendlyRedmineError(0, { detail: err.message });
     const e = new Error(friendly.message);
@@ -2949,7 +2965,7 @@ async function sendTelegramRftAlert(fresh){
   if(fresh.length > 15) text += `…and ${fresh.length - 15} more\n`;
 
   try {
-    const r = await fetch('/api/telegram', {
+    const r = await apiFetch('/api/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chatId, text: text.trim() })
@@ -3628,7 +3644,7 @@ async function loadRedmineProjects(){
   }
 
   try {
-    const r = await fetch('/api/redmine-projects');
+    const r = await apiFetch('/api/redmine-projects');
     const data = await r.json();
 
     if(!r.ok) throw new Error(data.detail || data.error || 'Failed to load projects');
@@ -6332,7 +6348,7 @@ async function sendTelegramBriefing(){
 
   const text = buildTelegramBriefing();
   try {
-    const r = await fetch('/api/telegram', {
+    const r = await apiFetch('/api/telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chatId, text })
@@ -6402,7 +6418,7 @@ async function ensureCreateIssueMeta(){
 async function loadCreateIssueMeta(projectId){
   const q = projectId ? `?meta=1&project_id=${encodeURIComponent(projectId)}` : '?meta=1';
   try {
-    const r = await fetch('/api/redmine-issue' + q);
+    const r = await apiFetch('/api/redmine-issue' + q);
     const data = await r.json().catch(() => ({}));
     if(!r.ok) throw new Error(data.error || r.status);
     window.__ciMeta = {
@@ -6557,7 +6573,7 @@ async function submitCreateIssue(e){
   if(cat) payload.category_id = Number(cat);
 
   try {
-    const r = await fetch('/api/redmine-issue', {
+    const r = await apiFetch('/api/redmine-issue', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)

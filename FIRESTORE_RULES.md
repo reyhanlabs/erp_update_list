@@ -1,16 +1,15 @@
-# Firestore rules — publish in Firebase Console
+# Firestore rules
 
-After deploy v4.34.2, publish rules so short share links work:
+Source of truth: [`firestore.rules`](./firestore.rules). Publish via Firebase Console → Firestore → Rules
+(paste the whole file) or `firebase deploy --only firestore:rules`.
 
-```
-match /shares/{shareId} {
-  allow read: if true;
-  allow create: if request.auth != null
-    && request.resource.data.keys().hasAll(['v', 'title', 'issues', 'createdAt'])
-    && request.resource.data.issues is list
-    && request.resource.data.issues.size() <= 500;
-  allow update, delete: if false;
-}
-```
+| Path | Who | Notes |
+| --- | --- | --- |
+| `system/*` | nobody (client) | Cron state. Written only by `api/cron-rft-telegram.js` via firebase-admin (service account bypasses rules). |
+| `shares/{id}` | get: anyone · create: signed-in | Public read-only share links. `list` is blocked so links can't be enumerated. |
+| `workspaces/{id}` | get/write: signed-in | `list` is blocked — the workspace code is the shared secret. |
+| `workspaces/{id}/plans|summaries` | signed-in | Anyone who knows the workspace code. Use long random codes. |
+| `users/{uid}/…` | owner only | Personal settings + legacy data. |
 
-Full file: `firestore.rules` in this repo.
+> Since v4.39.0 the cron no longer needs `system/*` to be client-writable.
+> If you published the old `allow read, write: if true` rule, replace it now.

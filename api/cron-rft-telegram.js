@@ -7,15 +7,21 @@
  *   TELEGRAM_BOT_TOKEN   — required
  *   TELEGRAM_CHAT_ID     — required (group/user chat id)
  *   REDMINE_API_KEY      — required
- *   FIREBASE_API_KEY     — optional (defaults to project web key for state doc)
+ *   FIREBASE_SERVICE_ACCOUNT — required (service-account JSON; state is written
+ *                              with firebase-admin, so Firestore rules can keep
+ *                              /system locked to clients)
+ *
+ * Prefer the Authorization header — query-string secrets end up in access logs.
  *
  * Vercel → Settings → Cron Jobs, or vercel.json "crons"
  * Hobby plan may limit frequency; external cron (cron-job.org) also works.
  */
 
+import { adminDb } from './_lib/firebase-admin.js';
+import { safeEqual } from './_lib/auth.js';
+
 const REDMINE_BASE = 'https://pjm.zahironline.com';
-const FIREBASE_PROJECT = 'erpupdate-f0b18';
-const DEFAULT_FB_KEY = 'AIzaSyA9EXEDl79MzQkO4k181BH4SQPE6lOArGg';
+const STATE_DOC = 'system/rftTelegramState';
 
 const RFT_PROJECTS = [
   { id: 75, label: 'Zahir ERP' },
@@ -74,53 +80,38 @@ async function fetchRftForProject(apiKey, statusId, projectId) {
   return all;
 }
 
-function stateDocUrl(apiKey) {
-  return `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT}/databases/(default)/documents/system/rftTelegramState?key=${apiKey}`;
-}
-
-async function loadState(apiKey) {
+async function loadState() {
   try {
-    const r = await fetch(stateDocUrl(apiKey));
-    if (r.status === 404) return { notifiedIds: [], seeded: false };
-    if (!r.ok) {
-      console.warn('state load', r.status, await r.text());
-      return { notifiedIds: [], seeded: false, stateError: true };
-    }
-    const data = await r.json();
-    const fields = data.fields || {};
-    const idsRaw = fields.notifiedIds?.stringValue || '[]';
+    const snap = await adminDb().doc(STATE_DOC).get();
+    if (!snap.exists) return { notifiedIds: [], seeded: false };
+    const d = snap.data() || {};
     let notifiedIds = [];
-    try { notifiedIds = JSON.parse(idsRaw); } catch (_) { notifiedIds = []; }
+    // Stored as a JSON string (compatible with the old REST format)
+    try {
+      notifiedIds = Array.isArray(d.notifiedIds) ? d.notifiedIds : JSON.parse(d.notifiedIds || '[]');
+    } catch (_) { notifiedIds = []; }
     if (!Array.isArray(notifiedIds)) notifiedIds = [];
-    const seeded = fields.seeded?.booleanValue === true;
-    return { notifiedIds: notifiedIds.map(String), seeded };
+    return { notifiedIds: notifiedIds.map(String), seeded: d.seeded === true };
   } catch (err) {
-    console.warn('state load err', err);
-    return { notifiedIds: [], seeded: false, stateError: true };
+    console.warn('state load err', err.message);
+    return { notifiedIds: [], seeded: false, stateError: err.message };
   }
 }
 
-async function saveState(apiKey, notifiedIds, seeded) {
+async function saveState(notifiedIds, seeded) {
   // Keep last 2000 ids to bound size
   const trimmed = notifiedIds.map(String).slice(-2000);
-  const body = {
-    fields: {
-      notifiedIds: { stringValue: JSON.stringify(trimmed) },
-      seeded: { booleanValue: !!seeded },
-      updatedAt: { stringValue: new Date().toISOString() }
-    }
-  };
-  const r = await fetch(stateDocUrl(apiKey), {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    console.warn('state save', r.status, t);
+  try {
+    await adminDb().doc(STATE_DOC).set({
+      notifiedIds: JSON.stringify(trimmed),
+      seeded: !!seeded,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  } catch (err) {
+    console.warn('state save err', err.message);
     return false;
   }
-  return true;
 }
 
 async function sendTelegram(token, chatId, text) {
@@ -142,7 +133,6 @@ async function sendTelegram(token, chatId, text) {
 
 export default async function handler(req, res) {
   // Vercel Cron sends GET; allow GET + POST
-  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'GET or POST only' });
   }
@@ -154,12 +144,11 @@ export default async function handler(req, res) {
       hint: 'Vercel → Env → add CRON_SECRET (random string) → Redeploy'
     });
   }
-  if (getSecret(req) !== cronSecret) return unauthorized(res);
+  if (!safeEqual(getSecret(req), cronSecret)) return unauthorized(res);
 
   const redmineKey = process.env.REDMINE_API_KEY;
   const tgToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
-  const fbKey = process.env.FIREBASE_API_KEY || DEFAULT_FB_KEY;
 
   if (!redmineKey) return res.status(500).json({ error: 'REDMINE_API_KEY missing' });
   if (!tgToken) return res.status(500).json({ error: 'TELEGRAM_BOT_TOKEN missing' });
@@ -195,13 +184,21 @@ export default async function handler(req, res) {
     merged.forEach((i) => { if (!byId.has(i.id)) byId.set(i.id, i); });
     const issues = Array.from(byId.values());
 
-    const state = await loadState(fbKey);
+    const state = await loadState();
+    // Never treat an unreadable state as "first run" — that would re-seed or spam
+    if (state.stateError) {
+      return res.status(500).json({
+        error: 'Could not read cron state from Firestore',
+        detail: state.stateError,
+        hint: 'Check FIREBASE_SERVICE_ACCOUNT in Vercel → Environment Variables.'
+      });
+    }
     let notified = new Set(state.notifiedIds || []);
 
     // First successful run: seed only (no spam of entire queue)
     if (!state.seeded || notified.size === 0) {
       issues.forEach((i) => notified.add(String(i.id)));
-      const saved = await saveState(fbKey, Array.from(notified), true);
+      const saved = await saveState(Array.from(notified), true);
       return res.status(200).json({
         ok: true,
         action: 'seeded',
@@ -209,7 +206,7 @@ export default async function handler(req, res) {
         stateSaved: saved,
         hint: saved
           ? 'Baseline saved. Next new RFT will notify Telegram.'
-          : 'Could not save state to Firestore — add rule for system/* (see FIRESTORE_RULES). Time-window fallback not used on seed.'
+          : 'Could not save state — check FIREBASE_SERVICE_ACCOUNT.'
       });
     }
 
@@ -238,7 +235,7 @@ export default async function handler(req, res) {
     // Keep notified of current RFT + just sent
     issues.forEach((i) => notified.add(String(i.id)));
 
-    const saved = await saveState(fbKey, Array.from(notified), true);
+    const saved = await saveState(Array.from(notified), true);
 
     return res.status(200).json({
       ok: true,

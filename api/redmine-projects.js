@@ -4,14 +4,13 @@
    Fetch list of projects from Redmine for dropdown selection.
    ============================================================ */
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+import { requireUser } from './_lib/auth.js';
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  const user = await requireUser(req, res);
+  if (!user) return;
+
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed. Use GET.' });
