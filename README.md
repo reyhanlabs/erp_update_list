@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mengelola history update Zahir ERP (sync dari Redmine `pjm.zahironline.com`), antrean Ready for Testing, dan generate ringkasan untuk dibagikan ke WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.40.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.40.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -171,6 +171,7 @@ Run pertama hanya **seed** baseline (tanpa spam); run berikutnya hanya mengirim 
 
 ## 📝 Changelog (ringkas)
 
+- **v4.40.2** — Teks sidebar (menu, judul section, brand, footer, ikon) jadi putih polos agar lebih kontras.
 - **v4.40.1** — Fix banner "Could not load projects: Sign-in required" setelah reload di halaman Plans: `apiFetch` menunggu Firebase selesai memulihkan sesi login sebelum memanggil API.
 - **v4.40.0** — `src/app.js` (7.500+ baris) dipecah menjadi 36 modul per fitur di `src/core`, `src/ui`, `src/redmine`, `src/features`. Murni pemindahan kode, tanpa perubahan perilaku. Hapus `src/utils.js` (duplikat, tidak dipakai). Tambah `npm run check` (dijalankan otomatis saat build).
 - **v4.39.1** — Hapus sisa `public/`, `js/`, `README_DEPLOY.txt`; guest tidak lagi memanggil `/api/*` (hemat invocation); validasi `project_id` di `/api/redmine-issue`.
