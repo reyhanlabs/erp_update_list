@@ -64,6 +64,9 @@ async function loadRedmineProjects(){
 
     sel.disabled = false;
     updateRedmineProjectBadge();
+    // Drop a stale "Could not load projects" banner from an earlier failed attempt
+    const res = $('syncResult');
+    if(res && /Could not load projects/i.test(res.textContent || '')) res.innerHTML = '';
 
   } catch(err){
     console.error('Failed to load projects:', err);

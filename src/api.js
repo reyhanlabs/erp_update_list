@@ -12,8 +12,27 @@ function localDenied(code, error, hint) {
   });
 }
 
+/* Firebase restores the session asynchronously: right after page load
+ * auth.currentUser is still null even for a signed-in user. Wait for the
+ * first auth state so early calls (e.g. reload on ?view=plans) get a token
+ * instead of failing with "Sign-in required". */
+let authReady = null;
+function waitForAuthReady() {
+  if (!authReady) {
+    authReady = new Promise((resolve) => {
+      if (!auth || typeof auth.onAuthStateChanged !== 'function') return resolve();
+      const unsub = auth.onAuthStateChanged(() => {
+        try { unsub && unsub(); } catch (_) {}
+        resolve();
+      });
+    });
+  }
+  return authReady;
+}
+
 export async function apiFetch(url, options = {}) {
   const headers = new Headers(options.headers || {});
+  await waitForAuthReady();
   const user = auth && auth.currentUser;
   // Guests / signed-out: the server would reject anyway — skip the network
   // round-trip (background polls run every 90s and would waste invocations).
