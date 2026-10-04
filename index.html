@@ -38,6 +38,7 @@
 </script>
 </head>
 <body>
+<script>try{if(localStorage.getItem("erp_sidebar_collapsed")==="1")document.body.classList.add("sidebar-collapsed")}catch(e){}</script>
 
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
@@ -234,7 +235,7 @@
 <div class="main">
   <header class="topbar">
     <div class="topbar-left">
-      <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">
+      <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()" aria-label="Toggle sidebar" title="Collapse sidebar">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <line x1="3" y1="6" x2="21" y2="6"/>
           <line x1="3" y1="12" x2="21" y2="12"/>
@@ -1348,6 +1349,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.40.4</span>
+                <span class="cl-note">Sidebar can be collapsed to icons (☰ button, remembered); mobile drawer no longer hidden under topbar</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.40.3</span>
                 <span class="cl-note">Sidebar count badges: white text</span>

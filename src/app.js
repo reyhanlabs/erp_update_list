@@ -12,6 +12,7 @@ import {
   applyRouteFromUrl,
   currentView,
   initRouter,
+  initSidebarCollapse,
   openPlansWithSync,
   switchView,
   syncUrlToRoute,
@@ -205,6 +206,7 @@ function exposeAppGlobals(){
 
 export async function startApp(){
   exposeAppGlobals();
+  try { initSidebarCollapse(); } catch(_){}
   try { startBackgroundAutoRefresh(); } catch(_){}
   try { loadTelegramChatId(); } catch(_){}
 

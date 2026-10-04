@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mengelola history update Zahir ERP (sync dari Redmine `pjm.zahironline.com`), antrean Ready for Testing, dan generate ringkasan untuk dibagikan ke WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.40.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.40.4-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -171,6 +171,7 @@ Run pertama hanya **seed** baseline (tanpa spam); run berikutnya hanya mengirim 
 
 ## 📝 Changelog (ringkas)
 
+- **v4.40.4** — Sidebar bisa dibuka-tutup di desktop lewat tombol ☰ (mode ikon 68px, label jadi tooltip, status tersimpan). Fix: drawer sidebar di HP tidak lagi tertutup topbar.
 - **v4.40.3** — Angka count di sidebar jadi putih (termasuk yang bernilai nol).
 - **v4.40.2** — Teks sidebar (menu, judul section, brand, footer, ikon) jadi putih polos agar lebih kontras.
 - **v4.40.1** — Fix banner "Could not load projects: Sign-in required" setelah reload di halaman Plans: `apiFetch` menunggu Firebase selesai memulihkan sesi login sebelum memanggil API.

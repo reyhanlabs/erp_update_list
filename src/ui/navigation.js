@@ -214,7 +214,45 @@ function switchView(view){
   }
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'erp_sidebar_collapsed';
+const MOBILE_BREAKPOINT = 860;
+
+function isMobileLayout(){
+  return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+/* Desktop: collapse to an icon-only rail (remembered across visits).
+ * Labels become native tooltips so the menu stays usable when collapsed. */
+function setSidebarCollapsed(collapsed, { persist = true } = {}){
+  document.body.classList.toggle('sidebar-collapsed', !!collapsed);
+  document.querySelectorAll('.sidebar .nav-item').forEach(btn => {
+    const label = btn.querySelector('.label')?.textContent?.trim() || '';
+    if(collapsed && label) btn.setAttribute('title', label);
+    else btn.removeAttribute('title');
+  });
+  const tg = $('menuToggle');
+  if(tg){
+    tg.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    tg.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+  }
+  if(persist){
+    try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch(_){}
+  }
+}
+
+function initSidebarCollapse(){
+  let saved = false;
+  try { saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch(_){}
+  setSidebarCollapsed(saved, { persist: false });
+}
+
 function toggleSidebar(force){
+  // Desktop hamburger → collapse / expand the rail
+  if(force === undefined && !isMobileLayout()){
+    setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed'));
+    return;
+  }
+  // Mobile → slide-in drawer (unchanged)
   const sb = $('sidebar'), ov = $('overlay');
   const open = force !== undefined ? force : !sb.classList.contains('open');
   sb.classList.toggle('open', open);
@@ -222,6 +260,8 @@ function toggleSidebar(force){
 }
 
 export {
+  initSidebarCollapse,
+  setSidebarCollapsed,
   applyRouteFromUrl,
   currentView,
   initRouter,
