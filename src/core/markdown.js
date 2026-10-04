@@ -3,7 +3,7 @@
  *
  * Everything is HTML-escaped first; only the constructs below become markup:
  *   # / ## / ### headings      - bullet lists       1. numbered steps
- *   > callout (Catatan/Penting) ```code blocks```     --- divider
+ *   > callout (Note / Important)  ```code blocks```     --- divider
  *   | pipe | tables |           ![caption](kbimg:ID or https://…)
  *   **bold**  _italic_  `code`  [text](https://…)
  * Links and images only accept http(s) and the internal kbimg: scheme.
@@ -30,7 +30,7 @@ function inline(raw){
       ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${text}</a>`
       : m;
   });
-  // menu paths: "Penjualan > Faktur" → arrow
+  // menu paths: "Sales > Sales Invoice" → arrow
   s = s.replace(/ &gt; /g, ' <span class="md-path">›</span> ');
   s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[+i]}</code>`);
   return s;
@@ -95,7 +95,7 @@ export function renderMarkdown(src){
         i++;
       }
       const first = buf.join(' ').toLowerCase();
-      const warn = /^(\*\*)?(penting|peringatan|perhatian|warning)/.test(first);
+      const warn = /^(\*\*)?(important|warning|caution|penting|peringatan|perhatian)/.test(first);
       out.push(`<div class="md-callout${warn ? ' md-callout-warn' : ''}">${buf.map(inline).join('<br>')}</div>`);
       continue;
     }
