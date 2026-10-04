@@ -2318,3 +2318,12 @@ body.share-mode .main{padding:16px;max-width:960px;margin:0 auto}
   background:rgba(255,255,255,.04) !important;
   border-color:rgba(255,255,255,.06) !important;
 }
+
+/* Sidebar count badges — plain white text (v4.40.3).
+   Placed last + !important to override the earlier zero/queue/dark-theme variants. */
+.sidebar .nav-item .count,
+.sidebar .nav-item .count[data-zero="1"],
+.sidebar .nav-item.has-queue .count,
+.sidebar .nav-item.has-queue .count[data-zero="1"]{
+  color:#fff !important;
+}
