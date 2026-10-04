@@ -1,15 +1,17 @@
 {
   "name": "erp-update-list",
   "private": true,
-  "version": "4.39.1",
+  "version": "4.40.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-static.mjs",
-    "preview": "vite preview"
+    "build": "node scripts/check-modules.mjs && node scripts/build-static.mjs",
+    "preview": "vite preview",
+    "check": "node scripts/check-modules.mjs"
   },
   "devDependencies": {
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "esbuild": "^0.24.0"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0"

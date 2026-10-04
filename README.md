@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mengelola history update Zahir ERP (sync dari Redmine `pjm.zahironline.com`), antrean Ready for Testing, dan generate ringkasan untuk dibagikan ke WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.39.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.40.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -24,30 +24,46 @@ Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
 ```
 erp_update_list/
-├── index.html / share.html     ← halaman
-├── css/style.css               ← styling
+├── index.html / share.html        ← halaman
+├── css/style.css                  ← styling
 ├── src/
-│   ├── main.js                 ← entry point
-│   ├── config.js               ← APP_VERSION (satu-satunya sumber versi)
-│   ├── firebase.js             ← init Firebase (client)
-│   ├── api.js                  ← apiFetch(): fetch /api/* + ID token
-│   ├── app.js                  ← logic aplikasi
-│   ├── icons.js, utils.js
-├── api/                        ← Vercel serverless functions
-│   ├── _lib/auth.js            ← guard: Google sign-in + allowlist email
-│   ├── _lib/firebase-admin.js  ← firebase-admin bootstrap
-│   ├── redmine.js              ← proxy issues/custom fields
-│   ├── redmine-projects.js     ← daftar project
-│   ├── redmine-issue.js        ← metadata + create issue
-│   ├── telegram.js             ← kirim pesan (chat allowlist)
-│   └── cron-rft-telegram.js    ← cron RFT → Telegram
-├── sw.js                       ← service worker (versi di-stamp saat build)
-├── scripts/build-static.mjs    ← build → dist/
-├── firestore.rules             ← rules Firestore (lihat FIRESTORE_RULES.md)
+│   ├── main.js                    ← entry point (init Firebase → startApp)
+│   ├── app.js                     ← orchestrator: exposeAppGlobals() + startApp()
+│   ├── config.js                  ← APP_VERSION (satu-satunya sumber versi)
+│   ├── firebase.js · api.js · icons.js
+│   ├── core/                      ← state, helpers, cloud-sync (Firestore)
+│   ├── ui/                        ← navigation/routing, modal, confirm, theme,
+│   │                                sync-status, batch-selection, list-controls
+│   ├── redmine/                   ← client (fetch/cache/error), projects + date range
+│   └── features/
+│       ├── plans/                 ← plans CRUD/render, issue editor, copy menu
+│       ├── tester/                ← RFT queue, categories, notifications
+│       └── *.js                   ← summaries, dashboard, redmine-sync, backup,
+│                                    account, settings, issue-status, new-issues,
+│                                    active-work, what-next, auto-refresh,
+│                                    telegram-briefing, create-issue, share, pwa,
+│                                    notes, global-search, clients
+├── api/                           ← Vercel serverless functions
+│   ├── _lib/auth.js               ← guard: Google sign-in + allowlist email
+│   ├── _lib/firebase-admin.js     ← firebase-admin bootstrap
+│   ├── redmine.js · redmine-projects.js · redmine-issue.js
+│   ├── telegram.js                ← kirim pesan (chat allowlist)
+│   └── cron-rft-telegram.js       ← cron RFT → Telegram
+├── sw.js                          ← service worker (versi di-stamp saat build)
+├── scripts/check-modules.mjs      ← cek import/export antar modul sebelum build
+├── scripts/build-static.mjs       ← build → dist/
+├── firestore.rules                ← rules Firestore (lihat FIRESTORE_RULES.md)
 └── vercel.json
 ```
 
 File di `api/_lib/` tidak menjadi route (Vercel mengabaikan path berawalan `_`).
+
+### Aturan modul (penting saat menambah fitur)
+
+1. **Fungsi yang dipanggil dari HTML** (`onclick="..."`) harus didaftarkan di `exposeAppGlobals()` dalam `src/app.js`, karena ES module tidak otomatis global.
+2. **Import bersifat read-only.** Variabel `let` milik sebuah modul (mis. `currentView` di `ui/navigation.js`) hanya boleh diubah di modul itu sendiri. Kalau modul lain perlu mengubahnya, buat fungsi setter di modul pemiliknya.
+3. **Jangan jalankan kode di level atas modul yang memakai `const` dari modul lain** — modul saling import (siklik), jadi nilainya bisa belum siap saat file dimuat. Taruh di dalam fungsi.
+4. Jalankan `npm run check` setelah memindah/menambah fungsi. Build Vercel juga menjalankannya, jadi import yang salah akan menggagalkan deploy, bukan merusak app yang live.
 
 ---
 
@@ -108,7 +124,8 @@ npx vercel dev        # app + /api/* lokal (butuh env var, lihat `vercel env pul
 Build produksi (dipakai Vercel):
 
 ```bash
-npm run build         # → dist/
+npm run check         # cek import/export antar modul
+npm run build         # check + build → dist/
 ```
 
 ### Rilis versi baru
@@ -154,6 +171,7 @@ Run pertama hanya **seed** baseline (tanpa spam); run berikutnya hanya mengirim 
 
 ## 📝 Changelog (ringkas)
 
+- **v4.40.0** — `src/app.js` (7.500+ baris) dipecah menjadi 36 modul per fitur di `src/core`, `src/ui`, `src/redmine`, `src/features`. Murni pemindahan kode, tanpa perubahan perilaku. Hapus `src/utils.js` (duplikat, tidak dipakai). Tambah `npm run check` (dijalankan otomatis saat build).
 - **v4.39.1** — Hapus sisa `public/`, `js/`, `README_DEPLOY.txt`; guest tidak lagi memanggil `/api/*` (hemat invocation); validasi `project_id` di `/api/redmine-issue`.
 - **v4.39.0** — Security hardening: semua `/api/*` wajib login Google + allowlist email; chat Telegram di-allowlist; CORS `*` dihapus; cron state via firebase-admin dan `system/*` dikunci; `shares`/`workspaces` tidak bisa di-list; fix service worker (versi cache otomatis dari `APP_VERSION`, CSS network-first, `?v=` cache-bust); hapus duplikat `public/`, `js/` deprecated, `README_DEPLOY.txt`; tambah `.gitignore`.
 - **v4.38.x** — Filter By Client (custom field Client Name), tema sidebar.
