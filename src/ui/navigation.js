@@ -14,6 +14,7 @@ import { openNewIssuesView, refreshDashNewIssueCounts } from '../features/new-is
 import { openActiveWorkView } from '../features/active-work.js';
 import { openWhatNextView, refreshDashAttention } from '../features/what-next.js';
 import { renderNotes } from '../features/notes.js';
+import { onDocsShown } from '../features/docs.js';
 
 /* ============================================================
    NAVIGATION
@@ -32,7 +33,8 @@ const VIEW_META = {
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
   notes:      { title:'Notes', sub:'Quick notes and reminders', addBtn:false },
   share:     { title:'Shared Plan', sub:'Read-only plan link', addBtn:false },
-  settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false }
+  settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false },
+  docs:      { title:'Documentation', sub:'Panduan lengkap semua fitur', addBtn:false }
 };
 
 function toggleSyncPanel(force){
@@ -73,7 +75,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
      /?view=summaries
      /?view=settings
    ============================================================ */
-const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','clients','share','settings']);
+const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','clients','share','settings','docs']);
 const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
 let __applyingRoute = false; // prevent pushState loop
 
@@ -202,6 +204,7 @@ function switchView(view){
   if(window.innerWidth <= 860) toggleSidebar(false);
   refreshCounts();
   if(view === 'settings') updateLastSync();
+  if(view === 'docs'){ try { onDocsShown(); } catch(_){} }
   if(view === 'plans') loadRedmineProjects();
   if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }
   if(view === 'tester'){
@@ -240,7 +243,24 @@ function setSidebarCollapsed(collapsed, { persist = true } = {}){
   }
 }
 
+/* Tooltip = label + count, built on hover so it always shows the latest number */
+function navTooltip(btn){
+  const label = btn.querySelector('.label')?.textContent?.trim() || '';
+  const countEl = btn.querySelector('.count');
+  const n = countEl && countEl.dataset.zero !== '1' ? countEl.textContent.trim() : '';
+  return n ? `${label} (${n})` : label;
+}
+
 function initSidebarCollapse(){
+  const sb = $('sidebar');
+  if(sb && !sb.dataset.tipWired){
+    sb.dataset.tipWired = '1';
+    sb.addEventListener('mouseover', (e) => {
+      if(!document.body.classList.contains('sidebar-collapsed')) return;
+      const btn = e.target.closest('.nav-item');
+      if(btn) btn.setAttribute('title', navTooltip(btn));
+    });
+  }
   let saved = false;
   try { saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'; } catch(_){}
   setSidebarCollapsed(saved, { persist: false });
