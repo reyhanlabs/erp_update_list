@@ -44,12 +44,17 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const projectId = req.query.project_id;
+      // Only numeric ids or Redmine identifiers — never raw path segments
+      const projectRaw = String(req.query.project_id || '').trim();
+      const projectId = /^[a-z0-9_-]{1,100}$/i.test(projectRaw) ? projectRaw : '';
+      if (projectRaw && !projectId) {
+        return res.status(400).json({ error: 'Invalid project_id' });
+      }
       const [trackersR, prioritiesR, categoriesR] = await Promise.all([
         fetch(`${REDMINE_BASE}/trackers.json`, { headers: headers(apiKey) }),
         fetch(`${REDMINE_BASE}/enumerations/issue_priorities.json`, { headers: headers(apiKey) }),
         projectId
-          ? fetch(`${REDMINE_BASE}/projects/${projectId}/issue_categories.json`, { headers: headers(apiKey) })
+          ? fetch(`${REDMINE_BASE}/projects/${encodeURIComponent(projectId)}/issue_categories.json`, { headers: headers(apiKey) })
           : Promise.resolve(null)
       ]);
 

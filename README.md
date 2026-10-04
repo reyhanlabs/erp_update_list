@@ -2,7 +2,7 @@
 
 Aplikasi web untuk mengelola history update Zahir ERP (sync dari Redmine `pjm.zahironline.com`), antrean Ready for Testing, dan generate ringkasan untuk dibagikan ke WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.39.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.39.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -154,6 +154,7 @@ Run pertama hanya **seed** baseline (tanpa spam); run berikutnya hanya mengirim 
 
 ## 📝 Changelog (ringkas)
 
+- **v4.39.1** — Hapus sisa `public/`, `js/`, `README_DEPLOY.txt`; guest tidak lagi memanggil `/api/*` (hemat invocation); validasi `project_id` di `/api/redmine-issue`.
 - **v4.39.0** — Security hardening: semua `/api/*` wajib login Google + allowlist email; chat Telegram di-allowlist; CORS `*` dihapus; cron state via firebase-admin dan `system/*` dikunci; `shares`/`workspaces` tidak bisa di-list; fix service worker (versi cache otomatis dari `APP_VERSION`, CSS network-first, `?v=` cache-bust); hapus duplikat `public/`, `js/` deprecated, `README_DEPLOY.txt`; tambah `.gitignore`.
 - **v4.38.x** — Filter By Client (custom field Client Name), tema sidebar.
 - **v4.37.x** — Group-by Issue Status, chip status.
