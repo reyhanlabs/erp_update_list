@@ -91,7 +91,7 @@ function subscribe(){
   }, err => {
     console.error('KB snapshot error', err);
     S.loaded = true;
-    const reader = $('kbReader');
+    const reader = $('kbPane');
     if(reader){
       reader.innerHTML = `<div class="kb-state"><h3>Knowledge Base cannot be opened</h3>
         <p>${escapeHtml(err.code === 'permission-denied'
@@ -122,34 +122,41 @@ function matchesQuery(a, q){
   return q.split(/\s+/).every(w => hay.includes(w));
 }
 
+function byUpdated(a, b){ return (b.updatedAt || 0) - (a.updatedAt || 0); }
+function moduleOf(a){ return a.module || 'Other'; }
+
 function visibleArticles(){
   const q = S.query.toLowerCase().trim();
+  // search always looks through every guide, whatever is selected in the tree
+  if(q) return S.articles.filter(a => matchesQuery(a, q)).sort(byUpdated);
   return S.articles
     .filter(a => S.product === 'all' || a.product === S.product)
-    .filter(a => S.module === 'all' || (a.module || 'Other') === S.module)
+    .filter(a => S.module === 'all' || moduleOf(a) === S.module)
     .filter(a => matchesQuery(a, q))
-    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    .sort(byUpdated);
 }
 
-function moduleCounts(){
+/* product → [module, count][] (respecting the search query) */
+function libraryTree(){
   const q = S.query.toLowerCase().trim();
-  const counts = new Map();
-  S.articles
-    .filter(a => S.product === 'all' || a.product === S.product)
-    .filter(a => matchesQuery(a, q))
-    .forEach(a => {
-      const m = a.module || 'Other';
-      counts.set(m, (counts.get(m) || 0) + 1);
-    });
-  return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'en'));
+  const tree = new Map(Object.keys(PRODUCTS).map(p => [p, new Map()]));
+  let total = 0;
+  S.articles.filter(a => matchesQuery(a, q)).forEach(a => {
+    if(!tree.has(a.product)) return;
+    const mods = tree.get(a.product);
+    mods.set(moduleOf(a), (mods.get(moduleOf(a)) || 0) + 1);
+    total++;
+  });
+  return { tree, total };
 }
 
 /* ---------------- rendering ---------------- */
 function fmtDate(ms){
   if(!ms) return '';
-  try {
-    return new Date(ms).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch(_){ return ''; }
+  const d = new Date(ms);
+  if(isNaN(d)) return '';
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 function productChip(p){
@@ -157,119 +164,219 @@ function productChip(p){
   return meta ? `<span class="kb-chip kb-chip-${p}">${escapeHtml(meta.short)}</span>` : '';
 }
 
+const ICONS = {
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>'
+};
+
 function render(){
   if(!$('view-kb')) return;
-  renderProducts();
-  renderModules();
-  renderList();
-  renderReader();
+  renderNav();
+  renderFilterSelect();
+  renderPane();
 }
 
-function renderProducts(){
-  document.querySelectorAll('#view-kb [data-kb-product]').forEach(b => {
-    const on = b.dataset.kbProduct === S.product;
-    b.classList.toggle('is-active', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
-}
-
-function renderModules(){
-  const el = $('kbModules');
+/* Left library tree: All guides → products → modules of the selected product */
+function renderNav(){
+  const el = $('kbNav');
   if(!el) return;
-  const counts = moduleCounts();
-  const total = counts.reduce((s, [, n]) => s + n, 0);
-  if(S.module !== 'all' && !counts.some(([m]) => m === S.module)) S.module = 'all';
-  const btn = (key, label, n) => `<button type="button" class="kb-mod${S.module === key ? ' is-active' : ''}" data-kb-module="${escapeHtml(key)}">
-      <span>${escapeHtml(label)}</span><span class="kb-mod-n">${n}</span></button>`;
-  el.innerHTML = `<p class="kb-mod-title">Modules</p>${btn('all', 'All modules', total)}${counts.map(([m, n]) => btn(m, m, n)).join('')}`;
-  const sel = $('kbModuleSelect');
-  if(sel){
-    sel.innerHTML = `<option value="all">All modules (${total})</option>` +
-      counts.map(([m, n]) => `<option value="${escapeHtml(m)}"${S.module === m ? ' selected' : ''}>${escapeHtml(m)} (${n})</option>`).join('');
-    sel.value = S.module;
+  const { tree, total } = libraryTree();
+  const row = (attrs, label, n, cls) =>
+    `<button type="button" class="kb-nav-row ${cls || ''}" ${attrs}><span class="kb-nav-label">${label}</span><span class="kb-nav-n">${n}</span></button>`;
+  let html = row('data-kb-product="all"', 'All guides', total, S.product === 'all' ? 'is-active' : '');
+  html += '<div class="kb-nav-sep" role="presentation"></div>';
+  for(const [p, mods] of tree){
+    const count = [...mods.values()].reduce((s, n) => s + n, 0);
+    const open = S.product === p;
+    const active = open && S.module === 'all';
+    html += row(`data-kb-product="${p}" aria-expanded="${open}"`,
+      `<span class="kb-dot kb-dot-${p}" aria-hidden="true"></span>${escapeHtml(PRODUCTS[p].label)}`,
+      count, `kb-nav-product${active ? ' is-active' : ''}${count ? '' : ' is-empty'}`);
+    if(open && mods.size){
+      html += '<div class="kb-nav-mods">' + [...mods.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([m, n]) => row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m)}"`, escapeHtml(m), n,
+          `kb-nav-mod${S.module === m ? ' is-active' : ''}`)).join('') + '</div>';
+    }
   }
+  el.innerHTML = html;
 }
 
-function renderList(){
-  const el = $('kbList');
+/* Phone / narrow screens: the tree becomes one select */
+function renderFilterSelect(){
+  const sel = $('kbFilterSelect');
+  if(!sel) return;
+  const { tree, total } = libraryTree();
+  let opts = `<option value="all|all">All guides (${total})</option>`;
+  for(const [p, mods] of tree){
+    const count = [...mods.values()].reduce((s, n) => s + n, 0);
+    opts += `<option value="${p}|all">${escapeHtml(PRODUCTS[p].label)} (${count})</option>`;
+    [...mods.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([m, n]) => {
+      opts += `<option value="${p}|${escapeHtml(m)}">&nbsp;&nbsp;&nbsp;${escapeHtml(m)} (${n})</option>`;
+    });
+  }
+  sel.innerHTML = opts;
+  sel.value = `${S.product}|${S.module}`;
+}
+
+function renderPane(){
+  const el = $('kbPane');
   if(!el) return;
+  const shell = $('kbBrowse');
   if(!S.loaded){
-    el.innerHTML = '<div class="kb-state kb-state-sm"><div class="spinner-sm"></div><p>Loading guides…</p></div>';
+    el.innerHTML = '<div class="kb-state"><div class="spinner-sm"></div><p>Loading guides…</p></div>';
     return;
   }
-  const list = visibleArticles();
+  shell?.classList.toggle('kb-is-empty', !S.articles.length);
   if(!S.articles.length){
-    el.innerHTML = '';
-    return;
-  }
-  if(!list.length){
-    el.innerHTML = `<div class="kb-state kb-state-sm"><p>No matching guides${S.query ? ` for “${escapeHtml(S.query)}”` : ''}.</p></div>`;
-    return;
-  }
-  el.innerHTML = list.map(a => `
-    <button type="button" class="kb-item${a.id === S.selectedId ? ' is-active' : ''}" data-kb-open="${escapeHtml(a.id)}">
-      <span class="kb-item-top">${S.product === 'all' ? productChip(a.product) : ''}<span class="kb-item-mod">${escapeHtml(a.module || 'Other')}</span></span>
-      <span class="kb-item-title">${escapeHtml(a.title || 'Untitled')}</span>
-      ${a.summary ? `<span class="kb-item-sum">${escapeHtml(a.summary)}</span>` : ''}
-      <span class="kb-item-date">Updated ${escapeHtml(fmtDate(a.updatedAt))}</span>
-    </button>`).join('');
-}
-
-function renderReader(){
-  const el = $('kbReader');
-  const main = $('kbMain');
-  if(!el) return;
-  if(!S.loaded){ el.innerHTML = ''; return; }
-
-  if(!S.articles.length){
-    main?.classList.add('kb-is-empty');
     el.innerHTML = `<div class="kb-welcome">
-      <h3>Write the team’s first guide</h3>
-      <p>Store how-to guides for Zahir ERP, ERP One, Manufacturing, and MRP in one place so support answers clients with the same steps.</p>
+      <h2>Write your team's first guide</h2>
+      <p>Keep how-to guides for Zahir ERP, ERP One, Manufacturing, and MRP in one place, so everyone in support walks clients through the same steps.</p>
       <ol>
-        <li>Click <b>Write guide</b>, then choose product and module.</li>
-        <li>Write the steps. Paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
-        <li>Save. Guides are visible to every workspace member.</li>
+        <li>Click <b>Write guide</b> and choose the product and module.</li>
+        <li>Write the steps. Paste screenshots straight in with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
+        <li>Save. The guide is visible to everyone in the workspace right away.</li>
       </ol>
       <button type="button" class="btn btn-primary" data-kb-act="new">Write guide</button>
     </div>`;
     return;
   }
-  main?.classList.remove('kb-is-empty');
+  const a = S.selectedId && S.articles.find(x => x.id === S.selectedId);
+  if(a){ renderArticle(el, a); return; }
+  renderList(el);
+}
 
-  const a = S.articles.find(x => x.id === S.selectedId);
-  if(!a){
-    main?.classList.remove('kb-reading');
-    el.innerHTML = `<div class="kb-state"><p>Select a guide from the list to read it.</p></div>`;
-    return;
+function listHeading(){
+  if(S.query.trim()) return { title: 'Search results', sub: `for “${escapeHtml(S.query.trim())}”` };
+  if(S.product === 'all') return { title: 'All guides', sub: '' };
+  const p = PRODUCTS[S.product]?.label || '';
+  return S.module === 'all' ? { title: escapeHtml(p), sub: '' } : { title: escapeHtml(S.module), sub: escapeHtml(p) };
+}
+
+function guideRow(a, { showProduct, showModule }){
+  const where = [showModule ? escapeHtml(moduleOf(a)) : ''].filter(Boolean).join('');
+  return `<button type="button" class="kb-row" data-kb-open="${escapeHtml(a.id)}">
+    <span class="kb-row-main">
+      <span class="kb-row-title">${escapeHtml(a.title || 'Untitled')}</span>
+      ${a.summary ? `<span class="kb-row-sum">${escapeHtml(a.summary)}</span>` : ''}
+    </span>
+    <span class="kb-row-side">
+      ${showProduct ? productChip(a.product) : ''}
+      ${where ? `<span class="kb-row-mod">${where}</span>` : ''}
+      <span class="kb-row-date">${escapeHtml(fmtDate(a.updatedAt))}</span>
+    </span>
+    <span class="kb-row-go" aria-hidden="true">${ICONS.chevron}</span>
+  </button>`;
+}
+
+function renderList(el){
+  const list = visibleArticles();
+  const head = listHeading();
+  const searching = !!S.query.trim();
+  let body;
+  if(!list.length){
+    body = `<div class="kb-state kb-state-sm"><p>No guides match${searching ? ` “${escapeHtml(S.query.trim())}”` : ' this filter'}.</p>
+      ${searching ? '<button type="button" class="btn btn-secondary btn-sm" data-kb-act="clear-search">Clear search</button>' : ''}</div>`;
+  } else if(!searching && S.module === 'all'){
+    // group: by product on "All guides", by module inside a product
+    const key = S.product === 'all' ? (a => a.product) : moduleOf;
+    const groups = new Map();
+    list.forEach(a => { const k = key(a); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(a); });
+    const order = S.product === 'all'
+      ? Object.keys(PRODUCTS).filter(k => groups.has(k))
+      : [...groups.keys()].sort((x, y) => x.localeCompare(y));
+    body = order.map(k => {
+      const label = S.product === 'all' ? PRODUCTS[k].label : k;
+      const items = groups.get(k);
+      return `<section class="kb-group">
+        <h3 class="kb-group-title">${S.product === 'all' ? `<span class="kb-dot kb-dot-${k}" aria-hidden="true"></span>` : ''}${escapeHtml(label)}<span>${items.length}</span></h3>
+        ${items.map(a => guideRow(a, { showProduct: false, showModule: S.product === 'all' })).join('')}
+      </section>`;
+    }).join('');
+  } else {
+    body = `<section class="kb-group">${list.map(a => guideRow(a, { showProduct: searching || S.product === 'all', showModule: searching || S.module === 'all' })).join('')}</section>`;
   }
+  el.innerHTML = `<header class="kb-list-head">
+      <div><h2>${head.title}</h2>${head.sub ? `<p>${head.sub}</p>` : ''}</div>
+      <span class="kb-list-count">${list.length} ${list.length === 1 ? 'guide' : 'guides'}</span>
+    </header>${body}`;
+}
 
+function slugify(s){
+  return String(s).toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'section';
+}
+
+function renderArticle(el, a){
   const p = PRODUCTS[a.product];
   const tags = (a.tags || []).filter(Boolean);
+  const backLabel = S.module !== 'all' ? S.module : (S.product !== 'all' ? (p ? p.label : 'guides') : 'All guides');
   const meta = [
-    a.version ? `Applies to <b>${escapeHtml(a.version)}</b>` : '',
-    `Updated ${escapeHtml(fmtDate(a.updatedAt))}${a.updatedBy ? ` by ${escapeHtml(a.updatedBy)}` : ''}`
-  ].filter(Boolean).join('<span class="kb-sep" aria-hidden="true"></span>');
+    a.version ? `<span>Applies to <b>${escapeHtml(a.version)}</b></span>` : '',
+    `<span>Updated ${escapeHtml(fmtDate(a.updatedAt))}${a.updatedBy ? ` by ${escapeHtml(a.updatedBy)}` : ''}</span>`
+  ].filter(Boolean).join('');
 
   el.innerHTML = `
-    <div class="kb-read-top">
-      <button type="button" class="kb-back" data-kb-act="back" aria-label="Back to list">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg> List
-      </button>
-      <div class="kb-read-actions">
-        <button type="button" class="btn btn-secondary btn-sm" data-kb-act="copy-text">Copy text</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-kb-act="copy-link">Copy link</button>
-        <button type="button" class="btn btn-secondary btn-sm" data-kb-act="edit">Edit</button>
-        <button type="button" class="btn btn-secondary btn-sm kb-danger" data-kb-act="delete" aria-label="Delete guide">Delete</button>
-      </div>
-    </div>
-    <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(a.module || 'Other')}</span></p>
-    <h1 class="kb-title">${escapeHtml(a.title || 'Untitled')}</h1>
-    ${a.summary ? `<p class="kb-lede">${escapeHtml(a.summary)}</p>` : ''}
-    <p class="kb-meta">${meta}</p>
-    ${tags.length ? `<p class="kb-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</p>` : ''}
-    <div class="md-body">${renderMarkdown(a.content || '')}</div>`;
+    <div class="kb-article-wrap">
+      <article class="kb-article">
+        <button type="button" class="kb-back" data-kb-act="back">${ICONS.back}<span>${escapeHtml(backLabel)}</span></button>
+        <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(moduleOf(a))}</span></p>
+        <h1 class="kb-title">${escapeHtml(a.title || 'Untitled')}</h1>
+        ${a.summary ? `<p class="kb-lede">${escapeHtml(a.summary)}</p>` : ''}
+        <div class="kb-meta">${meta}</div>
+        ${tags.length ? `<p class="kb-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</p>` : ''}
+        <div class="kb-actions" role="toolbar" aria-label="Guide actions">
+          <button type="button" class="kb-act kb-act-primary" data-kb-act="edit">${ICONS.edit}<span>Edit</span></button>
+          <button type="button" class="kb-act" data-kb-act="copy-text" aria-label="Copy text" title="Copy text">${ICONS.copy}<span>Copy text</span></button>
+          <button type="button" class="kb-act" data-kb-act="copy-link" aria-label="Copy link" title="Copy link">${ICONS.link}<span>Copy link</span></button>
+          <button type="button" class="kb-act kb-act-danger" data-kb-act="delete" aria-label="Delete guide" title="Delete guide">${ICONS.trash}<span>Delete</span></button>
+        </div>
+        <nav class="kb-jump" id="kbJump" aria-label="Jump to section"></nav>
+        <div class="md-body kb-md" id="kbArticleBody">${renderMarkdown(a.content || '')}</div>
+      </article>
+      <aside class="kb-toc" id="kbToc" aria-label="On this page"></aside>
+    </div>`;
+  buildToc(a);
   hydrateImages(el, a.id);
+}
+
+function buildToc(){
+  const body = $('kbArticleBody');
+  const toc = $('kbToc');
+  if(!body || !toc) return;
+  const heads = [...body.querySelectorAll('h2')];
+  const used = new Set();
+  heads.forEach(h => {
+    let id = 'kb-' + slugify(h.textContent);
+    while(used.has(id)) id += '-x';
+    used.add(id);
+    h.id = id;
+  });
+  const jump = $('kbJump');
+  if(heads.length < 2){
+    toc.innerHTML = ''; toc.classList.add('is-empty');
+    if(jump) jump.innerHTML = '';
+    return;
+  }
+  toc.classList.remove('is-empty');
+  if(jump){
+    jump.innerHTML = heads.map(h => `<a href="#${h.id}" data-kb-toc="${h.id}">${escapeHtml(h.textContent)}</a>`).join('');
+  }
+  toc.innerHTML = `<p>On this page</p>` + heads.map(h => {
+    const steps = h.nextElementSibling?.matches?.('ol.md-steps') ? h.nextElementSibling.children.length : 0;
+    return `<a href="#${h.id}" data-kb-toc="${h.id}">${escapeHtml(h.textContent)}${steps ? `<span>${steps} steps</span>` : ''}</a>`;
+  }).join('');
+}
+
+function scrollPaneTo(target){
+  const sc = document.querySelector('.content');
+  if(!sc || !target) return;
+  const top = target.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 16;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  sc.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
 }
 
 async function hydrateImages(root, articleId){
@@ -315,17 +422,20 @@ function openLightbox(src, alt){
 /* ---------------- reading actions ---------------- */
 function selectArticle(id){
   S.selectedId = id;
-  $('kbMain')?.classList.add('kb-reading');
   try {
     const url = `${location.pathname}?view=kb&doc=${encodeURIComponent(id)}`;
     history.replaceState(history.state, '', url);
   } catch(_){}
-  renderList();
-  renderReader();
-  const sc = document.querySelector('.content');
-  if(sc && window.innerWidth <= 860) sc.scrollTo({ top: 0 });
-  const reader = $('kbReader');
-  if(reader) reader.scrollTop = 0;
+  renderNav();
+  renderPane();
+  document.querySelector('.content')?.scrollTo({ top: 0 });
+}
+
+function backToList(){
+  S.selectedId = null;
+  try { history.replaceState(history.state, '', `${location.pathname}?view=kb`); } catch(_){}
+  render();
+  document.querySelector('.content')?.scrollTo({ top: 0 });
 }
 
 async function copyArticleText(){
@@ -359,9 +469,8 @@ async function deleteArticle(){
     const imgs = await kbRef().doc(a.id).collection('images').get();
     await Promise.all(imgs.docs.map(d => d.ref.delete()));
     await kbRef().doc(a.id).delete();
-    S.selectedId = null;
-    $('kbMain')?.classList.remove('kb-reading');
     toast('Guide deleted');
+    backToList();
   } catch(err){
     console.error(err);
     toast('Failed to delete: ' + (err.message || err), 'error');
@@ -391,7 +500,7 @@ function openEditor(article){
   $('kbContent').value = article ? (article.content || '') : TEMPLATE;
   $('kbModuleList').innerHTML = moduleSuggestions().map(m => `<option value="${escapeHtml(m)}"></option>`).join('');
   setEditorHint('');
-  setTab('write');
+  setTab(defaultTab());
 
   $('kbBrowse').classList.add('hidden');
   $('kbEditor').classList.remove('hidden');
@@ -431,21 +540,42 @@ function setEditorHint(msg, isError){
   el.classList.toggle('is-error', !!isError);
 }
 
+/* Editor views: write only, side by side (wide screens), or preview only */
+let editorTab = null;
+let previewTimer = null;
+
+function defaultTab(){
+  return window.innerWidth >= 1200 ? 'split' : 'write';
+}
+
+function refreshPreview(){
+  const prev = $('kbPreview');
+  if(!prev || !S.editing || prev.classList.contains('hidden')) return;
+  const keepScroll = prev.scrollTop;
+  prev.innerHTML = renderMarkdown($('kbContent').value) || '<p class="kb-muted">The preview appears here as you write.</p>';
+  hydrateImages(prev, S.editing.id);
+  prev.scrollTop = keepScroll;
+}
+
+function schedulePreview(){
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(refreshPreview, 200);
+}
+
 function setTab(tab){
+  if(tab === 'split' && window.innerWidth < 1200) tab = 'write';
+  editorTab = tab;
   document.querySelectorAll('#kbEditor [data-kb-tab]').forEach(b => {
     const on = b.dataset.kbTab === tab;
     b.classList.toggle('is-active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
-  const write = tab === 'write';
-  $('kbContent').classList.toggle('hidden', !write);
-  $('kbMdTools').classList.toggle('is-disabled', !write);
-  const prev = $('kbPreview');
-  prev.classList.toggle('hidden', write);
-  if(!write && S.editing){
-    prev.innerHTML = renderMarkdown($('kbContent').value) || '<p class="kb-muted">Nothing written yet.</p>';
-    hydrateImages(prev, S.editing.id);
-  }
+  const body = $('kbComposeBody');
+  body.classList.toggle('is-split', tab === 'split');
+  $('kbContent').classList.toggle('hidden', tab === 'preview');
+  $('kbMdTools').classList.toggle('is-disabled', tab === 'preview');
+  $('kbPreview').classList.toggle('hidden', tab === 'write');
+  refreshPreview();
 }
 
 async function saveEditor(){
@@ -566,7 +696,7 @@ function mdAction(kind){
 }
 
 function markDirty(){
-  if(S.editing) S.editing.dirty = true;
+  if(S.editing){ S.editing.dirty = true; schedulePreview(); }
 }
 
 /* ---- screenshots ---- */
@@ -643,14 +773,27 @@ function wire(){
       if(a === 'delete') return deleteArticle();
       if(a === 'copy-text') return copyArticleText();
       if(a === 'copy-link') return copyArticleLink();
-      if(a === 'back'){ S.selectedId = null; $('kbMain')?.classList.remove('kb-reading'); return render(); }
+      if(a === 'back') return backToList();
+      if(a === 'clear-search'){ S.query = ''; const i = $('kbSearch'); if(i) i.value = ''; return render(); }
       if(a === 'save') return saveEditor();
       if(a === 'cancel') return cancelEditor();
     }
-    const prod = t.closest('[data-kb-product]');
-    if(prod){ S.product = prod.dataset.kbProduct; S.module = 'all'; return render(); }
-    const mod = t.closest('[data-kb-module]');
-    if(mod){ S.module = mod.dataset.kbModule; return render(); }
+    const nav = t.closest('[data-kb-product]');
+    if(nav){
+      const p = nav.dataset.kbProduct;
+      const m = nav.dataset.kbModule || 'all';
+      // clicking the open product again collapses it back to "All guides"
+      if(!nav.dataset.kbModule && p !== 'all' && S.product === p && S.module === 'all' && !S.selectedId){ S.product = 'all'; }
+      else { S.product = p; }
+      S.module = S.product === 'all' ? 'all' : m;
+      S.selectedId = null;
+      try { history.replaceState(history.state, '', `${location.pathname}?view=kb`); } catch(_){}
+      render();
+      document.querySelector('.content')?.scrollTo({ top: 0 });
+      return;
+    }
+    const toc = t.closest('[data-kb-toc]');
+    if(toc){ e.preventDefault(); return scrollPaneTo(document.getElementById(toc.dataset.kbToc)); }
     const open = t.closest('[data-kb-open]');
     if(open) return selectArticle(open.dataset.kbOpen);
     const md = t.closest('[data-kb-md]');
@@ -659,12 +802,27 @@ function wire(){
     if(tab) return setTab(tab.dataset.kbTab);
   });
 
-  $('kbSearch')?.addEventListener('input', (e) => { S.query = e.target.value; render(); });
-  $('kbModuleSelect')?.addEventListener('change', (e) => { S.module = e.target.value; render(); });
+  $('kbSearch')?.addEventListener('input', (e) => {
+    S.query = e.target.value;
+    if(S.query.trim()) S.selectedId = null;   // typing always shows results
+    render();
+  });
+  $('kbSearch')?.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && e.target.value){ e.stopPropagation(); e.target.value = ''; S.query = ''; render(); }
+  });
+  $('kbFilterSelect')?.addEventListener('change', (e) => {
+    const [p, m] = e.target.value.split('|');
+    S.product = p; S.module = m || 'all'; S.selectedId = null;
+    render();
+  });
 
   const ta = $('kbContent');
   ['kbTitle', 'kbProduct', 'kbModule', 'kbVersion', 'kbSummary', 'kbTags', 'kbContent'].forEach(id => {
     $(id)?.addEventListener('input', markDirty);
+  });
+  ta.addEventListener('input', schedulePreview);
+  window.addEventListener('resize', () => {
+    if(S.editing && editorTab === 'split' && window.innerWidth < 1200) setTab('write');
   });
   ta.addEventListener('paste', (e) => {
     const files = [...(e.clipboardData?.files || [])].filter(f => /^image\//.test(f.type));
@@ -703,7 +861,6 @@ function onKbShown(){
   if(S.pendingDocId && S.articles.some(a => a.id === S.pendingDocId)){
     S.selectedId = S.pendingDocId;
     S.pendingDocId = null;
-    $('kbMain')?.classList.add('kb-reading');
   }
   render();
 }

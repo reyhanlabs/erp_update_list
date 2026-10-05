@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.42.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.43.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -178,6 +178,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.43.0**: Knowledge Base redesign: product/module library tree, guides grouped in a wide list, full-width reading view with an "On this page" outline, global search, and a side-by-side editor with live preview. `#` and `##` headings both render as section headings.
 - **v4.42.3**: "Important" / "Warning" callouts in Knowledge Base guides are styled as warnings again; README restored in full, in English.
 - **v4.42.0–4.42.2**: **Knowledge Base** for Zahir ERP / ERP One / Manufacturing / MRP guides (screenshots, preview, search, copy text, direct links); UI fully in English.
 - **v4.41.0**: In-app **Documentation** page; collapsed sidebar shows dots instead of overlapping counts.

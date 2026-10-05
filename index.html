@@ -1362,6 +1362,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.43.0</span>
+                <span class="cl-note">Knowledge Base redesign: library tree, wide reading view with section outline, side-by-side editor with live preview</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.42.3</span>
                 <span class="cl-note">Knowledge Base: "Important" callouts are highlighted as warnings again</span>
               </div>
@@ -1820,100 +1824,102 @@
 
     <section class="view" id="view-kb">
       <div class="kb">
-        <div id="kbBrowse">
-          <div class="kb-bar">
-            <div class="kb-products" role="group" aria-label="Product">
-              <button type="button" data-kb-product="all" class="is-active" aria-pressed="true">All products</button>
-              <button type="button" data-kb-product="erp" aria-pressed="false">Zahir ERP</button>
-              <button type="button" data-kb-product="one" aria-pressed="false">ERP One</button>
-              <button type="button" data-kb-product="mfg" aria-pressed="false">Manufacturing</button>
-              <button type="button" data-kb-product="mrp" aria-pressed="false">MRP</button>
-            </div>
+        <div class="kb-shell" id="kbBrowse">
+          <aside class="kb-side" aria-label="Guide library">
             <label class="kb-search">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-              <input type="search" id="kbSearch" placeholder="Search guides, e.g. invoice, stock opname, closing" autocomplete="off" aria-label="Search guides">
+              <input type="search" id="kbSearch" placeholder="Search guides" autocomplete="off" aria-label="Search guides">
             </label>
-            <button type="button" class="btn btn-primary btn-sm kb-new" data-kb-act="new">
+            <button type="button" class="btn btn-primary kb-new" data-kb-act="new">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
               Write guide
             </button>
-          </div>
-          <select class="input kb-module-select" id="kbModuleSelect" aria-label="Module"></select>
-          <div class="kb-main" id="kbMain">
-            <nav class="kb-modules" id="kbModules" aria-label="Module"></nav>
-            <div class="kb-list" id="kbList"></div>
-            <article class="kb-reader" id="kbReader" aria-live="polite"></article>
-          </div>
+            <select class="input kb-filter-select" id="kbFilterSelect" aria-label="Product and module"></select>
+            <nav class="kb-nav" id="kbNav" aria-label="Products and modules"></nav>
+          </aside>
+          <div class="kb-pane" id="kbPane" aria-live="polite"></div>
         </div>
 
         <div class="kb-editor hidden" id="kbEditor">
           <div class="kb-editor-head">
-            <h2 id="kbEditorHeading">Write new guide</h2>
+            <h2 id="kbEditorHeading">Write a new guide</h2>
             <div class="kb-editor-actions">
               <span class="kb-editor-hint" id="kbEditorHint" role="status"></span>
               <button type="button" class="btn btn-secondary btn-sm" data-kb-act="cancel">Cancel</button>
               <button type="button" class="btn btn-primary btn-sm" id="kbSaveBtn" data-kb-act="save">Save guide</button>
             </div>
           </div>
+
           <div class="kb-form">
-            <label class="kb-field kb-field-wide">
-              <span>Title <i>required</i></span>
-              <input class="input" id="kbTitle" maxlength="160" placeholder="How to create a Sales Invoice from a Sales Order">
+            <label class="kb-field kb-field-title">
+              <span class="sr-only">Title</span>
+              <input class="kb-title-input" id="kbTitle" maxlength="160" placeholder="Guide title, e.g. How to create a Sales Invoice from a Sales Order">
             </label>
+            <div class="kb-form-row">
+              <label class="kb-field">
+                <span>Product</span>
+                <select class="input" id="kbProduct">
+                  <option value="">Choose a product</option>
+                  <option value="erp">Zahir ERP</option>
+                  <option value="one">Zahir ERP One</option>
+                  <option value="mfg">Zahir Manufacturing</option>
+                  <option value="mrp">Zahir MRP</option>
+                </select>
+              </label>
+              <label class="kb-field">
+                <span>Module</span>
+                <input class="input" id="kbModule" list="kbModuleList" maxlength="60" placeholder="Sales">
+                <datalist id="kbModuleList"></datalist>
+              </label>
+              <label class="kb-field">
+                <span>Applies to version <i>optional</i></span>
+                <input class="input" id="kbVersion" maxlength="40" placeholder="V2.26.09 and above">
+              </label>
+              <label class="kb-field">
+                <span>Tags <i>optional</i></span>
+                <input class="input" id="kbTags" maxlength="200" placeholder="invoice, tax, discount">
+              </label>
+            </div>
             <label class="kb-field">
-              <span>Product <i>required</i></span>
-              <select class="input" id="kbProduct">
-                <option value="">Select product</option>
-                <option value="erp">Zahir ERP</option>
-                <option value="one">Zahir ERP One</option>
-                <option value="mfg">Zahir Manufacturing</option>
-                <option value="mrp">Zahir MRP</option>
-              </select>
-            </label>
-            <label class="kb-field">
-              <span>Module <i>required</i></span>
-              <input class="input" id="kbModule" list="kbModuleList" maxlength="60" placeholder="Sales">
-              <datalist id="kbModuleList"></datalist>
-            </label>
-            <label class="kb-field">
-              <span>Applies to version</span>
-              <input class="input" id="kbVersion" maxlength="40" placeholder="V2.26.09 and above">
-            </label>
-            <label class="kb-field">
-              <span>Tag</span>
-              <input class="input" id="kbTags" maxlength="200" placeholder="invoice, tax, discount">
-            </label>
-            <label class="kb-field kb-field-wide">
-              <span>One-line summary</span>
-              <input class="input" id="kbSummary" maxlength="220" placeholder="Shown in the list and helps search">
+              <span>One-line summary <i>shown in the list and used by search</i></span>
+              <input class="input" id="kbSummary" maxlength="220" placeholder="Turn an approved Sales Order into an invoice without re-entering items">
             </label>
           </div>
 
           <div class="kb-compose">
             <div class="kb-compose-bar">
-              <div class="kb-tabs" role="tablist">
-                <button type="button" role="tab" data-kb-tab="write" class="is-active" aria-selected="true">Write</button>
-                <button type="button" role="tab" data-kb-tab="preview" aria-selected="false">Preview</button>
-              </div>
-              <div class="kb-md-tools" id="kbMdTools" role="toolbar" aria-label="Format">
-                <button type="button" data-kb-md="h" title="Section heading">Heading</button>
-                <button type="button" data-kb-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
-                <button type="button" data-kb-md="ol" title="Numbered steps">1. Steps</button>
-                <button type="button" data-kb-md="ul" title="Bullet list">• List</button>
-                <button type="button" data-kb-md="path" title="Menu path, e.g. Sales > Invoice">Menu ›</button>
-                <button type="button" data-kb-md="note" title="Note box">Note</button>
-                <button type="button" data-kb-md="warn" title="Warning box">Important</button>
-                <button type="button" data-kb-md="table" title="Field table">Table</button>
-                <button type="button" data-kb-md="link" title="Link">Link</button>
+              <div class="kb-md-tools" id="kbMdTools" role="toolbar" aria-label="Formatting">
+                <span class="kb-tool-group">
+                  <button type="button" data-kb-md="h" title="Section heading">Heading</button>
+                  <button type="button" data-kb-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                </span>
+                <span class="kb-tool-group">
+                  <button type="button" data-kb-md="ol" title="Numbered steps">1. Steps</button>
+                  <button type="button" data-kb-md="ul" title="Bullet list">• List</button>
+                  <button type="button" data-kb-md="path" title="Menu path, e.g. Sales > Sales Invoice">Menu ›</button>
+                </span>
+                <span class="kb-tool-group">
+                  <button type="button" data-kb-md="note" title="Note box">Note</button>
+                  <button type="button" data-kb-md="warn" title="Warning box">Important</button>
+                  <button type="button" data-kb-md="table" title="Field table">Table</button>
+                  <button type="button" data-kb-md="link" title="Link">Link</button>
+                </span>
                 <button type="button" data-kb-md="image" title="Insert screenshot" class="kb-tool-img">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
-                  Image
+                  Screenshot
                 </button>
               </div>
+              <div class="kb-tabs" role="tablist" aria-label="Editor view">
+                <button type="button" role="tab" data-kb-tab="write" aria-selected="false">Write</button>
+                <button type="button" role="tab" data-kb-tab="split" class="is-active kb-tab-split" aria-selected="true">Side by side</button>
+                <button type="button" role="tab" data-kb-tab="preview" aria-selected="false">Preview</button>
+              </div>
             </div>
-            <textarea class="kb-textarea" id="kbContent" spellcheck="true" aria-label="Guide content"></textarea>
-            <div class="kb-preview md-body hidden" id="kbPreview"></div>
-            <p class="kb-compose-foot">Paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd> or drop image files into the editor. Save with <kbd>Ctrl</kbd>+<kbd>S</kbd>. Write <code>Sales &gt; Invoice</code> for menu paths.</p>
+            <div class="kb-compose-body" id="kbComposeBody">
+              <textarea class="kb-textarea" id="kbContent" spellcheck="true" aria-label="Guide content"></textarea>
+              <div class="kb-preview md-body kb-md" id="kbPreview" aria-label="Preview"></div>
+            </div>
+            <p class="kb-compose-foot">Paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd> or drop image files into the editor; with the cursor on a step, the screenshot goes under that step. Save with <kbd>Ctrl</kbd>+<kbd>S</kbd>.</p>
             <input type="file" id="kbImgInput" accept="image/*" multiple hidden>
           </div>
         </div>

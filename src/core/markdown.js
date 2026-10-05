@@ -76,7 +76,7 @@ export function renderMarkdown(src){
     // headings
     const h = t.match(/^(#{1,3})\s+(.+)$/);
     if(h){
-      const lvl = h[1].length + 1; // # → h2 (h1 is the article title)
+      const lvl = Math.max(2, h[1].length); // # and ## → h2 (h1 is the guide title), ### → h3
       out.push(`<h${lvl}>${inline(h[2])}</h${lvl}>`);
       i++; continue;
     }
