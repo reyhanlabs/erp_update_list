@@ -15,6 +15,8 @@ import { $, escapeHtml, toast } from '../core/helpers.js';
 import { renderMarkdown, markdownToText } from '../core/markdown.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { switchView } from '../ui/navigation.js';
+import { fetchRedmine } from '../redmine/client.js';
+import { getIssueClientName } from './clients.js';
 
 const PRODUCTS = {
   erp: { label: 'Zahir ERP', short: 'ERP' },
@@ -117,7 +119,7 @@ function userLabel(){
 /* ---------------- filtering ---------------- */
 function matchesQuery(a, q){
   if(!q) return true;
-  const hay = [a.title, a.module, a.summary, a.version, (a.tags || []).join(' '), a.content,
+  const hay = [a.title, a.module, a.client, a.summary, a.version, (a.tags || []).join(' '), a.content,
     PRODUCTS[a.product]?.label].join(' ').toLowerCase();
   return q.split(/\s+/).every(w => hay.includes(w));
 }
@@ -265,6 +267,7 @@ function guideRow(a, { showProduct, showModule }){
       ${a.summary ? `<span class="kb-row-sum">${escapeHtml(a.summary)}</span>` : ''}
     </span>
     <span class="kb-row-side">
+      ${a.client ? `<span class="kb-row-client" title="Client: ${escapeHtml(a.client)}">${escapeHtml(a.client)}</span>` : ''}
       ${showProduct ? productChip(a.product) : ''}
       ${where ? `<span class="kb-row-mod">${where}</span>` : ''}
       <span class="kb-row-date">${escapeHtml(fmtDate(a.updatedAt))}</span>
@@ -315,6 +318,7 @@ function renderArticle(el, a){
   const tags = (a.tags || []).filter(Boolean);
   const backLabel = S.module !== 'all' ? S.module : (S.product !== 'all' ? (p ? p.label : 'guides') : 'All guides');
   const meta = [
+    a.client ? `<span class="kb-meta-client">Client <button type="button" class="kb-client-link" data-kb-client="${escapeHtml(a.client)}" title="Show Redmine issues for ${escapeHtml(a.client)}">${escapeHtml(a.client)}</button></span>` : '',
     a.version ? `<span>Applies to <b>${escapeHtml(a.version)}</b></span>` : '',
     `<span>Updated ${escapeHtml(fmtDate(a.updatedAt))}${a.updatedBy ? ` by ${escapeHtml(a.updatedBy)}` : ''}</span>`
   ].filter(Boolean).join('');
@@ -442,7 +446,7 @@ async function copyArticleText(){
   const a = S.articles.find(x => x.id === S.selectedId);
   if(!a) return;
   const p = PRODUCTS[a.product];
-  const text = `*${a.title}*\n${p ? p.label : ''} › ${a.module || ''}${a.version ? ` (${a.version})` : ''}\n\n${markdownToText(a.content)}`;
+  const text = `*${a.title}*\n${p ? p.label : ''} › ${a.module || ''}${a.version ? ` (${a.version})` : ''}${a.client ? `\nClient: ${a.client}` : ''}\n\n${markdownToText(a.content)}`;
   try { await navigator.clipboard.writeText(text); toast('Guide text copied'); }
   catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
@@ -478,6 +482,46 @@ async function deleteArticle(){
 }
 
 /* ---------------- editor ---------------- */
+/* Client name suggestions: Redmine "Client Name" field values (when it is a
+ * list field), clients seen in loaded issue lists, and clients already used
+ * in guides — so the same client is always spelled the same way. */
+let redmineClientValues = null;
+
+async function loadRedmineClientValues(){
+  if(redmineClientValues) return redmineClientValues;
+  redmineClientValues = [];
+  try {
+    const { data } = await fetchRedmine('/api/redmine?resource=custom_fields');
+    const list = Array.isArray(data?.custom_fields) ? data.custom_fields : [];
+    const f = list.find(cf => /^(client( name)?|customer( name)?)$/i.test(String(cf.name || '').trim()));
+    if(f && Array.isArray(f.possible_values)){
+      redmineClientValues = f.possible_values.map(v => String(v.value ?? v.label ?? v).trim()).filter(Boolean);
+    }
+  } catch(_){ /* not admin / offline: other sources still work */ }
+  return redmineClientValues;
+}
+
+function clientsFromLoadedIssues(){
+  const out = [];
+  const add = (arr) => (Array.isArray(arr) ? arr : []).forEach(i => { const n = getIssueClientName(i); if(n) out.push(n); });
+  add(window.__testerIssues);
+  add(window.__clientIssues);
+  Object.values(window.__newIssuesByProject || {}).forEach(b => add(b && b.issues));
+  return out;
+}
+
+async function fillClientSuggestions(){
+  const render = (extra) => {
+    const set = new Set();
+    [...(extra || []), ...clientsFromLoadedIssues(), ...S.articles.map(a => a.client)]
+      .map(v => String(v || '').trim()).filter(Boolean).forEach(v => set.add(v));
+    const dl = $('kbClientList');
+    if(dl) dl.innerHTML = [...set].sort((a, b) => a.localeCompare(b)).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
+  };
+  render([]);
+  render(await loadRedmineClientValues());
+}
+
 function moduleSuggestions(){
   const set = new Set(DEFAULT_MODULES);
   S.articles.forEach(a => a.module && set.add(a.module));
@@ -495,10 +539,12 @@ function openEditor(article){
   $('kbProduct').value = article?.product || (S.product !== 'all' ? S.product : '');
   $('kbModule').value = article?.module || (S.module !== 'all' ? S.module : '');
   $('kbVersion').value = article?.version || '';
+  $('kbClient').value = article?.client || '';
   $('kbSummary').value = article?.summary || '';
   $('kbTags').value = (article?.tags || []).join(', ');
   $('kbContent').value = article ? (article.content || '') : TEMPLATE;
   $('kbModuleList').innerHTML = moduleSuggestions().map(m => `<option value="${escapeHtml(m)}"></option>`).join('');
+  fillClientSuggestions();
   setEditorHint('');
   setTab(defaultTab());
 
@@ -596,6 +642,7 @@ async function saveEditor(){
   const data = {
     title, product, module,
     version: $('kbVersion').value.trim(),
+    client: $('kbClient').value.trim(),
     summary: $('kbSummary').value.trim(),
     tags: $('kbTags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 12),
     content,
@@ -792,6 +839,12 @@ function wire(){
       document.querySelector('.content')?.scrollTo({ top: 0 });
       return;
     }
+    const cl = t.closest('[data-kb-client]');
+    if(cl){
+      // open the Redmine issues of this client (By Client view)
+      if(typeof window.searchClientFromGlobal === 'function') window.searchClientFromGlobal(cl.dataset.kbClient);
+      return;
+    }
     const toc = t.closest('[data-kb-toc]');
     if(toc){ e.preventDefault(); return scrollPaneTo(document.getElementById(toc.dataset.kbToc)); }
     const open = t.closest('[data-kb-open]');
@@ -817,7 +870,7 @@ function wire(){
   });
 
   const ta = $('kbContent');
-  ['kbTitle', 'kbProduct', 'kbModule', 'kbVersion', 'kbSummary', 'kbTags', 'kbContent'].forEach(id => {
+  ['kbTitle', 'kbProduct', 'kbModule', 'kbClient', 'kbVersion', 'kbSummary', 'kbTags', 'kbContent'].forEach(id => {
     $(id)?.addEventListener('input', markDirty);
   });
   ta.addEventListener('input', schedulePreview);

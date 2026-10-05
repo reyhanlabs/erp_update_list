@@ -66,13 +66,13 @@ function renderGlobalSearchResults(q){
   });
   // Knowledge Base guides (only those already loaded this session)
   getKbArticles().forEach(a => {
-    const hay = [a.title, a.module, a.summary, (a.tags || []).join(' ')].join(' ').toLowerCase();
+    const hay = [a.title, a.module, a.client, a.summary, (a.tags || []).join(' ')].join(' ').toLowerCase();
     if(hay.includes(q)){
       const prod = KB_PRODUCTS[a.product]?.short || '';
       hits.push({
         type: 'Guide',
         label: a.title || 'Untitled',
-        sub: [prod, a.module].filter(Boolean).join(' › '),
+        sub: [prod, a.module, a.client].filter(Boolean).join(' › '),
         action: `openKbArticle('${String(a.id).replace(/[^A-Za-z0-9_-]/g, '')}');closeGlobalSearch();`
       });
     }

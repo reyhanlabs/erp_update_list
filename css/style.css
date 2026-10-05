@@ -2623,6 +2623,17 @@ kbd{
 .kb-row-sum{font-size:13.5px;color:var(--text-secondary);line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kb-row-side{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .kb-row-mod{font-size:12.5px;color:var(--text-secondary)}
+.kb-row-client{
+  font-size:12px;font-weight:600;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  padding:2px 8px;border-radius:6px;background:var(--bg-subtle);border:1px solid var(--line);
+}
+.kb-meta-client{display:inline-flex;align-items:center;gap:6px}
+.kb-client-link{
+  font-size:12.5px;font-weight:650;color:var(--text);padding:2px 9px;border-radius:6px;
+  background:var(--bg-subtle);border:1px solid var(--line-strong);
+}
+.kb-client-link:hover{color:var(--brand);border-color:var(--brand);background:var(--brand-soft)}
+.kb-client-link:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .kb-row-date{font-size:12.5px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;min-width:86px;text-align:right}
 .kb-row-go{color:var(--text-tertiary);display:flex;opacity:0;transition:opacity var(--dur-fast) var(--ease)}
 .kb-row-go svg{width:16px;height:16px}
@@ -2753,7 +2764,9 @@ kbd{
   display:flex;flex-direction:column;gap:14px;
   padding:20px 22px;border:1px solid var(--line);border-radius:16px;background:var(--surface);margin-bottom:14px;
 }
-.kb-form-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 14px}
+.kb-form-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px 14px}
+.kb-form-row > .kb-field{grid-column:span 2}
+.kb-form-row > .kb-field:nth-child(n+4){grid-column:span 3}
 .kb-field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .kb-field > span{font-size:12.5px;font-weight:600;color:var(--text)}
 .kb-field > span i{font-style:normal;font-weight:500;color:var(--text-tertiary);margin-left:4px}
@@ -2821,6 +2834,7 @@ kbd{
   .kb-new{width:auto;padding:0 14px}
   .kb-pane{padding:20px 18px 32px;border-radius:14px;min-height:0}
   .kb-form-row{grid-template-columns:1fr 1fr}
+  .kb-form-row > .kb-field,.kb-form-row > .kb-field:nth-child(n+4){grid-column:auto}
 }
 @media(max-width:600px){
   .kb-row{grid-template-columns:minmax(0,1fr);gap:6px}
