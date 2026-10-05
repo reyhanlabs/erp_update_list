@@ -54,6 +54,7 @@ const S = {
   loaded: false,
   product: 'all',
   module: 'all',
+  submenu: 'all',          // 'all' | submenu name | GENERAL (guides without a submenu)
   query: '',
   selectedId: null,
   pendingDocId: null,
@@ -119,13 +120,21 @@ function userLabel(){
 /* ---------------- filtering ---------------- */
 function matchesQuery(a, q){
   if(!q) return true;
-  const hay = [a.title, a.module, a.client, a.summary, a.version, (a.tags || []).join(' '), a.content,
+  const hay = [a.title, a.module, a.submenu, a.client, a.summary, a.version, (a.tags || []).join(' '), a.content,
     PRODUCTS[a.product]?.label].join(' ').toLowerCase();
   return q.split(/\s+/).every(w => hay.includes(w));
 }
 
 function byUpdated(a, b){ return (b.updatedAt || 0) - (a.updatedAt || 0); }
 function moduleOf(a){ return a.module || 'Other'; }
+const GENERAL = '__general__';     // sentinel for guides without a submenu
+function submenuOf(a){ return String(a.submenu || '').trim(); }
+function submenuKey(a){ return submenuOf(a) || GENERAL; }
+function submenuLabel(k){ return k === GENERAL ? 'General' : k; }
+function sortSubmenus(keys){
+  // named submenus A→Z, "General" last
+  return [...keys].sort((x, y) => (x === GENERAL) - (y === GENERAL) || x.localeCompare(y));
+}
 
 function visibleArticles(){
   const q = S.query.toLowerCase().trim();
@@ -134,22 +143,39 @@ function visibleArticles(){
   return S.articles
     .filter(a => S.product === 'all' || a.product === S.product)
     .filter(a => S.module === 'all' || moduleOf(a) === S.module)
+    .filter(a => S.module === 'all' || S.submenu === 'all' || submenuKey(a) === S.submenu)
     .filter(a => matchesQuery(a, q))
     .sort(byUpdated);
 }
 
-/* product → [module, count][] (respecting the search query) */
+/* product → module → count, plus product → module → submenu → count
+ * (respecting the search query) */
 function libraryTree(){
   const q = S.query.toLowerCase().trim();
   const tree = new Map(Object.keys(PRODUCTS).map(p => [p, new Map()]));
+  const subs = new Map(Object.keys(PRODUCTS).map(p => [p, new Map()]));
   let total = 0;
   S.articles.filter(a => matchesQuery(a, q)).forEach(a => {
     if(!tree.has(a.product)) return;
+    const m = moduleOf(a);
     const mods = tree.get(a.product);
-    mods.set(moduleOf(a), (mods.get(moduleOf(a)) || 0) + 1);
+    mods.set(m, (mods.get(m) || 0) + 1);
+    const sm = subs.get(a.product);
+    if(!sm.has(m)) sm.set(m, new Map());
+    const k = submenuKey(a);
+    sm.get(m).set(k, (sm.get(m).get(k) || 0) + 1);
     total++;
   });
-  return { tree, total };
+  return { tree, subs, total };
+}
+
+/* submenus worth showing for a module: only when at least one is named */
+function submenusFor(subs, p, m){
+  const map = subs.get(p)?.get(m);
+  if(!map) return [];
+  const keys = [...map.keys()];
+  if(!keys.some(k => k !== GENERAL)) return [];
+  return sortSubmenus(keys).map(k => [k, map.get(k)]);
 }
 
 /* ---------------- rendering ---------------- */
@@ -186,7 +212,7 @@ function render(){
 function renderNav(){
   const el = $('kbNav');
   if(!el) return;
-  const { tree, total } = libraryTree();
+  const { tree, subs, total } = libraryTree();
   const row = (attrs, label, n, cls) =>
     `<button type="button" class="kb-nav-row ${cls || ''}" ${attrs}><span class="kb-nav-label">${label}</span><span class="kb-nav-n">${n}</span></button>`;
   let html = row('data-kb-product="all"', 'All guides', total, S.product === 'all' ? 'is-active' : '');
@@ -201,8 +227,19 @@ function renderNav(){
     if(open && mods.size){
       html += '<div class="kb-nav-mods">' + [...mods.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([m, n]) => row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m)}"`, escapeHtml(m), n,
-          `kb-nav-mod${S.module === m ? ' is-active' : ''}`)).join('') + '</div>';
+        .map(([m, n]) => {
+          const modOpen = S.module === m;
+          const subRows = modOpen ? submenusFor(subs, p, m) : [];
+          let out = row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m)}"${subRows.length ? ` aria-expanded="true"` : ''}`,
+            escapeHtml(m), n, `kb-nav-mod${modOpen && S.submenu === 'all' ? ' is-active' : ''}${modOpen ? ' is-open' : ''}`);
+          if(subRows.length){
+            out += '<div class="kb-nav-subs">' + subRows.map(([k, c]) =>
+              row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m)}" data-kb-submenu="${escapeHtml(k)}"`,
+                escapeHtml(submenuLabel(k)), c,
+                `kb-nav-sub${S.submenu === k ? ' is-active' : ''}${k === GENERAL ? ' is-general' : ''}`)).join('') + '</div>';
+          }
+          return out;
+        }).join('') + '</div>';
     }
   }
   el.innerHTML = html;
@@ -212,17 +249,21 @@ function renderNav(){
 function renderFilterSelect(){
   const sel = $('kbFilterSelect');
   if(!sel) return;
-  const { tree, total } = libraryTree();
-  let opts = `<option value="all|all">All guides (${total})</option>`;
+  const { tree, subs, total } = libraryTree();
+  const val = (p, m, sm) => [p, m, sm].map(encodeURIComponent).join('|');
+  let opts = `<option value="${val('all', 'all', 'all')}">All guides (${total})</option>`;
   for(const [p, mods] of tree){
     const count = [...mods.values()].reduce((s, n) => s + n, 0);
-    opts += `<option value="${p}|all">${escapeHtml(PRODUCTS[p].label)} (${count})</option>`;
+    opts += `<option value="${val(p, 'all', 'all')}">${escapeHtml(PRODUCTS[p].label)} (${count})</option>`;
     [...mods.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([m, n]) => {
-      opts += `<option value="${p}|${escapeHtml(m)}">&nbsp;&nbsp;&nbsp;${escapeHtml(m)} (${n})</option>`;
+      opts += `<option value="${escapeHtml(val(p, m, 'all'))}">&nbsp;&nbsp;&nbsp;${escapeHtml(m)} (${n})</option>`;
+      submenusFor(subs, p, m).forEach(([k, c]) => {
+        opts += `<option value="${escapeHtml(val(p, m, k))}">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;› ${escapeHtml(submenuLabel(k))} (${c})</option>`;
+      });
     });
   }
   sel.innerHTML = opts;
-  sel.value = `${S.product}|${S.module}`;
+  sel.value = val(S.product, S.module, S.module === 'all' ? 'all' : S.submenu);
 }
 
 function renderPane(){
@@ -256,11 +297,16 @@ function listHeading(){
   if(S.query.trim()) return { title: 'Search results', sub: `for “${escapeHtml(S.query.trim())}”` };
   if(S.product === 'all') return { title: 'All guides', sub: '' };
   const p = PRODUCTS[S.product]?.label || '';
-  return S.module === 'all' ? { title: escapeHtml(p), sub: '' } : { title: escapeHtml(S.module), sub: escapeHtml(p) };
+  if(S.module === 'all') return { title: escapeHtml(p), sub: '' };
+  if(S.submenu === 'all') return { title: escapeHtml(S.module), sub: escapeHtml(p) };
+  return { title: escapeHtml(submenuLabel(S.submenu)), sub: `${escapeHtml(p)} › ${escapeHtml(S.module)}` };
 }
 
-function guideRow(a, { showProduct, showModule }){
-  const where = [showModule ? escapeHtml(moduleOf(a)) : ''].filter(Boolean).join('');
+function guideRow(a, { showProduct, showModule, showSubmenu }){
+  const parts = [];
+  if(showModule) parts.push(escapeHtml(moduleOf(a)));
+  if(showSubmenu && submenuOf(a)) parts.push(escapeHtml(submenuOf(a)));
+  const where = parts.join(' <span class="md-path">›</span> ');
   return `<button type="button" class="kb-row" data-kb-open="${escapeHtml(a.id)}">
     <span class="kb-row-main">
       <span class="kb-row-title">${escapeHtml(a.title || 'Untitled')}</span>
@@ -284,6 +330,17 @@ function renderList(el){
   if(!list.length){
     body = `<div class="kb-state kb-state-sm"><p>No guides match${searching ? ` “${escapeHtml(S.query.trim())}”` : ' this filter'}.</p>
       ${searching ? '<button type="button" class="btn btn-secondary btn-sm" data-kb-act="clear-search">Clear search</button>' : ''}</div>`;
+  } else if(!searching && S.module !== 'all' && S.submenu === 'all' && list.some(a => submenuOf(a))){
+    // inside a module: one group per submenu, "General" last
+    const groups = new Map();
+    list.forEach(a => { const k = submenuKey(a); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(a); });
+    body = sortSubmenus(groups.keys()).map(k => {
+      const items = groups.get(k);
+      return `<section class="kb-group">
+        <h3 class="kb-group-title kb-group-sub">${escapeHtml(submenuLabel(k))}<span>${items.length}</span></h3>
+        ${items.map(a => guideRow(a, { showProduct: false, showModule: false, showSubmenu: false })).join('')}
+      </section>`;
+    }).join('');
   } else if(!searching && S.module === 'all'){
     // group: by product on "All guides", by module inside a product
     const key = S.product === 'all' ? (a => a.product) : moduleOf;
@@ -297,11 +354,11 @@ function renderList(el){
       const items = groups.get(k);
       return `<section class="kb-group">
         <h3 class="kb-group-title">${S.product === 'all' ? `<span class="kb-dot kb-dot-${k}" aria-hidden="true"></span>` : ''}${escapeHtml(label)}<span>${items.length}</span></h3>
-        ${items.map(a => guideRow(a, { showProduct: false, showModule: S.product === 'all' })).join('')}
+        ${items.map(a => guideRow(a, { showProduct: false, showModule: S.product === 'all', showSubmenu: true })).join('')}
       </section>`;
     }).join('');
   } else {
-    body = `<section class="kb-group">${list.map(a => guideRow(a, { showProduct: searching || S.product === 'all', showModule: searching || S.module === 'all' })).join('')}</section>`;
+    body = `<section class="kb-group">${list.map(a => guideRow(a, { showProduct: searching || S.product === 'all', showModule: searching || S.module === 'all', showSubmenu: searching || S.submenu === 'all' })).join('')}</section>`;
   }
   el.innerHTML = `<header class="kb-list-head">
       <div><h2>${head.title}</h2>${head.sub ? `<p>${head.sub}</p>` : ''}</div>
@@ -316,7 +373,9 @@ function slugify(s){
 function renderArticle(el, a){
   const p = PRODUCTS[a.product];
   const tags = (a.tags || []).filter(Boolean);
-  const backLabel = S.module !== 'all' ? S.module : (S.product !== 'all' ? (p ? p.label : 'guides') : 'All guides');
+  const backLabel = S.module !== 'all'
+    ? (S.submenu !== 'all' ? submenuLabel(S.submenu) : S.module)
+    : (S.product !== 'all' ? (p ? p.label : 'guides') : 'All guides');
   const meta = [
     a.client ? `<span class="kb-meta-client">Client <button type="button" class="kb-client-link" data-kb-client="${escapeHtml(a.client)}" title="Show Redmine issues for ${escapeHtml(a.client)}">${escapeHtml(a.client)}</button></span>` : '',
     a.version ? `<span>Applies to <b>${escapeHtml(a.version)}</b></span>` : '',
@@ -327,7 +386,7 @@ function renderArticle(el, a){
     <div class="kb-article-wrap">
       <article class="kb-article">
         <button type="button" class="kb-back" data-kb-act="back">${ICONS.back}<span>${escapeHtml(backLabel)}</span></button>
-        <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(moduleOf(a))}</span></p>
+        <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(moduleOf(a))}</span>${submenuOf(a) ? `<span class="md-path">›</span><span>${escapeHtml(submenuOf(a))}</span>` : ''}</p>
         <h1 class="kb-title">${escapeHtml(a.title || 'Untitled')}</h1>
         ${a.summary ? `<p class="kb-lede">${escapeHtml(a.summary)}</p>` : ''}
         <div class="kb-meta">${meta}</div>
@@ -446,7 +505,7 @@ async function copyArticleText(){
   const a = S.articles.find(x => x.id === S.selectedId);
   if(!a) return;
   const p = PRODUCTS[a.product];
-  const text = `*${a.title}*\n${p ? p.label : ''} › ${a.module || ''}${a.version ? ` (${a.version})` : ''}${a.client ? `\nClient: ${a.client}` : ''}\n\n${markdownToText(a.content)}`;
+  const text = `*${a.title}*\n${p ? p.label : ''} › ${a.module || ''}${submenuOf(a) ? ` › ${submenuOf(a)}` : ''}${a.version ? ` (${a.version})` : ''}${a.client ? `\nClient: ${a.client}` : ''}\n\n${markdownToText(a.content)}`;
   try { await navigator.clipboard.writeText(text); toast('Guide text copied'); }
   catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
@@ -561,6 +620,18 @@ async function fillClientSuggestions(){
   renderClientOptions(await loadRedmineClients(false));
 }
 
+/* Submenus already used under the module being typed (any product) */
+function fillSubmenuSuggestions(){
+  const dl = $('kbSubmenuList');
+  if(!dl) return;
+  const m = ($('kbModule')?.value || '').trim().toLowerCase();
+  const set = new Set();
+  S.articles.forEach(a => {
+    if(submenuOf(a) && (!m || moduleOf(a).toLowerCase() === m)) set.add(submenuOf(a));
+  });
+  dl.innerHTML = [...set].sort((a, b) => a.localeCompare(b)).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
+}
+
 function moduleSuggestions(){
   const set = new Set(DEFAULT_MODULES);
   S.articles.forEach(a => a.module && set.add(a.module));
@@ -577,12 +648,14 @@ function openEditor(article){
   $('kbTitle').value = article?.title || '';
   $('kbProduct').value = article?.product || (S.product !== 'all' ? S.product : '');
   $('kbModule').value = article?.module || (S.module !== 'all' ? S.module : '');
+  $('kbSubmenu').value = article ? (article.submenu || '') : (S.module !== 'all' && S.submenu !== 'all' && S.submenu !== GENERAL ? S.submenu : '');
   $('kbVersion').value = article?.version || '';
   $('kbClient').value = article?.client || '';
   $('kbSummary').value = article?.summary || '';
   $('kbTags').value = (article?.tags || []).join(', ');
   $('kbContent').value = article ? (article.content || '') : TEMPLATE;
   $('kbModuleList').innerHTML = moduleSuggestions().map(m => `<option value="${escapeHtml(m)}"></option>`).join('');
+  fillSubmenuSuggestions();
   fillClientSuggestions();
   setEditorHint('');
   setTab(defaultTab());
@@ -682,6 +755,7 @@ async function saveEditor(){
     title, product, module,
     version: $('kbVersion').value.trim(),
     client: $('kbClient').value.trim(),
+    submenu: $('kbSubmenu').value.trim(),
     summary: $('kbSummary').value.trim(),
     tags: $('kbTags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 12),
     content,
@@ -874,10 +948,12 @@ function wire(){
     if(nav){
       const p = nav.dataset.kbProduct;
       const m = nav.dataset.kbModule || 'all';
+      const sm = nav.dataset.kbSubmenu || 'all';
       // clicking the open product again collapses it back to "All guides"
       if(!nav.dataset.kbModule && p !== 'all' && S.product === p && S.module === 'all' && !S.selectedId){ S.product = 'all'; }
       else { S.product = p; }
       S.module = S.product === 'all' ? 'all' : m;
+      S.submenu = S.module === 'all' ? 'all' : sm;
       S.selectedId = null;
       try { history.replaceState(history.state, '', `${location.pathname}?view=kb`); } catch(_){}
       render();
@@ -909,13 +985,14 @@ function wire(){
     if(e.key === 'Escape' && e.target.value){ e.stopPropagation(); e.target.value = ''; S.query = ''; render(); }
   });
   $('kbFilterSelect')?.addEventListener('change', (e) => {
-    const [p, m] = e.target.value.split('|');
-    S.product = p; S.module = m || 'all'; S.selectedId = null;
+    const [p, m, sm] = e.target.value.split('|').map(decodeURIComponent);
+    S.product = p; S.module = m || 'all'; S.submenu = (S.module === 'all' ? 'all' : (sm || 'all')); S.selectedId = null;
     render();
   });
 
   const ta = $('kbContent');
-  ['kbTitle', 'kbProduct', 'kbModule', 'kbClient', 'kbVersion', 'kbSummary', 'kbTags', 'kbContent'].forEach(id => {
+  $('kbModule')?.addEventListener('input', fillSubmenuSuggestions);
+  ['kbTitle', 'kbProduct', 'kbModule', 'kbSubmenu', 'kbClient', 'kbVersion', 'kbSummary', 'kbTags', 'kbContent'].forEach(id => {
     $(id)?.addEventListener('input', markDirty);
   });
   ta.addEventListener('input', schedulePreview);

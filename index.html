@@ -1364,6 +1364,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.44.0</span>
+                <span class="cl-note">Knowledge Base: optional Submenu under each module (e.g. Master Data › Contacts), shown in the library tree, list groups, and breadcrumbs</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.43.4</span>
                 <span class="cl-note">Knowledge Base editor: shorter field labels that stay on one line on small screens</span>
               </div>
@@ -1890,6 +1894,11 @@
                 <datalist id="kbModuleList"></datalist>
               </label>
               <label class="kb-field">
+                <span>Submenu <i>optional</i></span>
+                <input class="input" id="kbSubmenu" list="kbSubmenuList" maxlength="60" placeholder="e.g. Contacts" autocomplete="off">
+                <datalist id="kbSubmenuList"></datalist>
+              </label>
+              <label class="kb-field">
                 <span>Client <i>optional</i></span>
                 <input class="input" id="kbClient" list="kbClientList" maxlength="120" placeholder="Leave empty for a general guide" autocomplete="off">
                 <datalist id="kbClientList"></datalist>
@@ -2163,16 +2172,17 @@
               <p>The issue is created on the selected project using the configured Redmine API key.</p>
             </article>
 
-            <article class="docs-sec" id="docs-kb" data-keywords="client customer knowledge base guide how-to screenshot markdown">
+            <article class="docs-sec" id="docs-kb" data-keywords="submenu menu client customer knowledge base guide how-to screenshot markdown">
               <header><span class="docs-ico" data-docs-icon="kb"></span><h3>Knowledge Base</h3><button type="button" class="docs-go" data-docs-go="kb">Open Knowledge Base</button></header>
               <p>Where the team writes how-to guides for <b>Zahir ERP</b>, <b>ERP One</b>, <b>Manufacturing</b>, and <b>MRP</b> so support answers clients with the same steps. Guides are stored in the workspace and visible to every member.</p>
               <ol class="docs-steps">
-                <li>Click <b>Write guide</b>, choose product and module. For a guide that only applies to one client, also fill in <b>Client</b>; leave it empty for general guides.</li>
+                <li>Click <b>Write guide</b>, choose product and module, and optionally a <b>Submenu</b> inside that module (e.g. Master Data › Contacts). For a guide that only applies to one client, also fill in <b>Client</b>; leave it empty for general guides.</li>
                 <li>Write steps in markdown; paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
                 <li>Check <b>Preview</b>, then <b>Save guide</b> (or <kbd>Ctrl</kbd>+<kbd>S</kbd>).</li>
               </ol>
               <div class="docs-tip">Knowledge Base guides are not included in <b>Export JSON</b>. They stay in the cloud workspace.</div>
               <p>A guide with a client shows the client name in the list and at the top of the guide. Click the name to open that client's Redmine issues in <b>By Client</b>. Searching for a client name finds their guides.</p>
+              <p>In the library on the left, open a module to see its submenus; guides without a submenu are listed under <i>General</i>. Inside a module, guides are grouped by submenu.</p>
             </article>
 
             <h2 class="docs-group-title" data-docs-group>Other</h2>
