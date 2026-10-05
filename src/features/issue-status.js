@@ -11,12 +11,13 @@ import { loadRedmineProjects } from '../redmine/projects.js';
 import { loadNewIssues, renderNewIssues, resolveNewIssueProjectIds } from './new-issues.js';
 
 /* ============================================================
-   ISSUE STATUS BOARD — New / On Progress / On Deploy / Rework / Feedback
+   ISSUE STATUS BOARD — New / On Progress / On Deploy / Resolved / Rework / Feedback
    ============================================================ */
 const ISSUE_STATUS_DEFS = {
   new:      { key:'new',      label:'New',         names:['New'], badgeId:'countStatusNew' },
   progress: { key:'progress', label:'On Progress', names:['In Progress','On Progress','Progress'], badgeId:'countStatusProgress' },
   deploy:   { key:'deploy',   label:'On Deploy',   names:['On Deploy','Ondeploy','On deploy','Deploy'], badgeId:'countStatusDeploy' },
+  resolved: { key:'resolved', label:'Resolved',    names:['Resolved'], badgeId:'countStatusResolved' },
   rework:   { key:'rework',   label:'Rework',      names:['Rework','Re-work','Re Work'], badgeId:'countStatusRework' },
   feedback: { key:'feedback', label:'Feedback',    names:['Feedback'], badgeId:'countStatusFeedback' }
 };
@@ -195,6 +196,8 @@ function openIssueStatusView(statusKey){
   if(titleEl) titleEl.textContent = def.label;
   const subEl = $('pageSubtitle');
   if(subEl) subEl.textContent = `Status "${def.label}" · Zahir ERP / One / Manufacturing`;
+  const cardTitle = $('newIssuesCardTitle');
+  if(cardTitle) cardTitle.textContent = key === 'new' ? 'New Issues' : `${def.label} issues`;
   // Keep status filter select in sync if present
   const sel = $('newIssuesStatusFilter');
   if(sel){

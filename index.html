@@ -188,6 +188,13 @@
       <span class="label">On Deploy</span>
       <span class="count" id="countStatusDeploy" data-zero="1">0</span>
     </button>
+    <button class="nav-item" data-view="newissues" data-issue-status="resolved" onclick="openIssueStatusView('resolved')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>
+      </svg>
+      <span class="label">Resolved</span>
+      <span class="count" id="countStatusResolved" data-zero="1">0</span>
+    </button>
     <button class="nav-item" data-view="newissues" data-issue-status="rework" onclick="openIssueStatusView('rework')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
@@ -730,7 +737,7 @@
         <div class="card-head">
           <h3>
             <span class="mark" style="background:linear-gradient(135deg,#3b82f6,#06b6d4)"></span>
-            New Issues
+            <span id="newIssuesCardTitle">New Issues</span>
             <span class="badge badge-cyan" id="newIssuesTotalBadge" style="margin-left:8px">—</span>
           </h3>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1329,6 +1336,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.46.1</span>
+                <span class="cl-note">New Issue Status menu: Resolved (below On Deploy), listing issues with status Resolved</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.46.0</span>
                 <span class="cl-note">Dashboard redesign: "Needs attention" first with a compact triage list, new issues per project as bars, release paperwork, tidier recent plans and latest summary; New-issue counts now match the sidebar</span>
@@ -2111,7 +2122,7 @@
 
             <article class="docs-sec" id="docs-status" data-keywords="issue status new progress deploy rework feedback">
               <header><span class="docs-ico" data-docs-icon="status"></span><h3>Issue Status</h3><button type="button" class="docs-go" data-docs-go="status">Open Issue Status</button></header>
-              <p>The five menus under <i>Issue Status</i> show issues by work stage: <b>New</b>, <b>On Progress</b>, <b>On Deploy</b>, <b>Rework</b>, and <b>Feedback</b>, combined across the Zahir projects. Sidebar numbers show the count per stage.</p>
+              <p>The five menus under <i>Issue Status</i> show issues by work stage: <b>New</b>, <b>On Progress</b>, <b>On Deploy</b>, <b>Resolved</b>, <b>Rework</b>, and <b>Feedback</b>, combined across the Zahir projects. Sidebar numbers show the count per stage.</p>
               <p>If Redmine status names differ, change them with the <b>Status</b> control in the toolbar. <b>Copy all links</b> copies every visible issue link.</p>
             </article>
 
