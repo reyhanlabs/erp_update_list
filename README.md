@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.46.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.46.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.46.2**: Fix race in Issue Status lists: a slow load for one status (e.g. Rework) finishing after switching to another (Feedback) overwrote the list and its cache. Loads are now tied to their status and the newest load wins; old session caches are discarded.
 - **v4.46.1**: New Issue Status menu **Resolved** (below On Deploy): issues with Redmine status Resolved, with its own sidebar count.
 - **v4.46.0**: Dashboard redesign: header with date and quick actions; "Needs attention" counts strip plus a compact triage list (reason, issue, subject, project); new issues per project as bars; release paperwork KPIs; tidier recent plans (Write summary / Summary ready) and latest summary. Dashboard New counts use Redmine `total_count` (were capped at 100).
 - **v4.45.2**: Knowledge Base list rows: product · Module › Submenu and client shown as a meta line under the title; right column shows only the date (fixed width, aligned).

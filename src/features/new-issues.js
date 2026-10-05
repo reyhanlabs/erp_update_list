@@ -88,8 +88,8 @@ function getNewIssuesStatusName(){
   return def.names[0] || 'New';
 }
 
-async function fetchNewIssuesForProject(projectId, force = false){
-  const def = getIssueStatusDef(window.__issueStatusKey || 'new');
+async function fetchNewIssuesForProject(projectId, force = false, statusKey){
+  const def = getIssueStatusDef(statusKey || window.__issueStatusKey || 'new');
   const names = def.names && def.names.length ? def.names : [getNewIssuesStatusName()];
   const r = await fetchIssuesByStatusName(projectId, names, !!force);
   return {
@@ -112,6 +112,13 @@ async function loadNewIssues(force){
   const btn = $('btnRefreshNewIssues');
   const memKey = window.__newIssuesMeta && window.__newIssuesMeta.statusKey;
   const curKey = window.__issueStatusKey || 'new';
+  // The status this load is for. If the user switches menu (e.g. Rework → Feedback)
+  // while it is still running, its results must not be shown under the new menu.
+  const loadKey = curKey;
+  window.__newIssuesLoadSeq = (window.__newIssuesLoadSeq || 0) + 1;
+  const loadSeq = window.__newIssuesLoadSeq;
+  window.__newIssuesLatestLoad = window.__newIssuesLatestLoad || {};
+  window.__newIssuesLatestLoad[loadKey] = loadSeq;
   const hasMem = !!(window.__newIssuesByProject && Object.keys(window.__newIssuesByProject).length
     && memKey === curKey);
 
@@ -147,9 +154,9 @@ async function loadNewIssues(force){
         return;
       }
       try {
-        const { issues, total: rTotal, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId, !!force);
+        const { issues, total: rTotal, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId, !!force, loadKey);
         if(fromCache) anyFromCache = true;
-        byProject[t.key] = { ...t, issues, remoteTotal: rTotal, fromCache, statusName: resolved?.name || getNewIssuesStatusName(), error: null };
+        byProject[t.key] = { ...t, issues, remoteTotal: rTotal, fromCache, statusName: resolved?.name || getIssueStatusDef(loadKey).names[0], error: null };
         total += issues.length;
         remoteTotal += Math.max(rTotal || 0, issues.length);
       } catch(err){
@@ -161,15 +168,24 @@ async function loadNewIssues(force){
       }
     }));
 
-    window.__newIssuesByProject = byProject;
-    window.__newIssuesError = null;
-    window.__newIssuesMeta = { total, remoteTotal, at: Date.now(), fromCache: anyFromCache && !force, statusKey: (window.__issueStatusKey || 'new') };
-    const sk = window.__issueStatusKey || 'new';
-    window.__issueStatusCache[sk] = { byProject, meta: window.__newIssuesMeta, at: Date.now(), badgesOnly: false };
+    // A newer load for the same status already started: drop this one
+    if(window.__newIssuesLatestLoad[loadKey] !== loadSeq) return;
+
+    const sk = loadKey;
+    const meta = { total, remoteTotal, at: Date.now(), fromCache: anyFromCache && !force, statusKey: sk };
+    // Cache + sidebar count always go to the status that was actually loaded
+    window.__issueStatusCache[sk] = { byProject, meta, at: Date.now(), badgesOnly: false };
     try { persistIssueStatusCache(); } catch(_){}
     const defB = getIssueStatusDef(sk);
     const sb = defB.badgeId ? $(defB.badgeId) : null;
     if(sb) setNavCount(sb, total);
+
+    // The user moved to another status meanwhile: don't touch the list on screen
+    if((window.__issueStatusKey || 'new') !== sk) return;
+
+    window.__newIssuesByProject = byProject;
+    window.__newIssuesError = null;
+    window.__newIssuesMeta = meta;
     // legacy badge
     const leg = $('countNewIssues');
     if(leg && sk === 'new') leg.textContent = String(total);

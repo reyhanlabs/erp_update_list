@@ -25,7 +25,7 @@ window.__issueStatusKey = window.__issueStatusKey || 'new';
 window.__issueStatusCache = window.__issueStatusCache || {};
 
 const ISSUE_STATUS_LS_KEY = 'erp_issue_status_badges_v1';
-const ISSUE_STATUS_SS_KEY = 'erp_issue_status_cache_v1';
+const ISSUE_STATUS_SS_KEY = 'erp_issue_status_cache_v2'; // v2: drop session caches polluted by the menu-switch race (v4.46.2)
 
 function persistIssueStatusBadges(){
   try {
