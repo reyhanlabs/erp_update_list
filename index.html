@@ -1362,6 +1362,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.43.2</span>
+                <span class="cl-note">Knowledge Base: the Client field now suggests every client found in Redmine issues, not just recently loaded ones</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.43.1</span>
                 <span class="cl-note">Knowledge Base: optional Client field for client-specific guides, with Redmine client suggestions and a link to that client's issues</span>
               </div>
@@ -1876,7 +1880,7 @@
                 <datalist id="kbModuleList"></datalist>
               </label>
               <label class="kb-field">
-                <span>Client <i>optional, for client-specific guides</i></span>
+                <span>Client <i>optional, for client-specific guides</i> <i class="kb-client-hint" id="kbClientHint"></i></span>
                 <input class="input" id="kbClient" list="kbClientList" maxlength="120" placeholder="Leave empty for a general guide" autocomplete="off">
                 <datalist id="kbClientList"></datalist>
               </label>

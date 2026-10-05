@@ -482,23 +482,48 @@ async function deleteArticle(){
 }
 
 /* ---------------- editor ---------------- */
-/* Client name suggestions: Redmine "Client Name" field values (when it is a
- * list field), clients seen in loaded issue lists, and clients already used
- * in guides — so the same client is always spelled the same way. */
-let redmineClientValues = null;
+/* Client name suggestions. The main source is the server's client catalogue
+ * (every distinct "Client Name" value in Redmine issues, cached for 12 hours),
+ * plus clients in issues loaded this session and clients already used in guides. */
+const CLIENT_CACHE_KEY = 'erp_kb_client_names';
+const CLIENT_CACHE_MS = 12 * 60 * 60 * 1000;
+let redmineClients = null;      // [{ name, count }]
+let redmineClientsLoading = null;
 
-async function loadRedmineClientValues(){
-  if(redmineClientValues) return redmineClientValues;
-  redmineClientValues = [];
+function readClientCache(){
   try {
-    const { data } = await fetchRedmine('/api/redmine?resource=custom_fields');
-    const list = Array.isArray(data?.custom_fields) ? data.custom_fields : [];
-    const f = list.find(cf => /^(client( name)?|customer( name)?)$/i.test(String(cf.name || '').trim()));
-    if(f && Array.isArray(f.possible_values)){
-      redmineClientValues = f.possible_values.map(v => String(v.value ?? v.label ?? v).trim()).filter(Boolean);
+    const c = JSON.parse(localStorage.getItem(CLIENT_CACHE_KEY) || 'null');
+    if(c && Array.isArray(c.clients) && Date.now() - (c.at || 0) < CLIENT_CACHE_MS) return c.clients;
+  } catch(_){}
+  return null;
+}
+
+async function loadRedmineClients(force){
+  if(!force){
+    if(redmineClients) return redmineClients;
+    const cached = readClientCache();
+    if(cached){ redmineClients = cached; return cached; }
+  }
+  if(redmineClientsLoading) return redmineClientsLoading;
+  redmineClientsLoading = (async () => {
+    try {
+      let cf = '';
+      try { cf = localStorage.getItem('erp_client_cf_id') || ''; } catch(_){}
+      const q = cf ? `&cf_id=${encodeURIComponent(cf)}` : '';
+      const { data } = await fetchRedmine(`/api/redmine?resource=client_names${q}`, { force: true });
+      const list = Array.isArray(data?.clients) ? data.clients.filter(c => c && c.name) : [];
+      if(data?.fieldId){ try { localStorage.setItem('erp_client_cf_id', String(data.fieldId)); } catch(_){} }
+      redmineClients = list;
+      try { localStorage.setItem(CLIENT_CACHE_KEY, JSON.stringify({ at: Date.now(), clients: list, complete: !!data?.complete })); } catch(_){}
+      return list;
+    } catch(err){
+      console.warn('kb client names', err);
+      return redmineClients || [];
+    } finally {
+      redmineClientsLoading = null;
     }
-  } catch(_){ /* not admin / offline: other sources still work */ }
-  return redmineClientValues;
+  })();
+  return redmineClientsLoading;
 }
 
 function clientsFromLoadedIssues(){
@@ -510,16 +535,30 @@ function clientsFromLoadedIssues(){
   return out;
 }
 
+function renderClientOptions(fromRedmine){
+  const counts = new Map();
+  (fromRedmine || []).forEach(c => counts.set(c.name, c.count || 0));
+  [...clientsFromLoadedIssues(), ...S.articles.map(a => a.client)]
+    .map(v => String(v || '').trim()).filter(Boolean)
+    .forEach(v => { if(!counts.has(v)) counts.set(v, 0); });
+  const dl = $('kbClientList');
+  if(dl){
+    dl.innerHTML = [...counts.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([v, n]) => `<option value="${escapeHtml(v)}"${n ? ` label="${n} issue${n === 1 ? '' : 's'}"` : ''}></option>`)
+      .join('');
+  }
+  const hint = $('kbClientHint');
+  if(hint) hint.innerHTML = counts.size
+    ? `${counts.size} clients · <button type="button" class="kb-client-refresh" data-kb-act="refresh-clients" title="Reload the client list from Redmine">refresh</button>`
+    : '';
+}
+
 async function fillClientSuggestions(){
-  const render = (extra) => {
-    const set = new Set();
-    [...(extra || []), ...clientsFromLoadedIssues(), ...S.articles.map(a => a.client)]
-      .map(v => String(v || '').trim()).filter(Boolean).forEach(v => set.add(v));
-    const dl = $('kbClientList');
-    if(dl) dl.innerHTML = [...set].sort((a, b) => a.localeCompare(b)).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
-  };
-  render([]);
-  render(await loadRedmineClientValues());
+  renderClientOptions(redmineClients || readClientCache() || []);
+  const hint = $('kbClientHint');
+  if(!redmineClients && !readClientCache() && hint) hint.textContent = 'loading clients…';
+  renderClientOptions(await loadRedmineClients(false));
 }
 
 function moduleSuggestions(){
@@ -821,6 +860,12 @@ function wire(){
       if(a === 'copy-text') return copyArticleText();
       if(a === 'copy-link') return copyArticleLink();
       if(a === 'back') return backToList();
+      if(a === 'refresh-clients'){
+        e.preventDefault();
+        const h = $('kbClientHint'); if(h) h.textContent = 'loading clients…';
+        loadRedmineClients(true).then(renderClientOptions);
+        return;
+      }
       if(a === 'clear-search'){ S.query = ''; const i = $('kbSearch'); if(i) i.value = ''; return render(); }
       if(a === 'save') return saveEditor();
       if(a === 'cancel') return cancelEditor();

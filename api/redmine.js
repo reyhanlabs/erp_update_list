@@ -56,6 +56,93 @@ async function resolveStatusId(apiKey, statusName) {
   return found ? { id: found.id, name: found.name } : null;
 }
 
+/* ---- Client name catalogue (for Knowledge Base suggestions) ----
+ * Collects every distinct value of the "Client Name" custom field by paging
+ * through issues in all projects the API key can see. Works without admin
+ * rights: the field id is read from the issues themselves when not given. */
+const CLIENT_FIELD_RE = /^(client( name)?|customer( name)?)$/i;
+
+async function redmineGet(apiKey, path) {
+  const r = await fetch(`${REDMINE_BASE}${path}`, {
+    headers: { 'X-Redmine-API-Key': apiKey, 'Accept': 'application/json', 'User-Agent': 'Zahir-ERP-Update-Manager/1.0' }
+  });
+  if (!r.ok) {
+    const err = new Error(`Redmine ${r.status}`);
+    err.status = r.status;
+    throw err;
+  }
+  return r.json();
+}
+
+function clientValuesOf(issue, cfId) {
+  const f = (issue.custom_fields || []).find(cf =>
+    cfId ? String(cf.id) === String(cfId) : CLIENT_FIELD_RE.test(String(cf.name || '').trim()));
+  if (!f) return [];
+  const v = Array.isArray(f.value) ? f.value : [f.value];
+  return v.map(x => String(x || '').trim()).filter(Boolean);
+}
+
+async function collectClientNames(apiKey, cfIdParam) {
+  const started = Date.now();
+  const BUDGET_MS = 8000;      // stay under the serverless time limit
+  const PAGE = 100;            // Redmine maximum
+  const MAX_PAGES = 60;        // up to 6,000 issues
+  const PARALLEL = 4;
+
+  let cfId = /^\d+$/.test(String(cfIdParam || '')) ? String(cfIdParam) : null;
+  let possible = [];
+
+  // 1) list-type field: take its predefined values (needs admin; optional)
+  try {
+    const cf = await redmineGet(apiKey, '/custom_fields.json');
+    const field = (cf.custom_fields || []).find(x => cfId ? String(x.id) === cfId : CLIENT_FIELD_RE.test(String(x.name || '').trim()));
+    if (field) {
+      cfId = String(field.id);
+      possible = (field.possible_values || []).map(v => String(v.value ?? v.label ?? '').trim()).filter(Boolean);
+    }
+  } catch (_) { /* not admin: fall back to scanning issues */ }
+
+  // 2) find the field id from issues when still unknown
+  if (!cfId) {
+    const probe = await redmineGet(apiKey, `/issues.json?status_id=*&limit=${PAGE}&sort=updated_on:desc`);
+    for (const issue of probe.issues || []) {
+      const f = (issue.custom_fields || []).find(cf => CLIENT_FIELD_RE.test(String(cf.name || '').trim()));
+      if (f) { cfId = String(f.id); break; }
+    }
+    if (!cfId) return { clients: possible.map(name => ({ name, count: 0 })), fieldId: null, scanned: 0, total: 0, complete: true };
+  }
+
+  // 3) page through issues that have a client set
+  const counts = new Map();
+  const base = `/issues.json?status_id=*&cf_${cfId}=*&limit=${PAGE}&sort=updated_on:desc`;
+  const first = await redmineGet(apiKey, `${base}&offset=0`);
+  const total = first.total_count || 0;
+  let scanned = 0;
+  const take = (data) => {
+    for (const issue of data.issues || []) {
+      scanned++;
+      for (const name of clientValuesOf(issue, cfId)) counts.set(name, (counts.get(name) || 0) + 1);
+    }
+  };
+  take(first);
+
+  const offsets = [];
+  for (let off = PAGE; off < total && offsets.length < MAX_PAGES - 1; off += PAGE) offsets.push(off);
+  let complete = offsets.length === Math.ceil(Math.max(0, total - PAGE) / PAGE);
+  for (let i = 0; i < offsets.length; i += PARALLEL) {
+    if (Date.now() - started > BUDGET_MS) { complete = false; break; }
+    const batch = offsets.slice(i, i + PARALLEL);
+    const pages = await Promise.allSettled(batch.map(off => redmineGet(apiKey, `${base}&offset=${off}`)));
+    pages.forEach(p => { if (p.status === 'fulfilled') take(p.value); else complete = false; });
+  }
+
+  possible.forEach(name => { if (!counts.has(name)) counts.set(name, 0); });
+  const clients = [...counts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  return { clients, fieldId: cfId, scanned, total, complete };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const user = await requireUser(req, res);
@@ -92,6 +179,16 @@ export default async function handler(req, res) {
       resource,
       client_name
     } = req.query;
+
+    // Distinct client names (Knowledge Base suggestions)
+    if (resource === 'client_names') {
+      try {
+        const out = await collectClientNames(apiKey, req.query.cf_id);
+        return res.status(200).json(out);
+      } catch (err) {
+        return res.status(err.status || 502).json({ error: 'Could not load client names', detail: String(err.message || err) });
+      }
+    }
 
     // List custom fields (to resolve "Client Name" id, etc.)
     if (resource === 'custom_fields') {
