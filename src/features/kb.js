@@ -293,22 +293,29 @@ function listHeading(){
   return { title: escapeHtml(submenuLabel(S.submenu)), sub: `${escapeHtml(p)} › ${escapeHtml(S.module)}` };
 }
 
+/* One guide in a list.
+ * Left: title, summary, and a quiet meta line (product · Module › Submenu · client).
+ * Right: only the date, in a fixed column, so every row lines up. */
+const ICON_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
+const ICON_CLIENT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M15 9h.01M9 13h.01M15 13h.01M10 21v-4h4v4"/></svg>';
+
 function guideRow(a, { showProduct, showModule, showSubmenu }){
   const parts = [];
   if(showModule) parts.push(escapeHtml(moduleOf(a)));
   if(showSubmenu && submenuOf(a)) parts.push(escapeHtml(submenuOf(a)));
-  const where = parts.join(' <span class="md-path">›</span> ');
+  const where = parts.join('<span class="kb-row-sep" aria-hidden="true">›</span>');
+  const meta = [
+    showProduct ? productChip(a.product) : '',
+    where ? `<span class="kb-row-path" title="${escapeHtml([showModule ? moduleOf(a) : '', showSubmenu ? submenuOf(a) : ''].filter(Boolean).join(' › '))}">${ICON_FOLDER}<span>${where}</span></span>` : '',
+    a.client ? `<span class="kb-row-client" title="Client: ${escapeHtml(a.client)}">${ICON_CLIENT}<span>${escapeHtml(a.client)}</span></span>` : ''
+  ].filter(Boolean).join('');
   return `<button type="button" class="kb-row" data-kb-open="${escapeHtml(a.id)}">
     <span class="kb-row-main">
       <span class="kb-row-title">${escapeHtml(a.title || 'Untitled')}</span>
       ${a.summary ? `<span class="kb-row-sum">${escapeHtml(a.summary)}</span>` : ''}
+      ${meta ? `<span class="kb-row-meta">${meta}</span>` : ''}
     </span>
-    <span class="kb-row-side">
-      ${a.client ? `<span class="kb-row-client" title="Client: ${escapeHtml(a.client)}">${escapeHtml(a.client)}</span>` : ''}
-      ${showProduct ? productChip(a.product) : ''}
-      ${where ? `<span class="kb-row-mod">${where}</span>` : ''}
-      <span class="kb-row-date">${escapeHtml(fmtDate(a.updatedAt))}</span>
-    </span>
+    <span class="kb-row-date">${escapeHtml(fmtDate(a.updatedAt))}</span>
     <span class="kb-row-go" aria-hidden="true">${ICONS.chevron}</span>
   </button>`;
 }

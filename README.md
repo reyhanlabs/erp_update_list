@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.45.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.45.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.45.2**: Knowledge Base list rows: product · Module › Submenu and client shown as a meta line under the title; right column shows only the date (fixed width, aligned).
 - **v4.45.1**: Knowledge Base drops the separate "Zahir Manufacturing" product (same as Zahir MRP). Guides and menus stored under `mfg` are shown and saved as `mrp`; no data is deleted.
 - **v4.45.0**: Knowledge Base **Edit menus**: the team defines modules and submenus per product (ordered), stored in `workspaces/{id}/kb/_structure` (no rules change needed). The editor's Module/Submenu are dropdowns from that list; renames update the guides that use them; in-use items can't be deleted; first use is pre-filled from existing guides.
 - **v4.44.0**: Knowledge Base guides get an optional **Submenu** inside a module (Product › Module › Submenu). The library tree shows submenus under the open module (guides without one under *General*), module lists are grouped by submenu, and breadcrumbs, copy text, and search include it.
