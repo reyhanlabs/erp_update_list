@@ -2856,3 +2856,17 @@ kbd{
 @media(prefers-reduced-motion:reduce){
   .kb-row,.kb-row-go,.kb-nav-row,.kb-act{transition:none}
 }
+
+/* List coverage note (v4.43.3): why the list shows fewer rows than the sidebar */
+.list-coverage{
+  display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;
+  margin:10px 12px 0;padding:9px 12px;border-radius:10px;
+  background:var(--warning-soft);border:1px solid rgba(217,119,6,.25);
+  font-size:12.5px;color:var(--text-secondary);
+}
+.list-coverage b{color:var(--text);font-weight:650}
+.list-coverage-clear{font-size:12.5px;font-weight:650;color:var(--brand);text-decoration:underline;text-underline-offset:2px;padding:0}
+.list-coverage-clear:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.list-coverage-sep{width:1px;height:14px;background:var(--line-strong)}
+.list-coverage.hidden{display:none}
+#testerStatusLabel,#newIssuesStatusLabel{max-width:none;overflow:visible;white-space:nowrap}

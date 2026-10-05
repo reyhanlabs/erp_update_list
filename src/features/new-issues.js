@@ -6,7 +6,15 @@ import { ICON } from '../icons.js';
 import { RedmineState } from '../core/state.js';
 import { $, escapeHtml, formatDate, resolveIssueCategory, toast } from '../core/helpers.js';
 import { issueSelectCell, issueSelectHeader, updateBatchBar } from '../ui/batch-selection.js';
-import { emptyState, matchesQuickFilter, setNavCount } from '../ui/list-controls.js';
+import {
+  activeFilterLabels,
+  clockTime,
+  emptyState,
+  matchesQuickFilter,
+  renderListCoverage,
+  setNavCount,
+  setQuickFilter
+} from '../ui/list-controls.js';
 import { fetchRedmine } from '../redmine/client.js';
 import {
   formatAssignee,
@@ -86,6 +94,7 @@ async function fetchNewIssuesForProject(projectId, force = false){
   const r = await fetchIssuesByStatusName(projectId, names, !!force);
   return {
     issues: r.issues || [],
+    total: typeof r.total === 'number' ? r.total : (r.issues || []).length,
     fromCache: !!r.fromCache,
     resolved: r.statusName ? { name: r.statusName } : null
   };
@@ -112,8 +121,8 @@ async function loadNewIssues(force){
     const meta = window.__newIssuesMeta;
     const age = meta ? (Date.now() - (meta.at || 0)) : Infinity;
     const total = meta && meta.total != null ? meta.total : 0;
-    // Skip network only if we have non-empty fresh data for this status
-    if(age < 8 * 60 * 1000 && total > 0){
+    // Skip network only if we have non-empty data for this status from the last 2 minutes
+    if(age < 2 * 60 * 1000 && total > 0){
       return;
     }
     // empty or aging → fall through to network
@@ -129,6 +138,7 @@ async function loadNewIssues(force){
     const targets = resolveNewIssueProjectIds();
     const byProject = {};
     let total = 0;
+    let remoteTotal = 0;
     let anyFromCache = false;
 
     await Promise.all(targets.map(async (t) => {
@@ -137,10 +147,11 @@ async function loadNewIssues(force){
         return;
       }
       try {
-        const { issues, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId, !!force);
+        const { issues, total: rTotal, fromCache, resolved } = await fetchNewIssuesForProject(t.projectId, !!force);
         if(fromCache) anyFromCache = true;
-        byProject[t.key] = { ...t, issues, fromCache, statusName: resolved?.name || getNewIssuesStatusName(), error: null };
+        byProject[t.key] = { ...t, issues, remoteTotal: rTotal, fromCache, statusName: resolved?.name || getNewIssuesStatusName(), error: null };
         total += issues.length;
+        remoteTotal += Math.max(rTotal || 0, issues.length);
       } catch(err){
         console.error('New issues fetch failed', t.label, err);
         byProject[t.key] = {
@@ -152,7 +163,7 @@ async function loadNewIssues(force){
 
     window.__newIssuesByProject = byProject;
     window.__newIssuesError = null;
-    window.__newIssuesMeta = { total, at: Date.now(), fromCache: anyFromCache && !force, statusKey: (window.__issueStatusKey || 'new') };
+    window.__newIssuesMeta = { total, remoteTotal, at: Date.now(), fromCache: anyFromCache && !force, statusKey: (window.__issueStatusKey || 'new') };
     const sk = window.__issueStatusKey || 'new';
     window.__issueStatusCache[sk] = { byProject, meta: window.__newIssuesMeta, at: Date.now(), badgesOnly: false };
     try { persistIssueStatusCache(); } catch(_){}
@@ -169,7 +180,7 @@ async function loadNewIssues(force){
     if(totalBadge) totalBadge.textContent = String(total);
     const statusLabel = $('newIssuesStatusLabel');
     if(statusLabel){
-      statusLabel.textContent = 'Status: ' + getNewIssuesStatusName() + (anyFromCache && !force ? ' · cached' : '');
+      statusLabel.textContent = 'Status: ' + getNewIssuesStatusName() + ' · updated ' + clockTime(Date.now());
     }
 
     renderNewIssues();
@@ -405,6 +416,37 @@ function collectNewIssuesFlat(){
   return out;
 }
 
+
+/* "Showing X of Y" when filters hide issues, so the list can be squared
+ * with the sidebar count (which always counts everything). */
+function updateNewIssuesCoverage(matching){
+  const by = window.__newIssuesByProject || {};
+  const loaded = Object.values(by).reduce((n, b) => n + ((b && !b.error && b.issues) ? b.issues.length : 0), 0);
+  const remote = window.__newIssuesMeta?.remoteTotal || loaded;
+  const filters = [];
+  if(($('newIssuesSearch')?.value || '').trim()) filters.push('search');
+  const proj = $('newIssuesProjectFilter');
+  if(proj && proj.value !== 'all') filters.push(proj.options[proj.selectedIndex]?.text || 'project');
+  const pri = $('newIssuesPriorityFilter');
+  if(pri && pri.value !== 'all') filters.push(pri.options[pri.selectedIndex]?.text || 'priority');
+  const dt = $('newIssuesDateFilter');
+  if(dt && dt.value !== 'all') filters.push(dt.options[dt.selectedIndex]?.text || 'date');
+  renderListCoverage('newIssuesCoverage', {
+    matching, loaded, remote,
+    filters: activeFilterLabels(filters),
+    clearAction: 'clearNewIssuesFilters()'
+  });
+}
+
+function clearNewIssuesFilters(){
+  const set = (id, v) => { const el = $(id); if(el) el.value = v; };
+  set('newIssuesSearch', '');
+  set('newIssuesProjectFilter', 'all');
+  set('newIssuesPriorityFilter', 'all');
+  set('newIssuesDateFilter', 'all');
+  setQuickFilter('all', renderNewIssues);
+}
+
 function renderNewIssues(){
   const el = $('newIssuesBody');
   if(!el) return;
@@ -438,6 +480,7 @@ function renderNewIssues(){
 
   const groupBy = ($('newIssuesGroupBy')?.value || 'project');
   const list = collectNewIssuesFlat();
+  updateNewIssuesCoverage(list.length);
   const statusLabel = (typeof getIssueStatusDef === 'function')
     ? getIssueStatusDef(window.__issueStatusKey || 'new').label
     : 'issues';
@@ -696,6 +739,7 @@ function openNewIssuesView(){
 }
 
 export {
+  clearNewIssuesFilters,
   assigneeChip,
   categoryChip,
   collectNewIssuesFlat,

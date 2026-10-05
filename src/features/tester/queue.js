@@ -7,7 +7,15 @@ import { ICON } from '../../icons.js';
 import { RedmineState } from '../../core/state.js';
 import { $, escapeHtml, formatDate, rememberIssueCategories, toast } from '../../core/helpers.js';
 import { issueSelectCell, issueSelectHeader, updateBatchBar } from '../../ui/batch-selection.js';
-import { emptyState, matchesQuickFilter } from '../../ui/list-controls.js';
+import {
+  activeFilterLabels,
+  clockTime,
+  emptyState,
+  matchesQuickFilter,
+  renderListCoverage,
+  savePersistedFilters,
+  setQuickFilter
+} from '../../ui/list-controls.js';
 import { fetchRedmine } from '../../redmine/client.js';
 import {
   getCachedRftStatusId,
@@ -189,6 +197,37 @@ function showMoreTester(){
   window.__testerShown = (window.__testerShown || 40) + 40;
   renderTesterList();
 }
+
+/* Same idea as the Issue Status lists: the sidebar counts every categorized
+ * RFT issue in the category; say so when filters show fewer. */
+function updateTesterCoverage(matching){
+  const cat = window.__testerCategory || 'all';
+  const loaded = (window.__testerIssues || []).filter(i => {
+    const c = getIssueTesterCategory(i);
+    return c !== null && (cat === 'all' || c === cat);
+  }).length;
+  const filters = [];
+  if(($('testerSearch')?.value || '').trim()) filters.push('search');
+  const proj = $('testerProjectFilter');
+  if(proj && proj.value !== 'all') filters.push(proj.options[proj.selectedIndex]?.text || 'project');
+  const pri = $('testerPriorityFilter');
+  if(pri && pri.value !== 'all') filters.push(pri.options[pri.selectedIndex]?.text || 'priority');
+  renderListCoverage('testerCoverage', {
+    matching, loaded,
+    filters: activeFilterLabels(filters),
+    clearAction: 'clearTesterFilters()'
+  });
+}
+
+function clearTesterFilters(){
+  const set = (id, v) => { const el = $(id); if(el){ el.value = v; el.dispatchEvent(new Event('input')); } };
+  set('testerSearch', '');
+  set('testerPriorityFilter', 'all');
+  const proj = $('testerProjectFilter');
+  if(proj){ proj.value = 'all'; try { savePersistedFilters({ testerProject: 'all' }); } catch(_){} }
+  setQuickFilter('all', renderTesterList);
+}
+
 function renderTesterList(){
   // reset page size when category/project changes handled elsewhere
 
@@ -215,6 +254,7 @@ function renderTesterList(){
   }
 
   const listAll = getFilteredTesterIssues();
+  updateTesterCoverage(listAll.length);
   if(!listAll.length){
     const catLabel = (window.TESTER_CAT_LABELS && window.TESTER_CAT_LABELS[window.__testerCategory]) || window.__testerCategory || 'this category';
     const uncat = all.filter(i => getIssueTesterCategory(i) === null).length;
@@ -422,7 +462,9 @@ async function fetchRedmineAllIssues(paramsInit, { force = false, pageSize = 100
     params.set('limit', String(pageSize));
     params.set('offset', String(offset));
     const { data, fromCache } = await fetchRedmine(`/api/redmine?${params.toString()}`, {
-      force: !!force && page === 0
+      // force every page: mixing a fresh first page with cached later pages
+      // produced lists that didn't match the counts
+      force: !!force
     });
     lastData = data;
     if(fromCache) fromCacheAny = true;
@@ -455,7 +497,7 @@ async function fetchRftForProject(projectId, force){
   else params.set('status_name', 'Ready for Testing');
   params.set('project_id', String(projectId));
   params.set('sort', 'updated_on:desc');
-  const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 5 });
+  const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 10 });
   if(result.resolved_status?.id){
     setCachedRftStatusId(result.resolved_status.id, result.resolved_status.name);
   }
@@ -533,7 +575,8 @@ async function loadTesterReminder(force){
     // Browser notification for brand-new issues (if enabled)
     try { notifyNewTesterIssues(issues); } catch(_){}
 
-    if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName;
+    window.__testerMeta.at = Date.now();
+    if(statusLabel) statusLabel.textContent = window.__testerMeta.statusName + ' · updated ' + clockTime(Date.now());
     setTesterBadgeCount(issues.length);
     updateTesterCategoryBadges();
 
@@ -596,6 +639,7 @@ async function prefetchTesterCount(){
 }
 
 export {
+  clearTesterFilters,
   copyTesterList,
   fetchRedmineAllIssues,
   fetchRftForProject,

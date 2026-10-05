@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.43.2';
+export const APP_VERSION = '4.43.3';
 export const APP_VERSION_DATE = '2026-10-04';
-export const APP_VERSION_NOTE = 'Full Redmine client list in Knowledge Base';
+export const APP_VERSION_NOTE = 'Lists and sidebar counts stay in step with Redmine';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

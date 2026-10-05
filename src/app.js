@@ -73,6 +73,7 @@ import {
   updateNotifToggleUI
 } from './features/tester/notifications.js';
 import {
+  clearTesterFilters,
   copyTesterList,
   genericLoadingSkeleton,
   loadTesterReminder,
@@ -114,6 +115,7 @@ import {
   restoreIssueStatusCache
 } from './features/issue-status.js';
 import {
+  clearNewIssuesFilters,
   collectNewIssuesFlat,
   copyAllNewIssueLinks,
   copyGroupIssueLinks,
@@ -177,7 +179,7 @@ import { openKbArticle, openKbView } from './features/kb.js';
 function exposeAppGlobals(){
   const map = {
     openTesterCategory, switchView, toggleSidebar, openAddModal, closeModal,
-    setPlanFilter, renderPlans, renderSummaries, renderTesterList,
+    setPlanFilter, renderPlans, renderSummaries, renderTesterList, clearTesterFilters,
     loadTesterReminder, copyTesterList, openPlansWithSync, toggleSyncPanel,
     previewRedmineSync, syncFromRedmine, testRedmineConnection, onRedmineProjectChange,
     onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate, removeIssueRow,
@@ -190,7 +192,7 @@ function exposeAppGlobals(){
     // Summaries
     editSummary, deleteSummary, copySummary, quickSummary, saveSummary, resetSummaryForm, resetPlanForm,
     finishSyncAndShowPlans,
-    openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
+    openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, clearNewIssuesFilters, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
     openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute, openDocsView, openKbView, openKbArticle,

@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.43.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.43.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -178,6 +178,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.43.3**: Redmine cache TTL 20 → 2 minutes; forced refreshes refetch every page (no more fresh/stale page mixes); status lists load up to 1,000 issues per project; lists show "Showing X of Y" with Clear filters when filters hide issues, plus the last update time.
 - **v4.43.2**: `/api/redmine?resource=client_names` builds the full client list from Redmine issues (works without admin rights; up to 6,000 issues within ~8 s); the Knowledge Base Client field uses it, cached for 12 hours, with a refresh link.
 - **v4.43.1**: Knowledge Base guides get an optional **Client** field (suggestions from Redmine's Client Name field), shown in the list and on the guide; clicking it opens that client's issues in By Client; search matches client names.
 - **v4.43.0**: Knowledge Base redesign: product/module library tree, guides grouped in a wide list, full-width reading view with an "On this page" outline, global search, and a side-by-side editor with live preview. `#` and `##` headings both render as section headings.

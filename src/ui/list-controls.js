@@ -154,7 +154,45 @@ function wireFilterPersistence(){
   });
 }
 
+
+/* ============================================================
+   LIST COVERAGE NOTE (v4.43.3)
+   Explains why a list shows fewer rows than its sidebar count:
+   active filters, or Redmine holding more issues than were loaded.
+   ============================================================ */
+function clockTime(ms){
+  const d = new Date(ms || Date.now());
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function activeFilterLabels(extra){
+  const out = [...(extra || [])];
+  const qf = window.__quickFilter || 'all';
+  const qfNames = { immediate: 'Immediate', unassigned: 'Unassigned', updated7d: 'Updated 7d' };
+  if(qf !== 'all' && qfNames[qf]) out.push(qfNames[qf]);
+  return out;
+}
+
+function renderListCoverage(elId, { matching, loaded, remote, filters, clearAction }){
+  const el = $(elId);
+  if(!el) return;
+  const parts = [];
+  if(matching < loaded){
+    const f = (filters || []).length ? ` (filter: ${filters.map(escapeHtml).join(', ')})` : '';
+    parts.push(`<span>Showing <b>${matching}</b> of <b>${loaded}</b> issues${f}.</span>
+      <button type="button" class="list-coverage-clear" onclick="${clearAction}">Clear filters</button>`);
+  }
+  if(remote && remote > loaded){
+    parts.push(`<span>Redmine has <b>${remote}</b> issues here; the latest <b>${loaded}</b> are loaded.</span>`);
+  }
+  el.innerHTML = parts.join('<span class="list-coverage-sep" aria-hidden="true"></span>');
+  el.classList.toggle('hidden', !parts.length);
+}
+
 export {
+  activeFilterLabels,
+  clockTime,
+  renderListCoverage,
   applyDensityOnBoot,
   emptyState,
   matchesQuickFilter,

@@ -20,7 +20,7 @@ function applyStatusParam(params, statusVal){
    REDMINE CACHE + ERROR HANDLING
    ============================================================ */
 const RedmineCache = {
-  TTL_MS: 20 * 60 * 1000, // 20 minutes — fewer Redmine round-trips
+  TTL_MS: 2 * 60 * 1000, // 2 minutes: lists and sidebar counts stay close to Redmine (was 20 min)
   _mem: new Map(),
 
   key(url){ return String(url); },

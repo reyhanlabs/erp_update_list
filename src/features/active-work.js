@@ -45,11 +45,12 @@ async function fetchIssuesByStatusName(projectId, statusNames, force = false){
       params.set('status_name', name);
       params.set('project_id', String(projectId));
       params.set('sort', 'updated_on:desc');
-      const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 5 });
+      const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 10 });
       if((result.issues && result.issues.length) || result.resolved_status){
         rememberIssueCategories(result.issues || []);
         return {
           issues: result.issues || [],
+          total: typeof result.total_count === 'number' ? result.total_count : (result.issues || []).length,
           statusName: result.resolved_status?.name || name,
           fromCache: !!result.fromCache
         };
