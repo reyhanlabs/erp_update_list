@@ -17,6 +17,10 @@ import { confirmDialog } from '../ui/confirm.js';
 import { switchView } from '../ui/navigation.js';
 import { fetchRedmine } from '../redmine/client.js';
 import { getIssueClientName } from './clients.js';
+import {
+  STRUCTURE_ID, GENERAL, PRODUCT_KEYS, newId, emptyStructure, normalizeStructure, cloneStructure,
+  buildTree, moduleOptions, submenuOptions, structureFromArticles, validateStructure, planRenames, usage
+} from './kb-structure.js';
 
 const PRODUCTS = {
   erp: { label: 'Zahir ERP', short: 'ERP' },
@@ -55,6 +59,9 @@ const S = {
   product: 'all',
   module: 'all',
   submenu: 'all',          // 'all' | submenu name | GENERAL (guides without a submenu)
+  structure: emptyStructure(), // team-defined modules/submenus per product
+  structureMeta: null,
+  manage: null,            // { draft, product, prefilled:Set } while editing menus
   query: '',
   selectedId: null,
   pendingDocId: null,
@@ -84,7 +91,10 @@ function subscribe(){
   S.loaded = false;
   render();
   S.unsub = kbRef().onSnapshot(snap => {
-    S.articles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const structDoc = snap.docs.find(d => d.id === STRUCTURE_ID);
+    S.structure = normalizeStructure(structDoc ? structDoc.data() : null);
+    S.structureMeta = structDoc ? structDoc.data() : null;
+    S.articles = snap.docs.filter(d => d.id !== STRUCTURE_ID).map(d => ({ id: d.id, ...d.data() }));
     S.loaded = true;
     if(S.pendingDocId && S.articles.some(a => a.id === S.pendingDocId)){
       S.selectedId = S.pendingDocId;
@@ -127,55 +137,30 @@ function matchesQuery(a, q){
 
 function byUpdated(a, b){ return (b.updatedAt || 0) - (a.updatedAt || 0); }
 function moduleOf(a){ return a.module || 'Other'; }
-const GENERAL = '__general__';     // sentinel for guides without a submenu
 function submenuOf(a){ return String(a.submenu || '').trim(); }
 function submenuKey(a){ return submenuOf(a) || GENERAL; }
 function submenuLabel(k){ return k === GENERAL ? 'General' : k; }
-function sortSubmenus(keys){
-  // named submenus A→Z, "General" last
-  return [...keys].sort((x, y) => (x === GENERAL) - (y === GENERAL) || x.localeCompare(y));
-}
-
 function visibleArticles(){
   const q = S.query.toLowerCase().trim();
   // search always looks through every guide, whatever is selected in the tree
   if(q) return S.articles.filter(a => matchesQuery(a, q)).sort(byUpdated);
   return S.articles
     .filter(a => S.product === 'all' || a.product === S.product)
-    .filter(a => S.module === 'all' || moduleOf(a) === S.module)
-    .filter(a => S.module === 'all' || S.submenu === 'all' || submenuKey(a) === S.submenu)
+    .filter(a => S.module === 'all' || moduleOf(a).toLowerCase() === S.module.toLowerCase())
+    .filter(a => S.module === 'all' || S.submenu === 'all' || submenuKey(a).toLowerCase() === S.submenu.toLowerCase())
     .filter(a => matchesQuery(a, q))
     .sort(byUpdated);
 }
 
-/* product → module → count, plus product → module → submenu → count
- * (respecting the search query) */
+/* Library tree: the team's defined menus (in their order) + names used by
+ * guides that aren't defined yet. Respects the search query. */
 function libraryTree(){
   const q = S.query.toLowerCase().trim();
-  const tree = new Map(Object.keys(PRODUCTS).map(p => [p, new Map()]));
-  const subs = new Map(Object.keys(PRODUCTS).map(p => [p, new Map()]));
-  let total = 0;
-  S.articles.filter(a => matchesQuery(a, q)).forEach(a => {
-    if(!tree.has(a.product)) return;
-    const m = moduleOf(a);
-    const mods = tree.get(a.product);
-    mods.set(m, (mods.get(m) || 0) + 1);
-    const sm = subs.get(a.product);
-    if(!sm.has(m)) sm.set(m, new Map());
-    const k = submenuKey(a);
-    sm.get(m).set(k, (sm.get(m).get(k) || 0) + 1);
-    total++;
-  });
-  return { tree, subs, total };
+  return buildTree(S.structure, S.articles.filter(a => matchesQuery(a, q)));
 }
 
-/* submenus worth showing for a module: only when at least one is named */
-function submenusFor(subs, p, m){
-  const map = subs.get(p)?.get(m);
-  if(!map) return [];
-  const keys = [...map.keys()];
-  if(!keys.some(k => k !== GENERAL)) return [];
-  return sortSubmenus(keys).map(k => [k, map.get(k)]);
+function moduleNode(tree, p, m){
+  return tree.products.get(p)?.modules.find(x => x.name.toLowerCase() === String(m).toLowerCase()) || null;
 }
 
 /* ---------------- rendering ---------------- */
@@ -208,39 +193,39 @@ function render(){
   renderPane();
 }
 
-/* Left library tree: All guides → products → modules of the selected product */
+/* Left library tree: All guides → products → modules → submenus */
 function renderNav(){
   const el = $('kbNav');
   if(!el) return;
-  const { tree, subs, total } = libraryTree();
+  const tree = libraryTree();
   const row = (attrs, label, n, cls) =>
     `<button type="button" class="kb-nav-row ${cls || ''}" ${attrs}><span class="kb-nav-label">${label}</span><span class="kb-nav-n">${n}</span></button>`;
-  let html = row('data-kb-product="all"', 'All guides', total, S.product === 'all' ? 'is-active' : '');
+  let html = row('data-kb-product="all"', 'All guides', tree.total, S.product === 'all' ? 'is-active' : '');
   html += '<div class="kb-nav-sep" role="presentation"></div>';
-  for(const [p, mods] of tree){
-    const count = [...mods.values()].reduce((s, n) => s + n, 0);
+  for(const [p, prod] of tree.products){
     const open = S.product === p;
     const active = open && S.module === 'all';
     html += row(`data-kb-product="${p}" aria-expanded="${open}"`,
       `<span class="kb-dot kb-dot-${p}" aria-hidden="true"></span>${escapeHtml(PRODUCTS[p].label)}`,
-      count, `kb-nav-product${active ? ' is-active' : ''}${count ? '' : ' is-empty'}`);
-    if(open && mods.size){
-      html += '<div class="kb-nav-mods">' + [...mods.entries()]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([m, n]) => {
-          const modOpen = S.module === m;
-          const subRows = modOpen ? submenusFor(subs, p, m) : [];
-          let out = row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m)}"${subRows.length ? ` aria-expanded="true"` : ''}`,
-            escapeHtml(m), n, `kb-nav-mod${modOpen && S.submenu === 'all' ? ' is-active' : ''}${modOpen ? ' is-open' : ''}`);
-          if(subRows.length){
-            out += '<div class="kb-nav-subs">' + subRows.map(([k, c]) =>
-              row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m)}" data-kb-submenu="${escapeHtml(k)}"`,
-                escapeHtml(submenuLabel(k)), c,
-                `kb-nav-sub${S.submenu === k ? ' is-active' : ''}${k === GENERAL ? ' is-general' : ''}`)).join('') + '</div>';
-          }
-          return out;
-        }).join('') + '</div>';
+      prod.count, `kb-nav-product${active ? ' is-active' : ''}${prod.count || prod.modules.length ? '' : ' is-empty'}`);
+    if(!open) continue;
+    if(!prod.modules.length){
+      html += `<div class="kb-nav-mods"><button type="button" class="kb-nav-hint" data-kb-act="manage" data-kb-manage-product="${p}">+ Add modules</button></div>`;
+      continue;
     }
+    html += '<div class="kb-nav-mods">' + prod.modules.map(m => {
+      const modOpen = S.module.toLowerCase() === m.name.toLowerCase();
+      let out = row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m.name)}"${m.subs.length ? ` aria-expanded="${modOpen}"` : ''}`,
+        escapeHtml(m.name), m.count,
+        `kb-nav-mod${modOpen && S.submenu === 'all' ? ' is-active' : ''}${modOpen ? ' is-open' : ''}${m.count ? '' : ' is-zero'}${m.defined ? '' : ' is-undefined'}`);
+      if(modOpen && m.subs.length){
+        out += '<div class="kb-nav-subs">' + m.subs.map(sub =>
+          row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m.name)}" data-kb-submenu="${escapeHtml(sub.key)}"`,
+            escapeHtml(submenuLabel(sub.key)), sub.count,
+            `kb-nav-sub${S.submenu === sub.key ? ' is-active' : ''}${sub.key === GENERAL ? ' is-general' : ''}${sub.count ? '' : ' is-zero'}${sub.defined || sub.key === GENERAL ? '' : ' is-undefined'}`)).join('') + '</div>';
+      }
+      return out;
+    }).join('') + '</div>';
   }
   el.innerHTML = html;
 }
@@ -249,16 +234,15 @@ function renderNav(){
 function renderFilterSelect(){
   const sel = $('kbFilterSelect');
   if(!sel) return;
-  const { tree, subs, total } = libraryTree();
+  const tree = libraryTree();
   const val = (p, m, sm) => [p, m, sm].map(encodeURIComponent).join('|');
-  let opts = `<option value="${val('all', 'all', 'all')}">All guides (${total})</option>`;
-  for(const [p, mods] of tree){
-    const count = [...mods.values()].reduce((s, n) => s + n, 0);
-    opts += `<option value="${val(p, 'all', 'all')}">${escapeHtml(PRODUCTS[p].label)} (${count})</option>`;
-    [...mods.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([m, n]) => {
-      opts += `<option value="${escapeHtml(val(p, m, 'all'))}">&nbsp;&nbsp;&nbsp;${escapeHtml(m)} (${n})</option>`;
-      submenusFor(subs, p, m).forEach(([k, c]) => {
-        opts += `<option value="${escapeHtml(val(p, m, k))}">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;› ${escapeHtml(submenuLabel(k))} (${c})</option>`;
+  let opts = `<option value="${val('all', 'all', 'all')}">All guides (${tree.total})</option>`;
+  for(const [p, prod] of tree.products){
+    opts += `<option value="${val(p, 'all', 'all')}">${escapeHtml(PRODUCTS[p].label)} (${prod.count})</option>`;
+    prod.modules.forEach(m => {
+      opts += `<option value="${escapeHtml(val(p, m.name, 'all'))}">&nbsp;&nbsp;&nbsp;${escapeHtml(m.name)} (${m.count})</option>`;
+      m.subs.forEach(sub => {
+        opts += `<option value="${escapeHtml(val(p, m.name, sub.key))}">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;› ${escapeHtml(submenuLabel(sub.key))} (${sub.count})</option>`;
       });
     });
   }
@@ -274,8 +258,8 @@ function renderPane(){
     el.innerHTML = '<div class="kb-state"><div class="spinner-sm"></div><p>Loading guides…</p></div>';
     return;
   }
-  shell?.classList.toggle('kb-is-empty', !S.articles.length);
-  if(!S.articles.length){
+  shell?.classList.toggle('kb-is-empty', !S.articles.length && !S.manage);
+  if(!S.articles.length && !S.manage){
     el.innerHTML = `<div class="kb-welcome">
       <h2>Write your team's first guide</h2>
       <p>Keep how-to guides for Zahir ERP, ERP One, Manufacturing, and MRP in one place, so everyone in support walks clients through the same steps.</p>
@@ -284,10 +268,14 @@ function renderPane(){
         <li>Write the steps. Paste screenshots straight in with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
         <li>Save. The guide is visible to everyone in the workspace right away.</li>
       </ol>
-      <button type="button" class="btn btn-primary" data-kb-act="new">Write guide</button>
+      <div class="kb-welcome-actions">
+        <button type="button" class="btn btn-primary" data-kb-act="new">Write guide</button>
+        <button type="button" class="btn btn-secondary" data-kb-act="manage">Set up menus first</button>
+      </div>
     </div>`;
     return;
   }
+  if(S.manage){ renderManager(); return; }
   const a = S.selectedId && S.articles.find(x => x.id === S.selectedId);
   if(a){ renderArticle(el, a); return; }
   renderList(el);
@@ -328,14 +316,19 @@ function renderList(el){
   const searching = !!S.query.trim();
   let body;
   if(!list.length){
-    body = `<div class="kb-state kb-state-sm"><p>No guides match${searching ? ` “${escapeHtml(S.query.trim())}”` : ' this filter'}.</p>
-      ${searching ? '<button type="button" class="btn btn-secondary btn-sm" data-kb-act="clear-search">Clear search</button>' : ''}</div>`;
+    body = searching
+      ? `<div class="kb-state kb-state-sm"><p>No guides match “${escapeHtml(S.query.trim())}”.</p>
+          <button type="button" class="btn btn-secondary btn-sm" data-kb-act="clear-search">Clear search</button></div>`
+      : `<div class="kb-state kb-state-sm"><p>No guides here yet.</p>
+          <button type="button" class="btn btn-primary btn-sm" data-kb-act="new">Write the first one</button></div>`;
   } else if(!searching && S.module !== 'all' && S.submenu === 'all' && list.some(a => submenuOf(a))){
     // inside a module: one group per submenu, "General" last
     const groups = new Map();
-    list.forEach(a => { const k = submenuKey(a); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(a); });
-    body = sortSubmenus(groups.keys()).map(k => {
-      const items = groups.get(k);
+    list.forEach(a => { const k = submenuKey(a).toLowerCase(); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(a); });
+    const node = moduleNode(libraryTree(), S.product, S.module);
+    const order = (node ? node.subs.map(x => x.key) : [...groups.keys()]).filter(k => groups.has(k.toLowerCase()));
+    body = order.map(k => {
+      const items = groups.get(k.toLowerCase());
       return `<section class="kb-group">
         <h3 class="kb-group-title kb-group-sub">${escapeHtml(submenuLabel(k))}<span>${items.length}</span></h3>
         ${items.map(a => guideRow(a, { showProduct: false, showModule: false, showSubmenu: false })).join('')}
@@ -348,7 +341,7 @@ function renderList(el){
     list.forEach(a => { const k = key(a); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(a); });
     const order = S.product === 'all'
       ? Object.keys(PRODUCTS).filter(k => groups.has(k))
-      : [...groups.keys()].sort((x, y) => x.localeCompare(y));
+      : (libraryTree().products.get(S.product)?.modules.map(m => m.name) || [...groups.keys()]).filter(k => groups.has(k));
     body = order.map(k => {
       const label = S.product === 'all' ? PRODUCTS[k].label : k;
       const items = groups.get(k);
@@ -620,25 +613,63 @@ async function fillClientSuggestions(){
   renderClientOptions(await loadRedmineClients(false));
 }
 
-/* Submenus already used under the module being typed (any product) */
-function fillSubmenuSuggestions(){
-  const dl = $('kbSubmenuList');
-  if(!dl) return;
-  const m = ($('kbModule')?.value || '').trim().toLowerCase();
-  const set = new Set();
-  S.articles.forEach(a => {
-    if(submenuOf(a) && (!m || moduleOf(a).toLowerCase() === m)) set.add(submenuOf(a));
-  });
-  dl.innerHTML = [...set].sort((a, b) => a.localeCompare(b)).map(v => `<option value="${escapeHtml(v)}"></option>`).join('');
+/* Module / Submenu dropdowns come from the team's menu structure.
+ * Names used by older guides but not in the structure stay selectable,
+ * marked "not in menus", so editing an old guide never loses its place. */
+function optionHtml(value, label, selected){
+  return `<option value="${escapeHtml(value)}"${selected ? ' selected' : ''}>${escapeHtml(label)}</option>`;
 }
 
-function moduleSuggestions(){
-  const set = new Set(DEFAULT_MODULES);
-  S.articles.forEach(a => a.module && set.add(a.module));
-  return [...set].sort((a, b) => a.localeCompare(b, 'id'));
+function fillModuleSelect(current){
+  const sel = $('kbModule');
+  if(!sel) return;
+  const product = $('kbProduct').value;
+  const cur = String(current ?? sel.value ?? '').trim();
+  const hint = $('kbMenuHint');
+  if(!product){
+    sel.innerHTML = '<option value="">Choose a product first</option>';
+    sel.disabled = true;
+    if(hint) hint.innerHTML = '';
+    fillSubmenuSelect('');
+    return;
+  }
+  const { defined, extra } = moduleOptions(S.structure, S.articles, product);
+  const all = [...defined, ...extra];
+  let html = optionHtml('', all.length ? 'Choose a module' : 'No modules yet', !cur);
+  html += defined.map(n => optionHtml(n, n, n.toLowerCase() === cur.toLowerCase())).join('');
+  if(extra.length) html += `<optgroup label="Not in menus">${extra.map(n => optionHtml(n, n, n.toLowerCase() === cur.toLowerCase())).join('')}</optgroup>`;
+  if(cur && !all.some(n => n.toLowerCase() === cur.toLowerCase())) html += optionHtml(cur, `${cur} (not in menus)`, true);
+  sel.innerHTML = html;
+  sel.disabled = false;
+  if(hint){
+    hint.innerHTML = defined.length ? '' :
+      `No modules defined for ${escapeHtml(PRODUCTS[product]?.label || 'this product')}. <button type="button" class="kb-link-btn" data-kb-act="manage" data-kb-manage-product="${product}">Set up menus</button>`;
+  }
+  fillSubmenuSelect();
+}
+
+function fillSubmenuSelect(current){
+  const sel = $('kbSubmenu');
+  if(!sel) return;
+  const product = $('kbProduct').value;
+  const module = $('kbModule')?.value || '';
+  const cur = String(current ?? sel.value ?? '').trim();
+  if(!product || !module){
+    sel.innerHTML = '<option value="">Choose a module first</option>';
+    sel.disabled = true;
+    return;
+  }
+  const { defined, extra } = submenuOptions(S.structure, S.articles, product, module);
+  let html = optionHtml('', defined.length || extra.length ? 'None (General)' : 'No submenus', !cur);
+  html += defined.map(n => optionHtml(n, n, n.toLowerCase() === cur.toLowerCase())).join('');
+  if(extra.length) html += `<optgroup label="Not in menus">${extra.map(n => optionHtml(n, n, n.toLowerCase() === cur.toLowerCase())).join('')}</optgroup>`;
+  if(cur && ![...defined, ...extra].some(n => n.toLowerCase() === cur.toLowerCase())) html += optionHtml(cur, `${cur} (not in menus)`, true);
+  sel.innerHTML = html;
+  sel.disabled = false;
 }
 
 function openEditor(article){
+  if(S.manage) S.manage = null;
   let id;
   try { id = article ? article.id : kbRef().doc().id; }
   catch(err){ toast('Workspace not ready, try again shortly', 'error'); return; }
@@ -647,15 +678,13 @@ function openEditor(article){
   $('kbEditorHeading').textContent = article ? 'Edit guide' : 'Write new guide';
   $('kbTitle').value = article?.title || '';
   $('kbProduct').value = article?.product || (S.product !== 'all' ? S.product : '');
-  $('kbModule').value = article?.module || (S.module !== 'all' ? S.module : '');
-  $('kbSubmenu').value = article ? (article.submenu || '') : (S.module !== 'all' && S.submenu !== 'all' && S.submenu !== GENERAL ? S.submenu : '');
+  fillModuleSelect(article ? (article.module || '') : (S.module !== 'all' ? S.module : ''));
+  fillSubmenuSelect(article ? (article.submenu || '') : (S.module !== 'all' && S.submenu !== 'all' && S.submenu !== GENERAL ? S.submenu : ''));
   $('kbVersion').value = article?.version || '';
   $('kbClient').value = article?.client || '';
   $('kbSummary').value = article?.summary || '';
   $('kbTags').value = (article?.tags || []).join(', ');
   $('kbContent').value = article ? (article.content || '') : TEMPLATE;
-  $('kbModuleList').innerHTML = moduleSuggestions().map(m => `<option value="${escapeHtml(m)}"></option>`).join('');
-  fillSubmenuSuggestions();
   fillClientSuggestions();
   setEditorHint('');
   setTab(defaultTab());
@@ -745,7 +774,7 @@ async function saveEditor(){
   const content = $('kbContent').value.replace(/\s+$/, '') + '\n';
   if(!title){ setEditorHint('Title is required.', true); $('kbTitle').focus(); return; }
   if(!PRODUCTS[product]){ setEditorHint('Select a product.', true); $('kbProduct').focus(); return; }
-  if(!module){ setEditorHint('Module is required, e.g. Sales.', true); $('kbModule').focus(); return; }
+  if(!module){ setEditorHint('Choose a module (set them up with Edit menus).', true); $('kbModule').focus(); return; }
 
   const btn = $('kbSaveBtn');
   btn.disabled = true;
@@ -916,6 +945,204 @@ async function uploadImages(files){
   }
 }
 
+/* ---------------- menu structure editor ("Edit menus") ---------------- */
+function openManager(product){
+  if(S.editing) return;
+  const draft = cloneStructure(S.structure);
+  // baseline = names as they are today; renames are measured against it
+  const baseline = cloneStructure(S.structure);
+  const prefilled = new Set();
+  // first time: start from what existing guides already use
+  PRODUCT_KEYS.forEach(p => {
+    if(!draft[p].length){
+      const fromGuides = structureFromArticles(S.articles, p);
+      if(fromGuides.length){ draft[p] = fromGuides; baseline[p] = cloneStructure({ [p]: fromGuides })[p]; prefilled.add(p); }
+    }
+  });
+  const first = PRODUCT_KEYS.includes(product) ? product
+    : (S.product !== 'all' ? S.product : 'erp');
+  S.manage = { draft, baseline, product: first, prefilled, error: '' };
+  S.selectedId = null;
+  renderPane();
+  document.querySelector('.content')?.scrollTo({ top: 0 });
+}
+
+function closeManager(){
+  S.manage = null;
+  render();
+}
+
+function managerList(){ return S.manage.draft[S.manage.product]; }
+
+function managerAddModule(){
+  managerList().push({ id: newId(), name: '', subs: [] });
+  renderManager(`[data-mi="${managerList().length - 1}"]:not([data-si])`);
+}
+
+function managerMoveModule(i, d){
+  const list = managerList(); const j = i + d;
+  if(j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  renderManager(`[data-kb-act="${d < 0 ? 'mod-up' : 'mod-down'}"][data-i="${j}"]`);
+}
+
+async function managerDeleteModule(i){
+  const m = managerList()[i];
+  const orig = (S.manage.baseline[S.manage.product] || []).find(x => x.id === m.id);
+  const used = orig ? usage(S.articles, S.manage.product, orig.name) : 0;
+  if(used) return;   // button is disabled in this case
+  managerList().splice(i, 1);
+  renderManager();
+}
+
+function managerAddSub(i){
+  const m = managerList()[i];
+  m.subs.push({ id: newId(), name: '' });
+  renderManager(`[data-mi="${i}"][data-si="${m.subs.length - 1}"]`);
+}
+
+function managerMoveSub(i, j, d){
+  const subs = managerList()[i].subs; const k = j + d;
+  if(k < 0 || k >= subs.length) return;
+  [subs[j], subs[k]] = [subs[k], subs[j]];
+  renderManager(`[data-kb-act="${d < 0 ? 'sub-up' : 'sub-down'}"][data-i="${i}"][data-j="${k}"]`);
+}
+
+function managerDeleteSub(i, j){
+  const m = managerList()[i];
+  const sub = m.subs[j];
+  const original = (S.manage.baseline[S.manage.product] || []).find(x => x.id === m.id);
+  const os = original?.subs.find(x => x.id === sub.id);
+  const used = (original && os) ? usage(S.articles, S.manage.product, original.name, os.name) : 0;
+  if(used) return;
+  m.subs.splice(j, 1);
+  renderManager();
+}
+
+function managerPrefill(){
+  const p = S.manage.product;
+  S.manage.draft[p] = structureFromArticles(S.articles, p);
+  S.manage.baseline[p] = cloneStructure({ [p]: S.manage.draft[p] })[p];
+  S.manage.prefilled.add(p);
+  renderManager();
+}
+
+const MI = {
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>',
+  down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+};
+
+function renderManager(focusSel){
+  const el = $('kbPane');
+  if(!el || !S.manage) return;
+  const p = S.manage.product;
+  const list = managerList();
+  const original = S.manage.baseline[p] || [];
+  const iconBtn = (act, attrs, icon, label, disabled) =>
+    `<button type="button" class="kb-mg-icon" data-kb-act="${act}" ${attrs} aria-label="${label}" title="${label}"${disabled ? ' disabled' : ''}>${icon}</button>`;
+
+  const tabs = PRODUCT_KEYS.map(k => {
+    const n = S.manage.draft[k].length;
+    return `<button type="button" role="tab" class="kb-mg-tab${k === p ? ' is-active' : ''}" aria-selected="${k === p}" data-kb-act="manage-tab" data-p="${k}">
+      <span class="kb-dot kb-dot-${k}" aria-hidden="true"></span>${escapeHtml(PRODUCTS[k].label)}<span class="kb-mg-tab-n">${n}</span></button>`;
+  }).join('');
+
+  const modules = list.map((m, i) => {
+    const orig = original.find(x => x.id === m.id);
+    // only items that exist today can be in use (new rows never are)
+    const used = orig ? usage(S.articles, p, orig.name) : 0;
+    const subs = m.subs.map((sub, j) => {
+      const os = orig?.subs.find(x => x.id === sub.id);
+      const subUsed = (orig && os) ? usage(S.articles, p, orig.name, os.name) : 0;
+      return `<li class="kb-mg-sub">
+        <span class="kb-mg-branch" aria-hidden="true"></span>
+        <input class="input kb-mg-input kb-mg-input-sub" data-mi="${i}" data-si="${j}" value="${escapeHtml(sub.name)}" placeholder="Submenu name, e.g. Contacts" maxlength="60" aria-label="Submenu name">
+        <span class="kb-mg-used">${subUsed ? `${subUsed} guide${subUsed === 1 ? '' : 's'}` : ''}</span>
+        ${iconBtn('sub-up', `data-i="${i}" data-j="${j}"`, MI.up, 'Move up', j === 0)}
+        ${iconBtn('sub-down', `data-i="${i}" data-j="${j}"`, MI.down, 'Move down', j === m.subs.length - 1)}
+        ${iconBtn('sub-del', `data-i="${i}" data-j="${j}"`, MI.x, subUsed ? 'Used by guides: move them first' : 'Remove submenu', !!subUsed)}
+      </li>`;
+    }).join('');
+    return `<li class="kb-mg-mod">
+      <div class="kb-mg-row">
+        <input class="input kb-mg-input" data-mi="${i}" value="${escapeHtml(m.name)}" placeholder="Module name, e.g. Master Data" maxlength="60" aria-label="Module name">
+        <span class="kb-mg-used">${used ? `${used} guide${used === 1 ? '' : 's'}` : ''}</span>
+        ${iconBtn('mod-up', `data-i="${i}"`, MI.up, 'Move up', i === 0)}
+        ${iconBtn('mod-down', `data-i="${i}"`, MI.down, 'Move down', i === list.length - 1)}
+        ${iconBtn('mod-del', `data-i="${i}"`, MI.x, used ? 'Used by guides: move them first' : 'Remove module', !!used)}
+      </div>
+      <ul class="kb-mg-subs">${subs}</ul>
+      <button type="button" class="kb-mg-add kb-mg-add-sub" data-kb-act="sub-add" data-i="${i}">+ Add submenu</button>
+    </li>`;
+  }).join('');
+
+  const guidesHere = S.articles.filter(a => a.product === p).length;
+  const note = S.manage.prefilled.has(p)
+    ? `<p class="kb-mg-note">Filled in from the modules your guides already use. Rename, reorder, or add to it, then save.</p>`
+    : (!list.length && guidesHere ? `<p class="kb-mg-note">${guidesHere} guide${guidesHere === 1 ? '' : 's'} already exist for this product. <button type="button" class="kb-link-btn" data-kb-act="manage-prefill">Start from their modules</button></p>` : '');
+
+  el.innerHTML = `<div class="kb-mg">
+    <header class="kb-list-head">
+      <div><h2>Edit menus</h2><p>Define the modules and submenus for each product. The guide editor offers exactly these.</p></div>
+    </header>
+    <div class="kb-mg-tabs" role="tablist" aria-label="Product">${tabs}</div>
+    ${note}
+    <ol class="kb-mg-mods">${modules || '<li class="kb-mg-empty">No modules yet.</li>'}</ol>
+    <button type="button" class="kb-mg-add" data-kb-act="mod-add">+ Add module</button>
+    <p class="kb-mg-error" id="kbMgError" role="alert">${escapeHtml(S.manage.error || '')}</p>
+    <div class="kb-mg-foot">
+      <span class="kb-mg-foot-note">Renaming updates every guide that uses the old name. Items used by guides can't be removed.</span>
+      <button type="button" class="btn btn-secondary btn-sm" data-kb-act="manage-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" data-kb-act="manage-save" id="kbMgSave">Save menus</button>
+    </div>
+  </div>`;
+  if(focusSel){ el.querySelector(focusSel)?.focus(); }
+}
+
+async function saveManager(){
+  if(!S.manage) return;
+  const draft = S.manage.draft;
+  // trim + drop rows left completely empty
+  PRODUCT_KEYS.forEach(p => {
+    draft[p] = draft[p]
+      .map(m => ({ ...m, name: String(m.name || '').replace(/\s+/g, ' ').trim(),
+        subs: m.subs.map(x => ({ ...x, name: String(x.name || '').replace(/\s+/g, ' ').trim() })).filter(x => x.name) }))
+      .filter(m => m.name || m.subs.length);
+  });
+  const errors = validateStructure(draft);
+  if(errors.length){
+    S.manage.product = errors[0].product;
+    S.manage.error = errors[0].msg;
+    renderManager();
+    return;
+  }
+  const btn = $('kbMgSave');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const updates = planRenames(S.manage.baseline, draft, S.articles);
+    const now = Date.now();
+    const batch = db.batch();
+    batch.set(kbRef().doc(STRUCTURE_ID), { products: draft, updatedAt: now, updatedBy: userLabel() });
+    updates.slice(0, 450).forEach(u => batch.update(kbRef().doc(u.id), { module: u.module, submenu: u.submenu, updatedAt: now, updatedBy: userLabel() }));
+    await batch.commit();
+    // renamed items: go back to the product level so the tree stays valid
+    if(updates.length){ S.module = 'all'; S.submenu = 'all'; }
+    S.structure = normalizeStructure({ products: draft });
+    S.manage = null;
+    toast(updates.length ? `Menus saved · ${updates.length} guide${updates.length === 1 ? '' : 's'} updated` : 'Menus saved');
+    render();
+  } catch(err){
+    console.error(err);
+    if(S.manage){
+      S.manage.error = err.code === 'permission-denied'
+        ? 'Firestore denied the save. Publish the latest firestore.rules.'
+        : 'Could not save: ' + (err.message || err);
+      renderManager();
+    }
+  }
+}
+
 /* ---------------- wiring ---------------- */
 function wire(){
   if(S.wired) return;
@@ -934,6 +1161,17 @@ function wire(){
       if(a === 'copy-text') return copyArticleText();
       if(a === 'copy-link') return copyArticleLink();
       if(a === 'back') return backToList();
+      if(a === 'manage') return openManager(act.dataset.kbManageProduct);
+      if(a === 'manage-cancel') return closeManager();
+      if(a === 'manage-save') return saveManager();
+      if(a === 'manage-tab'){ S.manage.product = act.dataset.p; return renderManager(); }
+      if(a === 'mod-add') return managerAddModule();
+      if(a === 'mod-up' || a === 'mod-down') return managerMoveModule(+act.dataset.i, a === 'mod-up' ? -1 : 1);
+      if(a === 'mod-del') return managerDeleteModule(+act.dataset.i);
+      if(a === 'sub-add') return managerAddSub(+act.dataset.i);
+      if(a === 'sub-up' || a === 'sub-down') return managerMoveSub(+act.dataset.i, +act.dataset.j, a === 'sub-up' ? -1 : 1);
+      if(a === 'sub-del') return managerDeleteSub(+act.dataset.i, +act.dataset.j);
+      if(a === 'manage-prefill') return managerPrefill();
       if(a === 'refresh-clients'){
         e.preventDefault();
         const h = $('kbClientHint'); if(h) h.textContent = 'loading clients…';
@@ -954,6 +1192,7 @@ function wire(){
       else { S.product = p; }
       S.module = S.product === 'all' ? 'all' : m;
       S.submenu = S.module === 'all' ? 'all' : sm;
+      if(S.manage && !S.manage.error){ S.manage = null; }
       S.selectedId = null;
       try { history.replaceState(history.state, '', `${location.pathname}?view=kb`); } catch(_){}
       render();
@@ -976,6 +1215,22 @@ function wire(){
     if(tab) return setTab(tab.dataset.kbTab);
   });
 
+  root.addEventListener('input', (e) => {
+    const inp = e.target.closest('.kb-mg-input');
+    if(!inp || !S.manage) return;
+    const i = +inp.dataset.mi;
+    const list = managerList();
+    if(inp.dataset.si != null) list[i].subs[+inp.dataset.si].name = inp.value;
+    else list[i].name = inp.value;
+    if(S.manage.error){ S.manage.error = ''; const er = $('kbMgError'); if(er) er.textContent = ''; }
+  });
+  root.addEventListener('keydown', (e) => {
+    const inp = e.target.closest('.kb-mg-input');
+    if(!inp || e.key !== 'Enter') return;
+    e.preventDefault();
+    managerAddSub(+inp.dataset.mi);   // Enter = next submenu of this module
+  });
+
   $('kbSearch')?.addEventListener('input', (e) => {
     S.query = e.target.value;
     if(S.query.trim()) S.selectedId = null;   // typing always shows results
@@ -991,9 +1246,11 @@ function wire(){
   });
 
   const ta = $('kbContent');
-  $('kbModule')?.addEventListener('input', fillSubmenuSuggestions);
+  $('kbProduct')?.addEventListener('change', () => fillModuleSelect(''));
+  $('kbModule')?.addEventListener('change', () => fillSubmenuSelect(''));
   ['kbTitle', 'kbProduct', 'kbModule', 'kbSubmenu', 'kbClient', 'kbVersion', 'kbSummary', 'kbTags', 'kbContent'].forEach(id => {
     $(id)?.addEventListener('input', markDirty);
+    $(id)?.addEventListener('change', markDirty);
   });
   ta.addEventListener('input', schedulePreview);
   window.addEventListener('resize', () => {

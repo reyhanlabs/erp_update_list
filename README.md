@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.44.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.45.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -46,7 +46,8 @@ erp_update_list/
 │                                    account, settings, issue-status, new-issues,
 │                                    active-work, what-next, auto-refresh,
 │                                    telegram-briefing, create-issue, share, pwa,
-│                                    notes, global-search, clients, docs, kb
+│                                    notes, global-search, clients, docs, kb,
+                                    kb-structure
 ├── api/                           ← Vercel serverless functions
 │   ├── _lib/auth.js               ← guard: Google sign-in + email allowlist
 │   ├── _lib/firebase-admin.js     ← firebase-admin bootstrap
@@ -178,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.45.0**: Knowledge Base **Edit menus**: the team defines modules and submenus per product (ordered), stored in `workspaces/{id}/kb/_structure` (no rules change needed). The editor's Module/Submenu are dropdowns from that list; renames update the guides that use them; in-use items can't be deleted; first use is pre-filled from existing guides.
 - **v4.44.0**: Knowledge Base guides get an optional **Submenu** inside a module (Product › Module › Submenu). The library tree shows submenus under the open module (guides without one under *General*), module lists are grouped by submenu, and breadcrumbs, copy text, and search include it.
 - **v4.43.4**: Knowledge Base editor: Client label shortened to "Client optional" (client count/refresh hint removed); field labels no longer wrap on small screens.
 - **v4.43.3**: Redmine cache TTL 20 → 2 minutes; forced refreshes refetch every page (no more fresh/stale page mixes); status lists load up to 1,000 issues per project; lists show "Showing X of Y" with Clear filters when filters hide issues, plus the last update time.
