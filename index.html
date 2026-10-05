@@ -1364,6 +1364,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.43.4</span>
+                <span class="cl-note">Knowledge Base editor: shorter field labels that stay on one line on small screens</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.43.3</span>
                 <span class="cl-note">Issue lists and sidebar counts refresh from Redmine within 2 minutes (was up to 20); lists say when filters hide issues, with a Clear filters link; "updated" time shown</span>
               </div>
@@ -1886,7 +1890,7 @@
                 <datalist id="kbModuleList"></datalist>
               </label>
               <label class="kb-field">
-                <span>Client <i>optional, for client-specific guides</i> <i class="kb-client-hint" id="kbClientHint"></i></span>
+                <span>Client <i>optional</i></span>
                 <input class="input" id="kbClient" list="kbClientList" maxlength="120" placeholder="Leave empty for a general guide" autocomplete="off">
                 <datalist id="kbClientList"></datalist>
               </label>
@@ -1900,7 +1904,7 @@
               </label>
             </div>
             <label class="kb-field">
-              <span>One-line summary <i>shown in the list and used by search</i></span>
+              <span>One-line summary <i>shown in the list</i></span>
               <input class="input" id="kbSummary" maxlength="220" placeholder="Turn an approved Sales Order into an invoice without re-entering items">
             </label>
           </div>
