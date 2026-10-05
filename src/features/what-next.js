@@ -425,17 +425,25 @@ async function refreshDashAttention(force){
         listEl.innerHTML = '';
       } else {
         preview.hidden = false;
+        const tone = (tag) => /^immediate|^rework/i.test(tag) ? 'red' : /^stuck|^feedback/i.test(tag) ? 'amber' : 'blue';
+        const shortProject = (p) => String(p || '').replace(/^Zahir\s+ERP\s+/i, '').replace(/^Zahir\s+/i, '') || p;
         listEl.innerHTML = show.map(it => `
-          <a class="dash-att-item" href="${escapeHtml(it.url)}" target="_blank" rel="noopener">
+          <a class="dash-att-item" role="listitem" href="${escapeHtml(it.url)}" target="_blank" rel="noopener" title="Open #${escapeHtml(String(it.id))} in Redmine">
+            <span class="dash-att-item-tag tone-${tone(it.tag)}">${escapeHtml(it.tag)}</span>
             <span class="dash-att-item-id">#${escapeHtml(String(it.id))}</span>
-            <span class="dash-att-item-sub" title="${escapeHtml(it.subject)}">${escapeHtml(it.subject || '—')} · ${escapeHtml(it.project)}</span>
-            <span class="dash-att-item-tag">${escapeHtml(it.tag)}</span>
+            <span class="dash-att-item-sub">${escapeHtml(it.subject || '—')}</span>
+            <span class="dash-att-item-proj">${escapeHtml(shortProject(it.project))}</span>
           </a>
         `).join('');
       }
     }
 
     window.__dashAttention = { immediate, stuck, deploy, rework, feedback, at: Date.now(), top: uniq.slice(0, 12) };
+    const upd = $('dashAttUpdated');
+    if(upd){
+      const d = new Date();
+      upd.textContent = `Updated ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
   } catch(err){
     console.warn('refreshDashAttention', err);
   }

@@ -343,174 +343,140 @@
 
     <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
-      <div class="stats-grid stats-grid-4">
-        <div class="stat blue">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-                <rect x="9" y="3" width="6" height="4" rx="1"/>
-              </svg>
-            </span>
-            Total Plans
+      <div class="dash">
+        <header class="dash-head">
+          <div class="dash-head-text">
+            <p class="dash-date" id="dashToday"></p>
+            <h2 class="dash-title">What needs you today</h2>
           </div>
-          <div class="stat-value" id="statPlans">0</div>
-        </div>
-        <div class="stat violet">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </span>
-            Total Summaries
+          <div class="dash-head-actions">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openPlansWithSync()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
+              Sync Redmine
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('summaries'); openAddModal()">New summary</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="switchView('plans'); openAddModal()">New plan</button>
           </div>
-          <div class="stat-value" id="statSummaries">0</div>
-        </div>
-        <div class="stat amber">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 8v4l3 2"/>
-              </svg>
-            </span>
-            Total Issues
-          </div>
-          <div class="stat-value" id="statIssues">0</div>
-        </div>
-        <div class="stat rose">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-            </span>
-            Needs Summary
-          </div>
-          <div class="stat-value" id="statNeedsSummary">0</div>
-        </div>
-      </div>
+        </header>
 
-      <div class="dash-section-label">New issues by project</div>
-      <div class="stats-grid stats-grid-3" id="dashNewIssuesGrid">
-        <button type="button" class="stat cyan dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-            </span>
-            Zahir ERP One
+        <!-- 1. Triage: the one bold block on the page -->
+        <section class="dash-card dash-triage" aria-labelledby="dashTriageTitle">
+          <header class="dash-card-head">
+            <h3 id="dashTriageTitle">Needs attention</h3>
+            <span class="dash-card-note" id="dashAttUpdated"></span>
+            <div class="dash-card-tools">
+              <button type="button" class="dash-link" onclick="openWhatNextView()">What next</button>
+              <button type="button" class="dash-link" onclick="openTesterCategory('all')">Tester queue</button>
+              <button type="button" class="dash-icon-btn" onclick="refreshDashAttention(true)" title="Refresh from Redmine" aria-label="Refresh from Redmine">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
+              </button>
+            </div>
+          </header>
+          <div class="dash-attention" id="dashAttention">
+            <button type="button" class="dash-att-card is-clickable tone-red" id="attCardImmediate" onclick="openIssueStatusView('new')">
+              <span class="dash-att-value" id="attImmediateNew">—</span>
+              <span class="dash-att-label">Immediate, still New</span>
+              <span class="dash-att-hint" id="attImmediateHint">High priority backlog</span>
+            </button>
+            <button type="button" class="dash-att-card is-clickable tone-amber" id="attCardStuck" onclick="openIssueStatusView('progress')">
+              <span class="dash-att-value" id="attStuckProgress">—</span>
+              <span class="dash-att-label">Stuck in progress</span>
+              <span class="dash-att-hint" id="attStuckHint">No update for 7+ days</span>
+            </button>
+            <button type="button" class="dash-att-card is-clickable tone-blue" id="attCardDeploy" onclick="openIssueStatusView('deploy')">
+              <span class="dash-att-value" id="attOnDeploy">—</span>
+              <span class="dash-att-label">On deploy</span>
+              <span class="dash-att-hint" id="attDeployHint">Waiting for release</span>
+            </button>
+            <button type="button" class="dash-att-card is-clickable tone-red" id="attCardRework" onclick="openIssueStatusView('rework')">
+              <span class="dash-att-value" id="attRework">—</span>
+              <span class="dash-att-label">Rework</span>
+              <span class="dash-att-hint" id="attReworkHint">Needs fixing again</span>
+            </button>
+            <button type="button" class="dash-att-card is-clickable tone-amber" id="attCardFeedback" onclick="openIssueStatusView('feedback')">
+              <span class="dash-att-value" id="attFeedback">—</span>
+              <span class="dash-att-label">Feedback</span>
+              <span class="dash-att-hint" id="attFeedbackHint">Waiting for a reply</span>
+            </button>
           </div>
-          <div class="stat-value" id="statNewErpOne">—</div>
-          <div class="stat-hint">Issue Status</div>
-        </button>
-        <button type="button" class="stat blue dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <path d="M3 9h18"/>
-              </svg>
-            </span>
-            Zahir ERP
+          <div class="dash-att-preview" id="dashAttPreview" hidden>
+            <div class="dash-att-preview-list" id="dashAttPreviewList" role="list"></div>
           </div>
-          <div class="stat-value" id="statNewErp">—</div>
-          <div class="stat-hint">Issue Status</div>
-        </button>
-        <button type="button" class="stat violet dash-new-stat" onclick="openNewIssuesView()" title="Open New Issues">
-          <div class="stat-label">
-            <span class="icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>
-              </svg>
-            </span>
-            Manufacturing
-          </div>
-          <div class="stat-value" id="statNewMfg">—</div>
-          <div class="stat-hint">Issue Status</div>
-        </button>
-      </div>
+        </section>
 
-      <div class="dash-section-label">
-        Needs attention today
-        <button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto;font-size:11px" onclick="refreshDashAttention(true)">Refresh</button>
-      </div>
-      <div class="dash-attention" id="dashAttention">
-        <button type="button" class="dash-att-card is-clickable" id="attCardImmediate" onclick="openIssueStatusView('new')" title="Open New issues">
-          <div class="dash-att-label">Immediate · New</div>
-          <div class="dash-att-value" id="attImmediateNew">—</div>
-          <div class="dash-att-hint" id="attImmediateHint">High priority backlog</div>
-        </button>
-        <button type="button" class="dash-att-card is-clickable" id="attCardStuck" onclick="openIssueStatusView('progress')" title="Open On Progress">
-          <div class="dash-att-label">Stuck On Progress (&gt;7d)</div>
-          <div class="dash-att-value" id="attStuckProgress">—</div>
-          <div class="dash-att-hint" id="attStuckHint">No update in a week+</div>
-        </button>
-        <button type="button" class="dash-att-card is-clickable" id="attCardDeploy" onclick="openIssueStatusView('deploy')" title="Open On Deploy">
-          <div class="dash-att-label">On Deploy</div>
-          <div class="dash-att-value" id="attOnDeploy">—</div>
-          <div class="dash-att-hint" id="attDeployHint">Waiting release</div>
-        </button>
-        <button type="button" class="dash-att-card is-clickable" id="attCardRework" onclick="openIssueStatusView('rework')" title="Open Rework">
-          <div class="dash-att-label">Rework</div>
-          <div class="dash-att-value" id="attRework">—</div>
-          <div class="dash-att-hint" id="attReworkHint">Needs fix again</div>
-        </button>
-        <button type="button" class="dash-att-card is-clickable" id="attCardFeedback" onclick="openIssueStatusView('feedback')" title="Open Feedback">
-          <div class="dash-att-label">Feedback</div>
-          <div class="dash-att-value" id="attFeedback">—</div>
-          <div class="dash-att-hint" id="attFeedbackHint">Waiting response</div>
-        </button>
-        <div class="dash-att-card dash-att-action">
-          <button type="button" class="btn btn-primary btn-sm" onclick="openWhatNextView()">What Next</button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="openTesterCategory('all')">Tester Queue</button>
+        <!-- 2. Incoming work + release paperwork -->
+        <div class="dash-grid">
+          <section class="dash-card" aria-labelledby="dashNewTitle">
+            <header class="dash-card-head">
+              <h3 id="dashNewTitle">New issues by project</h3>
+              <div class="dash-card-tools">
+                <button type="button" class="dash-link" onclick="openNewIssuesView()">Open list</button>
+              </div>
+            </header>
+            <div class="dash-projects" id="dashNewIssuesGrid">
+              <button type="button" class="dash-proj" onclick="openNewIssuesView()">
+                <span class="dash-proj-name"><span class="kb-dot kb-dot-erp" aria-hidden="true"></span>Zahir ERP</span>
+                <span class="dash-proj-bar" aria-hidden="true"><i id="barNewErp"></i></span>
+                <span class="dash-proj-n" id="statNewErp">—</span>
+              </button>
+              <button type="button" class="dash-proj" onclick="openNewIssuesView()">
+                <span class="dash-proj-name"><span class="kb-dot kb-dot-one" aria-hidden="true"></span>Zahir ERP One</span>
+                <span class="dash-proj-bar" aria-hidden="true"><i id="barNewErpOne"></i></span>
+                <span class="dash-proj-n" id="statNewErpOne">—</span>
+              </button>
+              <button type="button" class="dash-proj" onclick="openNewIssuesView()">
+                <span class="dash-proj-name"><span class="kb-dot kb-dot-mfg" aria-hidden="true"></span>Manufacturing</span>
+                <span class="dash-proj-bar" aria-hidden="true"><i id="barNewMfg"></i></span>
+                <span class="dash-proj-n" id="statNewMfg">—</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="dash-card" aria-labelledby="dashReleaseTitle">
+            <header class="dash-card-head">
+              <h3 id="dashReleaseTitle">Release paperwork</h3>
+            </header>
+            <div class="dash-kpis">
+              <button type="button" class="dash-kpi is-warn" onclick="switchView('plans'); setPlanFilter('no-summary')">
+                <span class="dash-kpi-n" id="statNeedsSummary">0</span>
+                <span class="dash-kpi-label">Plans without a summary</span>
+              </button>
+              <button type="button" class="dash-kpi" onclick="switchView('plans')">
+                <span class="dash-kpi-n" id="statPlans">0</span>
+                <span class="dash-kpi-label">Update plans</span>
+              </button>
+              <button type="button" class="dash-kpi" onclick="switchView('summaries')">
+                <span class="dash-kpi-n" id="statSummaries">0</span>
+                <span class="dash-kpi-label">Summaries</span>
+              </button>
+              <div class="dash-kpi is-static">
+                <span class="dash-kpi-n" id="statIssues">0</span>
+                <span class="dash-kpi-label">Issues in plans</span>
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
-      <div class="dash-att-preview" id="dashAttPreview" hidden>
-        <div class="dash-att-preview-title">Top items needing attention</div>
-        <div class="dash-att-preview-list" id="dashAttPreviewList"></div>
-      </div>
 
-      <div class="dash-actions">
-        <button type="button" class="dash-action-btn" onclick="switchView('plans'); openAddModal()">
-          <span class="da-icon blue">+</span>
-          <span class="da-text"><strong>New Plan</strong><small>Add update plan manually</small></span>
-        </button>
-        <button type="button" class="dash-action-btn" onclick="openTesterCategory('frontend')">
-          <span class="da-icon amber">T</span>
-          <span class="da-text"><strong>Tester Queue</strong><small>Issue Ready for Testing</small></span>
-        </button>
-        <button type="button" class="dash-action-btn" onclick="openPlansWithSync()">
-          <span class="da-icon red">R</span>
-          <span class="da-text"><strong>Sync Redmine</strong><small>Pull issues → Update Plan</small></span>
-        </button>
-        <button type="button" class="dash-action-btn" onclick="switchView('summaries'); openAddModal()">
-          <span class="da-icon violet">S</span>
-          <span class="da-text"><strong>New Summary</strong><small>Create WA/Telegram summary</small></span>
-        </button>
-      </div>
-
-      <div class="dash-two-col">
-        <div class="card">
-          <div class="card-head">
-            <h3><span class="mark"></span> Recent Plans</h3>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('plans')">View all</button>
-          </div>
-          <div class="card-body tight" id="recentPlans"></div>
-        </div>
-        <div class="card">
-          <div class="card-head">
-            <h3><span class="mark"></span> Latest Summary</h3>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('summaries')">View all</button>
-          </div>
-          <div class="card-body tight" id="latestSummary"></div>
+        <!-- 3. Recent work -->
+        <div class="dash-grid">
+          <section class="dash-card" aria-labelledby="dashRecentTitle">
+            <header class="dash-card-head">
+              <h3 id="dashRecentTitle">Recent plans</h3>
+              <div class="dash-card-tools">
+                <button type="button" class="dash-link" onclick="switchView('plans')">View all</button>
+              </div>
+            </header>
+            <div class="dash-card-body" id="recentPlans"></div>
+          </section>
+          <section class="dash-card" aria-labelledby="dashLatestTitle">
+            <header class="dash-card-head">
+              <h3 id="dashLatestTitle">Latest summary</h3>
+              <div class="dash-card-tools">
+                <button type="button" class="dash-link" onclick="switchView('summaries')">View all</button>
+              </div>
+            </header>
+            <div class="dash-card-body" id="latestSummary"></div>
+          </section>
         </div>
       </div>
     </section>
@@ -1363,6 +1329,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.46.0</span>
+                <span class="cl-note">Dashboard redesign: "Needs attention" first with a compact triage list, new issues per project as bars, release paperwork, tidier recent plans and latest summary; New-issue counts now match the sidebar</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.45.2</span>
                 <span class="cl-note">Knowledge Base list: module path and client move under the title; the right side shows only the date, aligned on every row</span>

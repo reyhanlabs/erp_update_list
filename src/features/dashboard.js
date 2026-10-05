@@ -29,6 +29,14 @@ function refreshCounts(){
   const needsSummary = plans.filter(p => !planHasSummary(p.id)).length;
   if($('statNeedsSummary')) $('statNeedsSummary').textContent = needsSummary;
 
+  const today = $('dashToday');
+  if(today){
+    const d = new Date();
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    today.textContent = `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]}`;
+  }
+
   const footerCount = $('footerDataCount');
   if(footerCount){
     footerCount.textContent = `${plans.length + sums.length} items`;
@@ -46,22 +54,22 @@ function refreshCounts(){
         { label: 'Sync Redmine', action: "openPlansWithSync()" }
       ]);
     } else {
-      recentEl.innerHTML = `<div class="recent-list">` + recent.map(p => {
+      recentEl.innerHTML = `<div class="dash-plans">` + recent.map(p => {
         const n = countIssues(p.issues);
         const hasSum = planHasSummary(p.id);
         const redmine = planIsRedmine(p);
-        return `<div class="recent-row" onclick="switchView('plans')">
-          <div class="recent-row-main">
-            <div class="recent-title">${escapeHtml(p.title || 'Untitled')}</div>
-            <div class="recent-meta">
+        return `<div class="dash-plan" role="button" tabindex="0" onclick="switchView('plans')" onkeydown="if(event.key==='Enter'){switchView('plans')}">
+          <div class="dash-plan-main">
+            <div class="dash-plan-title">${escapeHtml(p.title || 'Untitled')}</div>
+            <div class="dash-plan-meta">
               <span>${escapeHtml(formatDate(p.date))}</span>
-              <span>·</span>
-              <span>${n} issues</span>
-              ${redmine ? '<span class="badge badge-redmine" style="margin-left:4px">Redmine</span>' : ''}
-              ${hasSum ? '<span class="badge badge-violet" style="margin-left:4px">Summary</span>' : '<span class="badge badge-neutral" style="margin-left:4px">No summary</span>'}
+              <span>${n} issue${n === 1 ? '' : 's'}</span>
+              ${redmine ? '<span class="dash-tag">Redmine</span>' : ''}
             </div>
           </div>
-          ${!hasSum ? `<button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); quickSummary('${p.id}')">Summary</button>` : ''}
+          ${hasSum
+            ? '<span class="dash-plan-state is-done">Summary ready</span>'
+            : `<button type="button" class="dash-plan-state is-todo" onclick="event.stopPropagation(); quickSummary('${p.id}')">Write summary</button>`}
         </div>`;
       }).join('') + `</div>`;
     }
@@ -79,26 +87,20 @@ function refreshCounts(){
     ]);
   } else {
     const plan = latest.planId ? State.plans.get(latest.planId) : null;
-    const v3Html = latest.v3 ? `<span class="arrow">→</span><span>${escapeHtml(latest.v3)}</span>` : '';
+    const versions = [latest.fe, latest.v2, latest.v3].filter(Boolean).map(v => `<span class="dash-ver">${escapeHtml(v)}</span>`).join('');
+    const text = String(latest.text || '').trim();
     el.innerHTML = `
-      <div class="summary-card" style="margin:0;border:none;box-shadow:none;background:transparent">
-        <div class="summary-card-head">
-          <div class="summary-card-title">
-            <span>${escapeHtml(latest.fe)}</span>
-            <span class="arrow">→</span>
-            <span>${escapeHtml(latest.v2)}</span>
-            ${v3Html}
-          </div>
-          <div class="summary-card-meta">
-            <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(latest.date))}</span>
-            ${plan ? `<span class="meta-divider"></span><span class="badge badge-violet">${escapeHtml(plan.title)}</span>` : ''}
+      <div class="dash-summary">
+        <div class="dash-summary-head">
+          ${versions ? `<div class="dash-summary-versions">${versions}</div>` : ''}
+          <div class="dash-summary-meta">
+            ${latest.date ? `<span>${escapeHtml(formatDate(latest.date))}</span>` : ''}
+            ${plan ? `<span class="dash-tag">${escapeHtml(plan.title)}</span>` : ''}
           </div>
         </div>
-        <div class="summary-card-body">
-          <div class="preview-block">${escapeHtml(latest.text)}</div>
-        </div>
-        <div class="summary-card-foot">
-          <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${latest.id}')">${ICON.clipboard}Copy for WhatsApp</button>
+        ${text ? `<div class="dash-summary-text">${escapeHtml(text)}</div>` : '<p class="dash-summary-empty">This summary has no text yet.</p>'}
+        <div class="dash-summary-foot">
+          <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${latest.id}')"${text ? '' : ' disabled'}>${ICON.clipboard}Copy for WhatsApp</button>
         </div>
       </div>`;
   }

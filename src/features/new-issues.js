@@ -640,19 +640,31 @@ async function refreshDashNewIssueCounts(){
         const params = new URLSearchParams();
         params.set('status_name', 'New');
         params.set('project_id', String(t.projectId));
-        params.set('limit', '100');
-        params.set('sort', 'updated_on:desc');
+        params.set('limit', '1');
         const { data } = await fetchRedmine(`/api/redmine?${params.toString()}`);
-        const n = (data.issues || []).length;
+        // total_count = same number the sidebar shows (was capped at 100)
+        const n = typeof data.total_count === 'number' ? data.total_count : (data.issues || []).length;
         el.textContent = String(n);
       } catch(err){
         console.warn('dash new count', t.key, err);
         el.textContent = '!';
       }
     }));
+    updateDashNewBars();
   } catch(err){
     console.warn('refreshDashNewIssueCounts', err);
   }
+}
+
+/* Dashboard: bar lengths relative to the busiest project */
+function updateDashNewBars(){
+  const pairs = [['statNewErp', 'barNewErp'], ['statNewErpOne', 'barNewErpOne'], ['statNewMfg', 'barNewMfg']];
+  const nums = pairs.map(([n]) => parseInt($(n)?.textContent || '', 10)).map(v => (isNaN(v) ? 0 : v));
+  const max = Math.max(1, ...nums);
+  pairs.forEach(([, bar], i) => {
+    const el = $(bar);
+    if(el) el.style.width = `${Math.round((nums[i] / max) * 100)}%`;
+  });
 }
 
 

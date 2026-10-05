@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.45.2';
+export const APP_VERSION = '4.46.0';
 export const APP_VERSION_DATE = '2026-10-04';
-export const APP_VERSION_NOTE = 'Tidier Knowledge Base list rows';
+export const APP_VERSION_NOTE = 'Dashboard redesign';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';
