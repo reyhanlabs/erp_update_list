@@ -13,7 +13,11 @@
 
 export const STRUCTURE_ID = '_structure';
 export const GENERAL = '__general__';   // guides without a submenu
-export const PRODUCT_KEYS = ['erp', 'one', 'mfg', 'mrp'];
+export const PRODUCT_KEYS = ['erp', 'one', 'mrp'];
+/* "Zahir Manufacturing" was merged into "Zahir MRP" (v4.45.1): same product.
+ * Old data saved under 'mfg' is read as 'mrp'. */
+export const PRODUCT_ALIASES = { mfg: 'mrp' };
+export function canonicalProduct(p){ return PRODUCT_ALIASES[p] || p; }
 
 const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim();
 const lc = (v) => clean(v).toLowerCase();
@@ -28,7 +32,19 @@ export function emptyStructure(){
 
 export function normalizeStructure(raw){
   const out = emptyStructure();
-  const products = (raw && raw.products) || {};
+  const products = { ...((raw && raw.products) || {}) };
+  // fold legacy product keys into their replacement (modules + submenus merged by name)
+  Object.entries(PRODUCT_ALIASES).forEach(([from, to]) => {
+    if(!Array.isArray(products[from]) || !products[from].length) return;
+    const target = Array.isArray(products[to]) ? products[to].map(m => ({ ...m, subs: [...(m.subs || [])] })) : [];
+    products[from].forEach(m => {
+      const hit = target.find(x => lc(x.name) === lc(m.name));
+      if(!hit){ target.push({ ...m, subs: [...(m.subs || [])] }); return; }
+      (m.subs || []).forEach(s => { if(!hit.subs.some(x => lc(x.name) === lc(s.name))) hit.subs.push(s); });
+    });
+    products[to] = target;
+    delete products[from];
+  });
   PRODUCT_KEYS.forEach(p => {
     const seen = new Set();
     (Array.isArray(products[p]) ? products[p] : []).forEach(m => {

@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.45.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.45.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -15,7 +15,7 @@ Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 - **Tester Queue (RFT)**: Ready for Testing queue by category, with Telegram alerts (in the browser and via a server-side cron).
 - **Issue Status, Active Work, What Next, By Client**: track issues across the Zahir projects.
 - **Create Issue**: create Redmine issues from the app.
-- **Knowledge Base**: team how-to guides for Zahir ERP, ERP One, Manufacturing, and MRP, with screenshots.
+- **Knowledge Base**: team how-to guides for Zahir ERP, ERP One, and MRP, with screenshots.
 - **Team workspace**: shared data via a workspace code (Firestore realtime).
 - **Public share links**: `/share/:id`, read-only for SDET.
 - **PWA**: installable, with offline fallback.
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.45.1**: Knowledge Base drops the separate "Zahir Manufacturing" product (same as Zahir MRP). Guides and menus stored under `mfg` are shown and saved as `mrp`; no data is deleted.
 - **v4.45.0**: Knowledge Base **Edit menus**: the team defines modules and submenus per product (ordered), stored in `workspaces/{id}/kb/_structure` (no rules change needed). The editor's Module/Submenu are dropdowns from that list; renames update the guides that use them; in-use items can't be deleted; first use is pre-filled from existing guides.
 - **v4.44.0**: Knowledge Base guides get an optional **Submenu** inside a module (Product › Module › Submenu). The library tree shows submenus under the open module (guides without one under *General*), module lists are grouped by submenu, and breadcrumbs, copy text, and search include it.
 - **v4.43.4**: Knowledge Base editor: Client label shortened to "Client optional" (client count/refresh hint removed); field labels no longer wrap on small screens.

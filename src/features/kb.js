@@ -1,5 +1,5 @@
 /**
- * Knowledge Base — how-to guides for Zahir ERP / ERP One / Manufacturing / MRP (v4.42.0)
+ * Knowledge Base — how-to guides for Zahir ERP / ERP One / MRP (v4.42.0; Manufacturing merged into MRP in v4.45.1)
  *
  * Articles live in the shared team workspace:
  *   workspaces/{ws}/kb/{articleId}                 → { title, product, module, version,
@@ -18,14 +18,13 @@ import { switchView } from '../ui/navigation.js';
 import { fetchRedmine } from '../redmine/client.js';
 import { getIssueClientName } from './clients.js';
 import {
-  STRUCTURE_ID, GENERAL, PRODUCT_KEYS, newId, emptyStructure, normalizeStructure, cloneStructure,
+  STRUCTURE_ID, GENERAL, PRODUCT_KEYS, canonicalProduct, newId, emptyStructure, normalizeStructure, cloneStructure,
   buildTree, moduleOptions, submenuOptions, structureFromArticles, validateStructure, planRenames, usage
 } from './kb-structure.js';
 
 const PRODUCTS = {
   erp: { label: 'Zahir ERP', short: 'ERP' },
   one: { label: 'Zahir ERP One', short: 'ERP One' },
-  mfg: { label: 'Zahir Manufacturing', short: 'Manufacturing' },
   mrp: { label: 'Zahir MRP', short: 'MRP' }
 };
 const DEFAULT_MODULES = [
@@ -94,7 +93,11 @@ function subscribe(){
     const structDoc = snap.docs.find(d => d.id === STRUCTURE_ID);
     S.structure = normalizeStructure(structDoc ? structDoc.data() : null);
     S.structureMeta = structDoc ? structDoc.data() : null;
-    S.articles = snap.docs.filter(d => d.id !== STRUCTURE_ID).map(d => ({ id: d.id, ...d.data() }));
+    S.articles = snap.docs.filter(d => d.id !== STRUCTURE_ID).map(d => {
+      const data = d.data();
+      // guides saved under the retired "Zahir Manufacturing" show under Zahir MRP
+      return { id: d.id, ...data, product: canonicalProduct(data.product) };
+    });
     S.loaded = true;
     if(S.pendingDocId && S.articles.some(a => a.id === S.pendingDocId)){
       S.selectedId = S.pendingDocId;
@@ -262,7 +265,7 @@ function renderPane(){
   if(!S.articles.length && !S.manage){
     el.innerHTML = `<div class="kb-welcome">
       <h2>Write your team's first guide</h2>
-      <p>Keep how-to guides for Zahir ERP, ERP One, Manufacturing, and MRP in one place, so everyone in support walks clients through the same steps.</p>
+      <p>Keep how-to guides for Zahir ERP, ERP One, and MRP in one place, so everyone in support walks clients through the same steps.</p>
       <ol>
         <li>Click <b>Write guide</b> and choose the product and module.</li>
         <li>Write the steps. Paste screenshots straight in with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
