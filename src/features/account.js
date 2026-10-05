@@ -12,6 +12,7 @@ import { renderPlans } from './plans/plans.js';
 import { populatePlanDropdown, renderSummaries } from './summaries.js';
 import { refreshCounts } from './dashboard.js';
 import { prefetchTesterCount } from './tester/queue.js';
+import { loadIssueNotes } from './issue-notes.js';
 
 /* ============================================================
    INIT
@@ -349,6 +350,7 @@ async function startAppForUser(user){
     const loadingText = $('loadingText');
     if(loadingText) loadingText.textContent = 'Loading your data...';
     await CloudSync.init(user.uid);
+    try { loadIssueNotes(); } catch(e){ console.warn('loadIssueNotes', e); }
     const overlay = $('loadingOverlay');
     if(overlay) overlay.classList.add('hidden');
     // Non-blocking prefetch

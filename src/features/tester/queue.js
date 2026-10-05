@@ -29,6 +29,7 @@ import {
 import { notifyNewTesterIssues } from './notifications.js';
 import { getSelectedProjectId, loadRedmineProjects } from '../../redmine/projects.js';
 import { assigneeChip, categoryChip, issueDescriptionCell, projectChip } from '../new-issues.js';
+import { getIssueNote } from '../issue-notes.js';
 
 function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
@@ -53,7 +54,7 @@ function getFilteredTesterIssues(){
     if(!matchesQuickFilter(i)) return false;
     if(!q) return true;
     const hay = [
-      i.id, i.subject, i.assigned_to?.name, i.priority?.name,
+      i.id, i.subject, i.assigned_to?.name, i.priority?.name, getIssueNote(i.id)?.text,
       i.tracker?.name, i.category?.name
     ].map(x => String(x||'').toLowerCase()).join(' ');
     return hay.includes(q);

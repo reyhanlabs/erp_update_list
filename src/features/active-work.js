@@ -24,6 +24,7 @@ import {
   prioritySortRank,
   resolveNewIssueProjectIds
 } from './new-issues.js';
+import { getIssueNote } from './issue-notes.js';
 
 /* ============================================================
    ACTIVE WORK — In Progress + On Deploy across 3 projects
@@ -231,7 +232,7 @@ function filterActiveWorkList(list){
 
   if(q){
     out = out.filter(i => {
-      const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i._projectLabel, i._statusLabel]
+      const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i._projectLabel, i._statusLabel, getIssueNote(i.id)?.text]
         .map(x => String(x||'').toLowerCase()).join(' ');
       return hay.includes(q);
     });

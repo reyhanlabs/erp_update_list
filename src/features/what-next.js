@@ -16,6 +16,7 @@ import { formatAssignee, priorityBadge, priorityClass, testerLoadingSkeleton } f
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { assigneeChip, categoryChip, projectChip, resolveNewIssueProjectIds } from './new-issues.js';
 import { fetchIssuesByStatusName } from './active-work.js';
+import { issueNoteChip, getIssueNote } from './issue-notes.js';
 
 /* ============================================================
    WHAT NEXT — rank New issues by urgency (priority + age)
@@ -157,7 +158,7 @@ function getFilteredWhatNext(){
   }
   if(q){
     list = list.filter(i => {
-      const hay = [i.id, i.subject, i._projectLabel, i.priority?.name, formatAssignee(i.assigned_to)]
+      const hay = [i.id, i.subject, i._projectLabel, i.priority?.name, formatAssignee(i.assigned_to), getIssueNote(i.id)?.text]
         .map(x => String(x||'').toLowerCase()).join(' ');
       return hay.includes(q);
     });
@@ -204,6 +205,7 @@ function renderWhatNext(){
           ${categoryChip(issue.category?.name || '')}
           ${assigneeChip(issue.assigned_to)}
           ${projectChip(issue._projectLabel || '')}
+          ${issueNoteChip(issue.id)}
         </div>
         <div class="wn-reasons">${reasons}</div>
       </td>

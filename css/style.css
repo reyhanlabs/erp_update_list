@@ -3102,3 +3102,38 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 @media(prefers-reduced-motion:reduce){
   .dash-proj-bar i,.dash .dash-att-card{transition:none}
 }
+
+/* Private issue notes (v4.47.0) */
+.issue-note{
+  display:inline-flex;align-items:center;gap:5px;max-width:280px;height:22px;padding:0 8px;border-radius:6px;
+  font-size:11.5px;font-weight:600;line-height:1;cursor:pointer;vertical-align:middle;
+  color:#854d0e;background:#fef9c3;border:1px solid #fde68a;
+}
+.issue-note svg{width:13px;height:13px;flex-shrink:0}
+.issue-note span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.issue-note:hover{border-color:#eab308}
+.issue-note:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.issue-note.is-missing{color:#9a3412;background:#ffedd5;border-color:#fdba74}
+.issue-note.is-empty{color:var(--text-tertiary);background:transparent;border:1px dashed var(--line-strong);font-weight:500}
+.issue-note.is-empty:hover{color:var(--brand);border-color:var(--brand)}
+@media (hover:hover){
+  .issue-note.is-empty{opacity:0;transition:opacity var(--dur-fast) var(--ease)}
+  tr:hover .issue-note.is-empty,.issue-note.is-empty:focus-visible,.issue-note.is-open{opacity:1}
+}
+.issue-note-pop{
+  position:fixed;z-index:10060;display:flex;flex-direction:column;gap:8px;padding:14px;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;
+  box-shadow:0 16px 40px rgba(15,23,42,.18);
+}
+.issue-note-pop .inp-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--text)}
+.issue-note-pop .inp-head span{font-size:12px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.issue-note-pop .inp-text{width:100%;min-height:84px;resize:vertical;font-size:13px;line-height:1.5}
+.issue-note-pop .inp-missing{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:550;color:var(--text);cursor:pointer}
+.issue-note-pop .inp-missing input{width:16px;height:16px;accent-color:#ea580c}
+.issue-note-pop .inp-hint{margin:0;font-size:12px;color:var(--text-tertiary)}
+.issue-note-pop .inp-actions{display:flex;gap:6px;justify-content:flex-end}
+.issue-note-pop .inp-del{margin-right:auto;color:var(--danger)}
+[data-theme="dark"] .issue-note{color:#fde68a;background:rgba(234,179,8,.14);border-color:rgba(234,179,8,.35)}
+[data-theme="dark"] .issue-note.is-missing{color:#fdba74;background:rgba(234,88,12,.16);border-color:rgba(234,88,12,.4)}
+[data-theme="dark"] .issue-note.is-empty{color:var(--text-tertiary);background:transparent;border-color:var(--line-strong)}
+@media(prefers-reduced-motion:reduce){.issue-note.is-empty{transition:none}}

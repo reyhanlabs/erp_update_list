@@ -26,6 +26,7 @@ import {
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { getIssueStatusDef, openIssueStatusView, persistIssueStatusCache } from './issue-status.js';
 import { ACTIVE_WORK_STATUSES, fetchIssuesByStatusName } from './active-work.js';
+import { issueNoteChip, getIssueNote } from './issue-notes.js';
 
 /* ============================================================
    NEW ISSUES — status "New" from 3 Zahir projects
@@ -303,7 +304,7 @@ function getFilteredNewIssues(issues){
   // re-bind if list was const
   if(q){
     list = list.filter(i => {
-      const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i.tracker?.name]
+      const hay = [i.id, i.subject, i.assigned_to?.name, i.priority?.name, i.tracker?.name, getIssueNote(i.id)?.text]
         .map(x => String(x||'').toLowerCase()).join(' ');
       return hay.includes(q);
     });
@@ -339,7 +340,7 @@ function issueDescriptionCell(issue, opts = {}){
     showProject ? projectChip(proj) : ''
   ].filter(Boolean).join('');
   return `<div class="issue-subject-line">${escapeHtml(issue.subject || '—')}</div>
-    <div class="issue-chip-row">${chips}${extraHtml}</div>`;
+    <div class="issue-chip-row">${chips}${extraHtml}${issueNoteChip(issue.id)}</div>`;
 }
 
 function categoryChip(name){

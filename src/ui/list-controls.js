@@ -8,11 +8,12 @@ import { formatAssignee, priorityClass, renderTesterList } from '../features/tes
 import { renderNewIssues } from '../features/new-issues.js';
 import { renderActiveWork } from '../features/active-work.js';
 import { daysSince, renderWhatNext } from '../features/what-next.js';
+import { hasIssueNote } from '../features/issue-notes.js';
 
 /* ============================================================
    G) QUICK FILTER CHIPS + H) DENSITY MODE
    ============================================================ */
-window.__quickFilter = window.__quickFilter || 'all'; // all | immediate | unassigned | updated7d
+window.__quickFilter = window.__quickFilter || 'all'; // all | immediate | unassigned | updated7d | noted
 
 function setQuickFilter(key, renderFn){
   window.__quickFilter = key || 'all';
@@ -43,6 +44,7 @@ function matchesQuickFilter(issue){
     const days = (typeof daysSince === 'function') ? daysSince(issue.updated_on || issue.created_on) : 999;
     return days <= 7;
   }
+  if(qf === 'noted') return hasIssueNote(issue.id);
   return true;
 }
 
@@ -52,7 +54,8 @@ function quickFilterBarHtml(renderCall){
     ['all', 'All'],
     ['immediate', 'Immediate'],
     ['unassigned', 'Unassigned'],
-    ['updated7d', 'Updated 7d']
+    ['updated7d', 'Updated 7d'],
+    ['noted', 'My notes']
   ];
   return `<div class="quick-filter-bar">
     ${chips.map(([k, label]) =>
@@ -168,7 +171,7 @@ function clockTime(ms){
 function activeFilterLabels(extra){
   const out = [...(extra || [])];
   const qf = window.__quickFilter || 'all';
-  const qfNames = { immediate: 'Immediate', unassigned: 'Unassigned', updated7d: 'Updated 7d' };
+  const qfNames = { immediate: 'Immediate', unassigned: 'Unassigned', updated7d: 'Updated 7d', noted: 'My notes' };
   if(qf !== 'all' && qfNames[qf]) out.push(qfNames[qf]);
   return out;
 }

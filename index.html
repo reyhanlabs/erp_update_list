@@ -716,6 +716,7 @@
             <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderTesterList)">Immediate</button>
             <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderTesterList)">Unassigned</button>
             <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderTesterList)">Updated 7d</button>
+            <button type="button" class="quick-chip" data-quick="noted" onclick="setQuickFilter('noted', renderTesterList)">My notes</button>
           </div>
           <div class="density-toggle">
             <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
@@ -804,6 +805,7 @@
             <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderNewIssues)">Immediate</button>
             <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderNewIssues)">Unassigned</button>
             <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderNewIssues)">Updated 7d</button>
+            <button type="button" class="quick-chip" data-quick="noted" onclick="setQuickFilter('noted', renderNewIssues)">My notes</button>
           </div>
           <div class="density-toggle">
             <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
@@ -881,6 +883,7 @@
             <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderActiveWork)">Immediate</button>
             <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderActiveWork)">Unassigned</button>
             <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderActiveWork)">Updated 7d</button>
+            <button type="button" class="quick-chip" data-quick="noted" onclick="setQuickFilter('noted', renderActiveWork)">My notes</button>
           </div>
           <div class="density-toggle">
             <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
@@ -921,6 +924,7 @@
             <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderClientIssues)">Immediate</button>
             <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderClientIssues)">Unassigned</button>
             <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderClientIssues)">Updated 7d</button>
+            <button type="button" class="quick-chip" data-quick="noted" onclick="setQuickFilter('noted', renderClientIssues)">My notes</button>
           </div>
         </div>
         <div class="card-body tight" id="clientsBody">
@@ -983,6 +987,7 @@
             <button type="button" class="quick-chip" data-quick="immediate" onclick="setQuickFilter('immediate', renderWhatNext)">Immediate</button>
             <button type="button" class="quick-chip" data-quick="unassigned" onclick="setQuickFilter('unassigned', renderWhatNext)">Unassigned</button>
             <button type="button" class="quick-chip" data-quick="updated7d" onclick="setQuickFilter('updated7d', renderWhatNext)">Updated 7d</button>
+            <button type="button" class="quick-chip" data-quick="noted" onclick="setQuickFilter('noted', renderWhatNext)">My notes</button>
           </div>
           <div class="density-toggle">
             <button type="button" class="density-chip active" data-density="comfortable" onclick="setListDensity('comfortable')">Comfortable</button>
@@ -1336,6 +1341,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.47.0</span>
+                <span class="cl-note">Private notes on issues: mark issues with missing information, filter with "My notes"; visible only to you</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.46.2</span>
                 <span class="cl-note">Fix: switching between Issue Status menus quickly (e.g. Rework → Feedback) could show the previous menu's issues</span>
@@ -2149,7 +2158,7 @@
               <p>Finds all issues for one client using the Redmine <b>Client Name</b> field. Type the client name, press <kbd>Enter</kbd>, and results are grouped by status.</p>
             </article>
 
-            <article class="docs-sec" id="docs-lists" data-keywords="filter chip immediate unassigned updated compact comfortable multi-select checkbox batch copy">
+            <article class="docs-sec" id="docs-lists" data-keywords="note notes private catatan missing info filter chip immediate unassigned updated compact comfortable multi-select checkbox batch copy">
               <header><span class="docs-ico" data-docs-icon="lists"></span><h3>Filters &amp; multi-select</h3></header>
               <p>All issue lists use the same controls:</p>
               <dl class="docs-defs">
@@ -2157,6 +2166,7 @@
                 <dt>Density</dt><dd><i>Comfortable</i> or <i>Compact</i>, to see more rows at once.</dd>
                 <dt>Multi-select</dt><dd>Check several issues, then use the bottom bar for <b>Copy links</b> or <b>Copy for Telegram</b>.</dd>
               </dl>
+              <p><b>Private notes on issues.</b> Hover an issue row and click <b>Note</b> to write a reminder for yourself, for example that the client still has to send a file. Tick <b>Information is missing</b> to mark the issue in orange. Notes are only visible to you, follow your account to other devices, and are never sent to Redmine or included in copied text. Use the <b>My notes</b> chip to list only issues you've noted; search also looks inside your notes.</p>
             </article>
 
             <h2 class="docs-group-title" data-docs-group>Create &amp; documentation</h2>
