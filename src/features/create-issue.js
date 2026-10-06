@@ -392,6 +392,11 @@ function wireCreateIssueForm(){
   $('ciTextFormat')?.addEventListener('change', (e) => {
     try { localStorage.setItem(CI_FORMAT_KEY, e.target.value); } catch(_){}
   });
+  const lay = $('ciLayout');
+  if(lay){
+    try { lay.value = localStorage.getItem('erp_ci_layout') || 'qa'; } catch(_){}
+    lay.addEventListener('change', () => { try { localStorage.setItem('erp_ci_layout', lay.value); } catch(_){} });
+  }
 }
 
 /* ---- description editor helpers ---- */
@@ -570,6 +575,124 @@ function parseNotes(text){
   return b;
 }
 
+/* ---- QA bug-report layout (v4.49.1) ----
+ * The format the team uses (Environment → Precondition → Steps to Reproduce →
+ * Actual → Expected → Severity / Priority → Notes → Attachment). Extra note
+ * labels: App, Module, Menu, Env/Environment, Browser, OS, Version/Versi,
+ * Precondition/Prasyarat, Severity, Priority/Prioritas, Lampiran/Attachment.
+ * Browser / OS / Environment / App given in notes are remembered as defaults. */
+const QA_ENV_KEY = 'erp_ci_env_defaults';
+const QA_LABELS = [
+  ['app',          /^(app|aplikasi)\s*:/i],
+  ['module',       /^(module|modul)\s*:/i],
+  ['menu',         /^menu\s*:/i],
+  ['env',          /^(env|environment|lingkungan)\s*:/i],
+  ['browser',      /^browser\s*:/i],
+  ['os',           /^os\s*:/i],
+  ['version',      /^(version|versi)\s*:/i],
+  ['precondition', /^(precondition|prasyarat|kondisi awal|pre-?condition)\s*:/i],
+  ['severity',     /^severity\s*:/i],
+  ['priority',     /^(priority|prioritas)\s*:/i],
+  ['attachment',   /^(attachment|lampiran)\s*:/i]
+];
+
+/* Pull the QA-only labels out of the notes; returns { fields, lists, rest } */
+function extractQaNotes(text){
+  const fields = {}; const lists = { precondition: [], attachment: [] };
+  const rest = [];
+  let cur = null;
+  String(text || '').split(/\r?\n/).forEach(raw => {
+    const line = raw.trim();
+    const hit = QA_LABELS.find(([, re]) => re.test(line));
+    if(hit){
+      const v = line.replace(hit[1], '').trim();
+      if(hit[0] in lists){ cur = hit[0]; if(v) lists[cur].push(v.replace(/^[-•*]\s+/, '')); }
+      else { cur = null; if(v) fields[hit[0]] = v; }
+      return;
+    }
+    if(cur && line && /^[-•*]\s+/.test(line)){ lists[cur].push(line.replace(/^[-•*]\s+/, '')); return; }
+    if(line) cur = null;
+    rest.push(raw);
+  });
+  return { fields, lists, rest: rest.join('\n') };
+}
+
+function qaDefaults(){
+  try { return JSON.parse(localStorage.getItem(QA_ENV_KEY) || '{}') || {}; } catch(_){ return {}; }
+}
+function rememberQaDefaults(f){
+  const d = qaDefaults();
+  ['app', 'env', 'browser', 'os'].forEach(k => { if(f[k]) d[k] = f[k]; });
+  try { localStorage.setItem(QA_ENV_KEY, JSON.stringify(d)); } catch(_){}
+}
+
+function severityFor(priorityName){
+  const p = String(priorityName || '').toLowerCase();
+  if(/immediate|urgent|critical/.test(p)) return { severity: 'Critical', p: 'P1' };
+  if(/high/.test(p)) return { severity: 'High', p: 'P1' };
+  if(/normal|medium/.test(p)) return { severity: 'Medium', p: 'P2' };
+  if(/low/.test(p)) return { severity: 'Low', p: 'P3' };
+  return { severity: 'Medium', p: 'P2' };
+}
+
+function buildQaDescription(ctx){
+  const { n, qa, stepImgs, looseImgs, project, projectName, clientName, category, priorityName, kind } = ctx;
+  const d = qaDefaults();
+  const f = qa.fields;
+  rememberQaDefaults(f);
+
+  // Module / Menu: from notes, else from the first "Buka X > Y" step
+  let module = f.module || '', menu = f.menu || '';
+  if(!module || !menu){
+    const path = n.steps.map(s => s.replace(/\*\*/g, '')).map(s => s.match(/(?:buka|open|masuk(?: ke)?)\s+(?:menu\s+)?([^>]+?)\s*>\s*([^,.;]+)/i)).find(Boolean);
+    if(path){ module = module || path[1].trim(); menu = menu || path[2].trim(); }
+  }
+  const env = [
+    `App : ${f.app || d.app || project || 'ERP Web'}`,
+    `Module : ${module || category || '(modul)'}`,
+    `Menu : ${menu || '(menu)'}`,
+    `Environment : ${f.env || d.env || 'Production'}`,
+    `Browser : ${f.browser || d.browser || 'Chrome'}`,
+    `OS : ${f.os || d.os || 'Windows 10'}`,
+    `Version : ${f.version || 'Latest'}`,
+    clientName && `Client : ${clientName}`,
+    projectName && `Project : ${projectName}`
+  ].filter(Boolean);
+
+  const list = (arr, empty) => (arr.length ? arr : [empty]).map(x => `- ${x}`).join('\n');
+  const sev = severityFor(priorityName);
+
+  // steps: start with logging in, like the team's reports; screenshots stay with their step
+  let steps = n.steps.slice();
+  const hadLogin = steps.length && /^(login|masuk)\b/i.test(steps[0]);
+  const offset = steps.length && !hadLogin ? 1 : 0;
+  if(offset) steps.unshift('Login ke ERP.');
+  if(!steps.length) steps = ['Login ke ERP.', '(buka menu terkait)', '(lakukan aksinya)', '(periksa hasilnya)'];
+  const stepText = steps.map((s, i) => {
+    const imgs = (stepImgs.get(i + 1 - offset) || []).map(x => `   ${x}`);
+    stepImgs.delete(i + 1 - offset);
+    return [`${i + 1}. ${s}`, ...imgs].join('\n');
+  }).join('\n');
+
+  const actual = n.actual.length ? n.actual : (n.summary ? [n.summary] : ['(apa yang terjadi saat ini)']);
+  const attachLines = [
+    ...[...looseImgs, ...[...stepImgs.values()].flat()],
+    ...qa.lists.attachment.map(x => `- ${x}`)
+  ];
+  const isBug = kind === 'bug';
+  const sections = [
+    ['Environment', env.map(x => `- ${x}`).join('\n')],
+    ['Precondition', list(qa.lists.precondition, '(kondisi/data yang harus ada sebelum langkah dijalankan)')],
+    [isBug ? 'Steps to Reproduce' : 'Steps', stepText],
+    [isBug ? 'Actual Result' : 'Current Condition', list(actual, '-')],
+    ['Expected Result', list(n.expected.length ? n.expected : n.requirements, '(apa yang seharusnya terjadi)')],
+    ['Severity / Priority', `- Severity: ${f.severity || sev.severity}\n- Priority: ${f.priority || sev.p}`],
+    ['Notes', list([...n.notes, ...n.details], '-')],
+    ['Attachment', attachLines.length ? attachLines.join('\n') : '- (screenshot / video / network log)']
+  ];
+  return sections.map(([h, body]) => `**${h}:**\n\n${body}`).join('\n\n') + '\n';
+}
+
 function generateIssueDescription(){
   const meta = window.__ciMeta || {};
   const trackerSel = $('ciTracker');
@@ -583,7 +706,10 @@ function generateIssueDescription(){
   const projectName = ($('ciProjectName')?.value || '').trim();
   const clientName = ($('ciClientName')?.value || '').trim();
   const kind = classifyIssueKind(trackerName, subject + ' ' + notesText);
-  const n = parseNotes(notesText);
+  const layoutSel = $('ciLayout');
+  const useQa = !layoutSel || layoutSel.value !== 'team';
+  const qa = extractQaNotes(notesText);
+  const n = parseNotes(qa.rest);
 
   // layout: the team's own for this tracker, else built-in
   const team = meta.templates && meta.templates[trackerId];
@@ -594,12 +720,17 @@ function generateIssueDescription(){
   const old = ta ? ta.value : '';
   const stepImgs = new Map(); const looseImgs = [];
   let stepNo = 0;
+  // a previous QA-format run added "Login ke ERP." as step 1: count steps from the notes instead
+  const oldLogin = /^\s*1[.)]\s+(login|masuk)\b/im.test(old) ? 1 : 0;
   old.split('\n').forEach(line => {
     if(/^\s*\d+[.)]\s+/.test(line)){ stepNo++; return; }
     const img = line.match(/^\s*(!\[[^\]]*\]\([^)]+\))\s*$/);
     if(!img) return;
-    if(/^\s{2,}/.test(line) && stepNo) { if(!stepImgs.has(stepNo)) stepImgs.set(stepNo, []); stepImgs.get(stepNo).push(img[1]); }
-    else looseImgs.push(img[1]);
+    if(/^\s{2,}/.test(line) && stepNo){
+      const key = stepNo - oldLogin;            // 0 = the login step
+      if(!stepImgs.has(key)) stepImgs.set(key, []);
+      stepImgs.get(key).push(img[1]);
+    } else looseImgs.push(img[1]);
   });
 
   const envLinesFor = (L) => [
@@ -652,20 +783,35 @@ function generateIssueDescription(){
     }
   };
 
+  let desc;
+  if(useQa){
+    desc = buildQaDescription({ n, qa, stepImgs, looseImgs, project, projectName, clientName, category, kind,
+      priorityName: $('ciPriority')?.selectedOptions?.[0]?.text || '' });
+  } else {
   const parts = headings.map(h => `## ${h}\n${body(h)}`);
   // anything the layout had no room for still ends up in the description
   if(!used.has('environment') && envLines.length) parts.push(`## ${L.env}\n${envLines.join('\n')}`);
   if(!used.has('notes') && n.notes.length) parts.push(`## ${L.notes}\n${bullets(n.notes, '-')}`);
   const leftover = [...looseImgs, ...[...stepImgs.values()].flat()];
   if(leftover.length) parts.push(`## ${L.shots}\n${leftover.join('\n')}`);
-  const desc = parts.join('\n\n').trim() + '\n';
+  desc = parts.join('\n\n').trim() + '\n';
+  }
+
+  // Title like "[Bug] …": prefix the subject with the tracker when it has none
+  const subj = $('ciSubject');
+  if(subj && trackerName && subj.value.trim() && !/^\s*\[/.test(subj.value)){
+    subj.value = `[${trackerName}] ${subj.value.trim()}`;
+  } else if(subj && !subj.value.trim() && n.summary){
+    subj.value = `${trackerName ? `[${trackerName}] ` : ''}${n.summary}`.slice(0, 255);
+  }
 
   const apply = () => {
     if(ta) ta.value = desc;
     window.__ciLastGenerated = desc;
     refreshCiPreview();
     renderCiFiles();
-    toast(team ? `Generated with your team's ${team.tracker} layout (from ${team.basedOn} recent issues)` : 'Description generated, edit as needed');
+    toast(useQa ? 'Generated in the QA format, edit as needed'
+      : team ? `Generated with your team's ${team.tracker} layout (from ${team.basedOn} recent issues)` : 'Description generated, edit as needed');
   };
   // don't silently overwrite text typed by hand (pasting screenshots doesn't count)
   const textOnly = (v) => String(v || '').replace(/^[ \t]*!\[[^\]]*\]\([^)]+\)[ \t]*\n?/gm, '').trim();
