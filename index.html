@@ -909,15 +909,14 @@
             By Client
             <span class="badge badge-violet" id="clientsTotalBadge" style="margin-left:8px">—</span>
           </h3>
-          <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshClients" onclick="loadClientIssues(window.__clientQuery, true)">Refresh</button>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshClients" onclick="window.__clientQuery ? loadClientIssues(window.__clientQuery, true) : loadClientOverview(true)">Refresh</button>
         </div>
         <div class="clients-search-row">
           <div class="search-wrap clients-search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" id="clientSearchInput" placeholder="Type Client Name then press Enter…"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();loadClientIssues(this.value,true);}"/>
+            <input type="text" id="clientSearchInput" placeholder="Filter clients, Enter to open"
+              autocomplete="off" oninput="onClientSearchInput()" onkeydown="onClientSearchKey(event)"/>
           </div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="loadClientIssues($('clientSearchInput').value, true)">Search</button>
         </div>
         <div class="list-secondary-bar clients-filters hidden" id="clientsFiltersBar">
           <div class="quick-filter-bar">
@@ -930,8 +929,7 @@
         </div>
         <div class="card-body tight" id="clientsBody">
           <div class="empty clients-empty">
-            <p class="clients-empty-title">Search by client</p>
-            <p class="clients-empty-desc">Enter a name from the Redmine field <b>Client Name</b>, then press Search.</p>
+            <p class="clients-empty-title">Loading clients…</p>
           </div>
         </div>
       </div>
@@ -1426,6 +1424,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.51.0</span>
+                <span class="cl-note">By Client shows all clients with open/total issues, statuses and last update; filter, sort, and click a client to see its issues</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.50.0</span>
                 <span class="cl-note">New Issue: "Paste from ChatGPT" fills Subject, Tracker, Priority, Client/Project and Description from a ChatGPT bug report</span>

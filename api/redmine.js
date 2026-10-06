@@ -118,10 +118,23 @@ async function collectClientNames(apiKey, cfIdParam) {
   const first = await redmineGet(apiKey, `${base}&offset=0`);
   const total = first.total_count || 0;
   let scanned = 0;
+  // per client: issue count + open count, statuses, projects, last update (v4.51.0)
+  const stats = new Map();
   const take = (data) => {
     for (const issue of data.issues || []) {
       scanned++;
-      for (const name of clientValuesOf(issue, cfId)) counts.set(name, (counts.get(name) || 0) + 1);
+      const open = !issue.closed_on && !(issue.status && issue.status.is_closed);
+      const st = (issue.status && issue.status.name) || 'Unknown';
+      const pr = (issue.project && issue.project.name) || '';
+      for (const name of clientValuesOf(issue, cfId)) {
+        counts.set(name, (counts.get(name) || 0) + 1);
+        const s0 = stats.get(name) || { open: 0, statuses: {}, projects: {}, updated: '' };
+        if (open) s0.open++;
+        s0.statuses[st] = (s0.statuses[st] || 0) + 1;
+        if (pr) s0.projects[pr] = (s0.projects[pr] || 0) + 1;
+        if (String(issue.updated_on || '') > s0.updated) s0.updated = String(issue.updated_on || '');
+        stats.set(name, s0);
+      }
     }
   };
   take(first);
@@ -138,7 +151,10 @@ async function collectClientNames(apiKey, cfIdParam) {
 
   possible.forEach(name => { if (!counts.has(name)) counts.set(name, 0); });
   const clients = [...counts.entries()]
-    .map(([name, count]) => ({ name, count }))
+    .map(([name, count]) => {
+      const st = stats.get(name);
+      return st ? { name, count, open: st.open, statuses: st.statuses, projects: st.projects, updated: st.updated } : { name, count, open: 0 };
+    })
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   return { clients, fieldId: cfId, scanned, total, complete };
 }

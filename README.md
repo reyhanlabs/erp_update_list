@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.50.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.51.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.51.0**: By Client opens on an all-clients overview: `resource=client_names` now also returns per client open count (`closed_on`), statuses, projects and last update; the browser gets only this summary (cached 1 h). Filter/sort/open-only, click to drill into a client, back to the list; sidebar badge = clients with open issues.
 - **v4.50.0**: New Issue *Paste from ChatGPT*: parses a QA-format bug report (plain, bold or `###` headings; `*`/`-`/numbered lists; chatty lead-ins ignored) into Subject, Tracker (`[Bug]`), Priority (from Priority or Severity), Client/Project Name and a Redmine-ready Markdown description, keeping pasted screenshots under their steps. Also: taller Notes textarea.
 - **v4.49.1**: Generate description defaults to the team's QA bug-report format (Environment / Precondition / Steps to Reproduce / Actual / Expected / Severity-Priority / Notes / Attachment), with Module/Menu taken from the first "Buka X > Y" step, remembered Browser/OS/Env/App defaults, Severity/Priority derived from the Priority field, and a "[Tracker] …" subject prefix. Layout selector keeps the learned team layout as an option.
 - **v4.49.0**: Generate description v2: `/api/redmine-issue` meta learns each tracker's section headings from the last 100 issues (`templates`); the generator fills those (or a built-in layout) from labelled notes (Langkah/Steps, Hasil/Actual, Harapan/Expected, Kebutuhan, Catatan), adds Client / Project Name / category / project, localizes fallback sections, keeps screenshots under their step, and confirms before overwriting typed text.

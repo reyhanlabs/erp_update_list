@@ -29,7 +29,7 @@ const VIEW_META = {
   summaries: { title:'Update Summaries', sub:'Summaries ready to share to the WA group', addBtn:true, addLabel:'Add New Summary' },
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
   newissues:{ title:'Issue Status', sub:'New · On Progress · On Deploy · Rework · Feedback', addBtn:false },
-  clients:  { title:'By Client', sub:'Search issues by Client Name', addBtn:false },
+  clients:  { title:'By Client', sub:'All clients from Redmine, and their issues', addBtn:false },
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
