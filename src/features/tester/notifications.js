@@ -9,6 +9,7 @@ import {
   countNewByCategory,
   getIssueTesterCategory,
   getSeenIssueIds,
+  markCategoryIssuesSeen,
   openTesterCategory,
   updateTesterCategoryBadges
 } from './categories.js';
@@ -80,13 +81,18 @@ function updateNotifToggleUI(){
   if(bell) bell.classList.toggle('is-on', on);
   const recent = window.__notifRecent || [];
   const unread = recent.filter(x => !x.seen).length;
+  const counts = (typeof countNewByCategory === 'function') ? countNewByCategory() : {};
+  const totalNew = Object.values(counts).reduce((a,b)=>a+(b||0), 0);
   if(dot){
-    // keep small dot only when ON and no numeric badge needed
-    const counts = (typeof countNewByCategory === 'function') ? countNewByCategory() : {};
-    const totalNew = Object.values(counts).reduce((a,b)=>a+(b||0), 0);
-    const showDot = on && unread === 0 && totalNew > 0;
-    dot.classList.toggle('hidden', !showDot);
+    // Red dot = Ready for Testing issues you haven't opened yet (listed in the panel).
+    // A number badge takes over when there are unread alerts from this session.
+    dot.classList.toggle('hidden', !(unread === 0 && totalNew > 0));
   }
+  if(bell){
+    bell.setAttribute('aria-label', unread > 0 ? `Notifications: ${unread} new alert${unread === 1 ? '' : 's'}`
+      : totalNew > 0 ? `Notifications: ${totalNew} unopened Ready for Testing issue${totalNew === 1 ? '' : 's'}` : 'Notifications');
+  }
+  renderNotifUnseen(counts, totalNew);
   if(badge){
     if(unread > 0){
       badge.textContent = unread > 9 ? '9+' : String(unread);
@@ -103,6 +109,31 @@ function updateNotifToggleUI(){
       : 'Telegram: set Chat ID in Settings';
   }
   renderNotifRecent();
+}
+
+/* "Not opened yet" block in the panel: explains the red dot */
+const CAT_LABELS = { frontend: 'Front End', backend: 'Backend', design: 'Design', other: 'Other' };
+function renderNotifUnseen(counts, totalNew){
+  const box = $('notifUnseen');
+  if(!box) return;
+  if(!totalNew){
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    return;
+  }
+  const links = Object.entries(counts).filter(([, n]) => n > 0).map(([k, n]) =>
+    `<button type="button" class="notif-unseen-cat" onclick="closeNotifPanel(); openTesterCategory('${k}')">${escapeHtml(CAT_LABELS[k] || k)} <b>${n}</b></button>`).join('');
+  box.innerHTML = `<div class="notif-unseen-head">
+      <span><b>${totalNew}</b> Ready for Testing issue${totalNew === 1 ? '' : 's'} not opened yet</span>
+      <button type="button" class="notif-unseen-clear" onclick="markAllRftSeen()">Mark all as seen</button>
+    </div>
+    <div class="notif-unseen-cats">${links}</div>`;
+  box.classList.remove('hidden');
+}
+
+function markAllRftSeen(){
+  ['frontend', 'backend', 'design', 'other'].forEach(k => { try { markCategoryIssuesSeen(k); } catch(_){} });
+  try { updateNotifToggleUI(); } catch(_){}
 }
 
 function renderNotifRecent(){
@@ -458,6 +489,7 @@ function stopTesterNotifPoll(){
 }
 
 export {
+  markAllRftSeen,
   checkTesterNotifications,
   closeNotifPanel,
   isTelegramRftEnabled,

@@ -1958,6 +1958,8 @@ body.auth-locked .main{
   position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;
   background:#ef4444;box-shadow:0 0 0 2px var(--surface);
 }
+/* v4.47.1: was missing, so the dot showed even with nothing to report */
+.notif-bell-dot.hidden{display:none !important}
 .notif-panel{
   position:fixed;z-index:500;
   width:min(340px, calc(100vw - 24px));padding:14px;
@@ -3137,3 +3139,18 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 [data-theme="dark"] .issue-note.is-missing{color:#fdba74;background:rgba(234,88,12,.16);border-color:rgba(234,88,12,.4)}
 [data-theme="dark"] .issue-note.is-empty{color:var(--text-tertiary);background:transparent;border-color:var(--line-strong)}
 @media(prefers-reduced-motion:reduce){.issue-note.is-empty{transition:none}}
+
+/* Bell panel: unopened RFT issues (v4.47.1) */
+.notif-unseen{margin:4px 0 12px;padding:10px 12px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca}
+.notif-unseen.hidden{display:none !important}
+.notif-unseen-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:#991b1b}
+.notif-unseen-clear{font-size:12px;font-weight:600;color:#b91c1c;text-decoration:underline;text-underline-offset:2px;padding:0;white-space:nowrap}
+.notif-unseen-cats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.notif-unseen-cat{font-size:12px;font-weight:550;padding:4px 9px;border-radius:7px;background:var(--surface);border:1px solid #fecaca;color:var(--text)}
+.notif-unseen-cat b{color:#dc2626;margin-left:2px}
+.notif-unseen-cat:hover{border-color:#f87171}
+.notif-unseen-cat:focus-visible,.notif-unseen-clear:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+[data-theme="dark"] .notif-unseen{background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.35)}
+[data-theme="dark"] .notif-unseen-head{color:#fca5a5}
+[data-theme="dark"] .notif-unseen-clear{color:#fca5a5}
+[data-theme="dark"] .notif-unseen-cat{border-color:rgba(220,38,38,.35)}

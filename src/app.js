@@ -60,6 +60,7 @@ import { openTesterCategory } from './features/tester/categories.js';
 import {
   checkTesterNotifications,
   closeNotifPanel,
+  markAllRftSeen,
   isTelegramRftEnabled,
   markNotifSeen,
   positionNotifPanel,
@@ -186,7 +187,7 @@ function exposeAppGlobals(){
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount, continueAsGuest,
     joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
-    toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel, positionNotifPanel,
+    toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel, positionNotifPanel, markAllRftSeen,
     // Plan cards
     togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, installPwaApp, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
     // Summaries

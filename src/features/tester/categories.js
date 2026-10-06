@@ -232,6 +232,7 @@ function updateNewIssueIndicators(){
 }
 
 export {
+  markCategoryIssuesSeen,
   countNewByCategory,
   getCachedRftStatusId,
   getIssueProjectKey,
