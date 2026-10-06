@@ -134,7 +134,18 @@ export default async function handler(req, res) {
         id: cf.id, name: cf.name, multiple: !!cf.multiple, values: [...cf.values].sort((a, b) => a.localeCompare(b))
       }));
 
+      // Redmine text formatting (Textile vs Markdown) isn't exposed to non-admins:
+      // guess it from recent descriptions so inline images use the right syntax.
+      let md = 0, tx = 0;
+      ((sample && sample.issues) || []).forEach(i => {
+        const d = String(i.description || '');
+        md += (d.match(/^#{1,4}\s|\*\*[^*\n]+\*\*|!\[[^\]]*\]\([^)]+\)|^\s*[-*]\s|```/gm) || []).length;
+        tx += (d.match(/^h[1-6]\.\s|^bq\.\s|!(?!\[)[^\s!]+\.(png|jpe?g|gif|webp)!|^\s*#\s|<pre>/gim) || []).length;
+      });
+      const textFormat = md === 0 && tx === 0 ? 'unknown' : (tx > md ? 'textile' : 'markdown');
+
       return res.status(200).json({
+        textFormat,
         trackers, priorities, categories: categories || [], customFields, statuses, assignees,
         project: proj ? { id: proj.id, name: proj.name } : null
       });

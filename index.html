@@ -1103,17 +1103,52 @@
             <div class="field-hint">Used only to build the description — not sent as a separate field.</div>
           </div>
           <div class="field">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-              <label style="margin:0">Description <span class="req">*</span></label>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="generateIssueDescription()">✨ Generate description</button>
+            <div class="ci-desc-head">
+              <label for="ciDescription" style="margin:0">Description <span class="req">*</span></label>
+              <div class="ci-desc-head-right">
+                <label class="ci-format" title="How your Redmine formats text. Detected from recent issues; change it if images or headings look wrong in Redmine.">
+                  Redmine format
+                  <select id="ciTextFormat">
+                    <option value="markdown">Markdown</option>
+                    <option value="textile">Textile</option>
+                  </select>
+                </label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="generateIssueDescription()">✨ Generate description</button>
+              </div>
             </div>
-            <textarea class="input" id="ciDescription" rows="14" required placeholder="Full Redmine description…"></textarea>
+            <div class="kb-compose ci-compose">
+              <div class="kb-compose-bar">
+                <div class="kb-md-tools" id="ciMdTools" role="toolbar" aria-label="Formatting">
+                  <span class="kb-tool-group">
+                    <button type="button" data-ci-md="h" title="Section heading">Heading</button>
+                    <button type="button" data-ci-md="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                  </span>
+                  <span class="kb-tool-group">
+                    <button type="button" data-ci-md="ol" title="Numbered steps">1. Steps</button>
+                    <button type="button" data-ci-md="ul" title="Bullet list">• List</button>
+                    <button type="button" data-ci-md="path" title="Menu path, e.g. Purchase > Purchase Order">Menu ›</button>
+                  </span>
+                  <button type="button" data-ci-md="image" title="Insert screenshot in the description" class="kb-tool-img">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+                    Screenshot
+                  </button>
+                </div>
+                <div class="kb-tabs" role="tablist" aria-label="Description view">
+                  <button type="button" role="tab" data-ci-tab="write" class="is-active" aria-selected="true">Write</button>
+                  <button type="button" role="tab" data-ci-tab="preview" aria-selected="false">Preview</button>
+                </div>
+              </div>
+              <textarea class="kb-textarea ci-desc" id="ciDescription" rows="14" required placeholder="Describe the issue. Paste screenshots here with Ctrl+V; they appear where the cursor is."></textarea>
+              <div class="kb-preview md-body kb-md ci-preview hidden" id="ciPreview" aria-label="Preview"></div>
+              <p class="kb-compose-foot">Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd>: it goes into the description at the cursor (under the step you're on) and is uploaded with the issue.</p>
+            </div>
+            <input type="file" id="ciInlineImg" accept="image/*" multiple hidden>
           </div>
           <div class="field">
-            <label for="ciFiles">Attachments <span class="ci-optional">images or files, max 3 MB each</span></label>
+            <label for="ciFiles">Attachments <span class="ci-optional">files not shown in the description, max 3 MB each</span></label>
             <div class="ci-drop" id="ciDrop" tabindex="0" role="button" aria-label="Add attachments: click, drop files, or paste a screenshot">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
-              <span><b>Click to add</b>, drop files here, or paste a screenshot (Ctrl+V)</span>
+              <span><b>Click to add</b> or drop files here</span>
             </div>
             <input type="file" id="ciFiles" multiple hidden accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc,.txt,.zip">
             <div class="ci-files" id="ciFileList"></div>
@@ -1372,6 +1407,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.48.1</span>
+                <span class="cl-note">New Issue: screenshots inside the description (paste at the cursor, preview), editor toolbar like the Knowledge Base, Markdown/Textile for Redmine</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.48.0</span>
                 <span class="cl-note">New Issue: Assignee (developers first), Status, simplified Issue details (Status, Priority, Assignee, Category, Project Name, Client Name), and attachments with screenshot paste</span>
@@ -2222,7 +2261,8 @@
                 <li>Type the subject, fill the description (you can generate it), then submit.</li>
               </ol>
               <p>The issue is created on the selected project using the configured Redmine API key.</p>
-              <p>The <b>Issue details</b> box holds the fields filled on most issues: <b>Status</b> and <b>Priority</b> (required, default New / Normal), <b>Assignee</b> (developers listed first), <b>Category</b>, <b>Project Name</b> (required) and <b>Client Name</b>. Other Redmine fields are under <i>More Redmine fields</i>. Add screenshots under <b>Attachments</b>: click, drop files, or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere in the form (max 3 MB per file; large images are shrunk automatically).</p>
+              <p>The <b>Issue details</b> box holds the fields filled on most issues: <b>Status</b> and <b>Priority</b> (required, default New / Normal), <b>Assignee</b> (developers listed first), <b>Category</b>, <b>Project Name</b> (required) and <b>Client Name</b>. Other Redmine fields are under <i>More Redmine fields</i>. Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd> <b>inside the Description</b> (or use the <b>Screenshot</b> button) to put it right where the cursor is, e.g. under step 1; check it in the <b>Preview</b> tab. Files that shouldn't appear in the text go under <b>Attachments</b>. Max 3 MB per file; large images are shrunk automatically.</p>
+              <p>The description is written in Markdown, like the Knowledge Base. If your Redmine uses Textile, choose it under <b>Redmine format</b> (it's detected automatically) and the text and images are converted when the issue is sent.</p>
             </article>
 
             <article class="docs-sec" id="docs-kb" data-keywords="edit menus structure module submenu menu client customer knowledge base guide how-to screenshot markdown">

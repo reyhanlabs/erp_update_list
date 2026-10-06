@@ -3205,3 +3205,17 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .ci-file-del:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 @media(max-width:900px){.ci-details-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.ci-details-grid{grid-template-columns:1fr}}
+
+/* New Issue: description editor with inline screenshots (v4.48.1) */
+.ci-desc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.ci-desc-head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ci-format{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-tertiary);margin:0}
+.ci-format select{height:30px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--text);font-size:12.5px;padding:0 6px}
+.ci-compose .kb-textarea{height:auto;min-height:320px}
+.ci-compose .ci-preview{height:auto;min-height:320px;max-height:640px}
+.ci-compose .hidden{display:none !important}
+.ci-file-text{flex:1;min-width:0;display:flex;flex-direction:column}
+.ci-file.is-inline{border-color:var(--brand-ring);background:var(--brand-soft)}
+.ci-file-ins{font-size:11.5px;font-weight:600;color:var(--brand);padding:3px 7px;border-radius:6px;border:1px solid var(--brand-ring);background:var(--surface)}
+.ci-file-ins:hover{background:var(--brand-soft)}
+.ci-file-ins:focus-visible{outline:2px solid var(--brand);outline-offset:1px}

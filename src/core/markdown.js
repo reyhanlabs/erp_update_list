@@ -36,8 +36,19 @@ function inline(raw){
   return s;
 }
 
+/* Optional per-call resolver for images that are local files (New Issue
+ * preview: "![](screenshot-1.png)" → blob: URL of the not-yet-uploaded file). */
+let currentResolver = null;
+
 function imageTag(alt, src){
   const cap = alt ? `<figcaption>${esc(alt)}</figcaption>` : '';
+  if(currentResolver && !/^kbimg:/.test(src) && !SAFE_URL.test(src)){
+    const url = currentResolver(src);
+    if(url && /^blob:/.test(url)){
+      return `<figure class="md-figure"><img src="${esc(url)}" alt="${esc(alt)}">${cap}</figure>`;
+    }
+    return `<figure class="md-figure md-figure-missing"><img alt="${esc(alt)}">${cap}</figure>`;
+  }
   if(/^kbimg:[A-Za-z0-9_-]+$/.test(src)){
     const id = src.slice(6);
     return `<figure class="md-figure"><img data-kbimg="${esc(id)}" alt="${esc(alt)}" loading="lazy">${cap}</figure>`;
@@ -52,7 +63,12 @@ function splitRow(line){
   return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
 }
 
-export function renderMarkdown(src){
+export function renderMarkdown(src, opts = {}){
+  currentResolver = typeof opts.resolveImage === 'function' ? opts.resolveImage : null;
+  try { return renderMarkdownInner(src); } finally { currentResolver = null; }
+}
+
+function renderMarkdownInner(src){
   const lines = String(src || '').replace(/\r\n?/g, '\n').split('\n');
   const out = [];
   let i = 0;

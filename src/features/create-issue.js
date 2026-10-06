@@ -6,6 +6,7 @@ import { apiFetch } from '../api.js';
 import { RedmineState } from '../core/state.js';
 import { $, classifyIssueKind, escapeHtml, toast } from '../core/helpers.js';
 import { switchView } from '../ui/navigation.js';
+import { renderMarkdown } from '../core/markdown.js';
 import { loadRedmineProjects } from '../redmine/projects.js';
 
 /* ============================================================
@@ -78,8 +79,10 @@ async function loadCreateIssueMeta(projectId){
       categories: data.categories || [],
       customFields: data.customFields || [],
       statuses: data.statuses || [],
-      assignees: data.assignees || []
+      assignees: data.assignees || [],
+      textFormat: data.textFormat || 'unknown'
     };
+    applyTextFormat();
     fillCreateIssueSelects();
     renderCustomFields();
   } catch(err){
@@ -215,7 +218,19 @@ async function shrinkImage(file){
   return file;
 }
 
-async function addCiFiles(list){
+function uniqueName(name){
+  const taken = new Set(ciFiles.map(f => f.name.toLowerCase()));
+  if(!taken.has(name.toLowerCase())) return name;
+  const m = name.match(/^(.*?)(\.[^.]+)?$/);
+  for(let i = 2; i < 100; i++){
+    const n = `${m[1]}-${i}${m[2] || ''}`;
+    if(!taken.has(n.toLowerCase())) return n;
+  }
+  return `${Date.now()}-${name}`;
+}
+
+async function addCiFiles(list, { inline = false } = {}){
+  const added = [];
   for(const raw of list){
     if(ciFiles.length >= MAX_FILES){ toast(`Up to ${MAX_FILES} attachments`, 'error'); break; }
     let file = raw;
@@ -226,15 +241,30 @@ async function addCiFiles(list){
     }
     file = await shrinkImage(file);
     if(file.size > MAX_FILE){ toast(`${file.name} is larger than 3 MB`, 'error'); continue; }
-    ciFiles.push({ id: Math.random().toString(36).slice(2), file, name: file.name, size: file.size,
-      url: /^image\//.test(file.type) ? URL.createObjectURL(file) : '' });
+    // Redmine links inline images by file name, so names must be unique and URL-safe
+    const safe = uniqueName(file.name.replace(/[^\w.\-]+/g, '_'));
+    if(safe !== file.name) file = new File([file], safe, { type: file.type });
+    const entry = { id: Math.random().toString(36).slice(2), file, name: file.name, size: file.size, inline,
+      url: /^image\//.test(file.type) ? URL.createObjectURL(file) : '' };
+    ciFiles.push(entry);
+    added.push(entry);
   }
   renderCiFiles();
+  return added;
 }
 
 function removeCiFile(id){
   const f = ciFiles.find(x => x.id === id);
   if(f && f.url) URL.revokeObjectURL(f.url);
+  // drop its image line(s) from the description too
+  if(f){
+    const ta = $('ciDescription');
+    if(ta){
+      const esc = f.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      ta.value = ta.value.replace(new RegExp(`^[ \\t]*!\\[[^\\]]*\\]\\(${esc}\\)[ \\t]*\\n?`, 'gm'), '');
+      refreshCiPreview();
+    }
+  }
   ciFiles = ciFiles.filter(x => x.id !== id);
   renderCiFiles();
 }
@@ -248,12 +278,19 @@ function clearCiFiles(){
 function renderCiFiles(){
   const box = $('ciFileList');
   if(!box) return;
-  box.innerHTML = ciFiles.map(f => `<div class="ci-file">
+  const desc = $('ciDescription')?.value || '';
+  box.innerHTML = ciFiles.map(f => {
+    const inDesc = desc.includes(`](${f.name})`);
+    return `<div class="ci-file${inDesc ? ' is-inline' : ''}">
       ${f.url ? `<img src="${f.url}" alt="">` : '<span class="ci-file-icon" aria-hidden="true">📄</span>'}
-      <span class="ci-file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
-      <span class="ci-file-size">${fmtSize(f.size)}</span>
+      <span class="ci-file-text">
+        <span class="ci-file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+        <span class="ci-file-size">${inDesc ? 'In description · ' : ''}${fmtSize(f.size)}</span>
+      </span>
+      ${f.url && !inDesc ? `<button type="button" class="ci-file-ins" data-ins="${f.id}" title="Insert into the description at the cursor">Insert</button>` : ''}
       <button type="button" class="ci-file-del" data-del="${f.id}" aria-label="Remove ${escapeHtml(f.name)}">×</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function fileToBase64(file){
@@ -294,12 +331,163 @@ function wireCreateIssueForm(){
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('is-over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, () => drop.classList.remove('is-over')));
   drop.addEventListener('drop', (e) => { e.preventDefault(); addCiFiles([...(e.dataTransfer?.files || [])]); });
-  // paste a screenshot anywhere in the form
-  form.addEventListener('paste', (e) => {
+  // Screenshots pasted into the description go INTO the description (at the cursor);
+  // pasted anywhere else in the form they become plain attachments.
+  form.addEventListener('paste', async (e) => {
     const files = [...(e.clipboardData?.files || [])].filter(f => /^image\//.test(f.type));
-    if(files.length){ e.preventDefault(); addCiFiles(files); toast(`${files.length} screenshot${files.length > 1 ? 's' : ''} attached`); }
+    if(!files.length) return;
+    e.preventDefault();
+    if(e.target && e.target.id === 'ciDescription'){
+      const added = await addCiFiles(files, { inline: true });
+      added.forEach(f => insertImageRef(f.name));
+      if(added.length) toast(`${added.length} screenshot${added.length > 1 ? 's' : ''} added to the description`);
+    } else {
+      const added = await addCiFiles(files);
+      if(added.length) toast(`${added.length} screenshot${added.length > 1 ? 's' : ''} attached`);
+    }
   });
-  list?.addEventListener('click', (e) => { const b = e.target.closest('[data-del]'); if(b) removeCiFile(b.dataset.del); });
+  list?.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-del]'); if(del) return removeCiFile(del.dataset.del);
+    const ins = e.target.closest('[data-ins]');
+    if(ins){ const f = ciFiles.find(x => x.id === ins.dataset.ins); if(f){ f.inline = true; insertImageRef(f.name); } }
+  });
+
+  // description editor (same model as the Knowledge Base editor)
+  const ta = $('ciDescription');
+  const inlineInput = $('ciInlineImg');
+  $('ciMdTools')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ci-md]');
+    if(!b) return;
+    e.preventDefault();
+    const k = b.dataset.ciMd;
+    if(k === 'image') return inlineInput?.click();
+    if(k === 'bold') return mdSurround('**', '**', 'bold text');
+    if(k === 'path') return mdSurround('**', '**', 'Purchase > Purchase Order');
+    if(k === 'h') return mdPrefixLines(() => '## ');
+    if(k === 'ul') return mdPrefixLines(() => '- ');
+    if(k === 'ol') return mdPrefixLines(i => `${i + 1}. `);
+  });
+  inlineInput?.addEventListener('change', async () => {
+    const added = await addCiFiles([...inlineInput.files], { inline: true });
+    added.forEach(f => insertImageRef(f.name));
+    inlineInput.value = '';
+  });
+  ta?.addEventListener('keydown', (e) => {
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b'){ e.preventDefault(); mdSurround('**', '**', 'bold text'); }
+  });
+  ta?.addEventListener('input', () => { renderCiFiles(); });
+  ta?.addEventListener('dragover', (e) => { if(e.dataTransfer?.types?.includes('Files')){ e.preventDefault(); ta.classList.add('is-drop'); } });
+  ta?.addEventListener('dragleave', () => ta.classList.remove('is-drop'));
+  ta?.addEventListener('drop', async (e) => {
+    ta.classList.remove('is-drop');
+    const files = [...(e.dataTransfer?.files || [])].filter(f => /^image\//.test(f.type));
+    if(!files.length) return;
+    e.preventDefault();
+    const added = await addCiFiles(files, { inline: true });
+    added.forEach(f => insertImageRef(f.name));
+  });
+  document.querySelectorAll('[data-ci-tab]').forEach(b => b.addEventListener('click', () => setCiTab(b.dataset.ciTab)));
+  $('ciTextFormat')?.addEventListener('change', (e) => {
+    try { localStorage.setItem(CI_FORMAT_KEY, e.target.value); } catch(_){}
+  });
+}
+
+/* ---- description editor helpers ---- */
+const CI_FORMAT_KEY = 'erp_ci_text_format';
+
+function applyTextFormat(){
+  const sel = $('ciTextFormat');
+  if(!sel) return;
+  let saved = '';
+  try { saved = localStorage.getItem(CI_FORMAT_KEY) || ''; } catch(_){}
+  const detected = window.__ciMeta?.textFormat;
+  sel.value = saved || (detected === 'textile' ? 'textile' : 'markdown');
+}
+
+function mdSurround(before, after, placeholder){
+  const ta = $('ciDescription'); if(!ta) return;
+  const { selectionStart: a, selectionEnd: b, value } = ta;
+  const sel = value.slice(a, b) || placeholder;
+  ta.setRangeText(before + sel + after, a, b, 'end');
+  ta.selectionStart = a + before.length; ta.selectionEnd = a + before.length + sel.length;
+  ta.focus(); refreshCiPreview();
+}
+
+function mdPrefixLines(prefixFn){
+  const ta = $('ciDescription'); if(!ta) return;
+  const { value } = ta;
+  const a = value.lastIndexOf('\n', ta.selectionStart - 1) + 1;
+  let b = value.indexOf('\n', ta.selectionEnd); if(b === -1) b = value.length;
+  const out = value.slice(a, b).split('\n').map((l, i) => prefixFn(i) + l.replace(/^(#{1,4}|\d+[.)]|[-*])\s+/, '')).join('\n');
+  ta.setRangeText(out, a, b, 'end'); ta.focus(); refreshCiPreview();
+}
+
+/* Insert "![name](name)" at the cursor; on a numbered step it goes indented
+ * under that step so Redmine shows it inside the step. */
+function insertImageRef(name){
+  const ta = $('ciDescription'); if(!ta) return;
+  const md = `![${name.replace(/\.[^.]+$/, '')}](${name})`;
+  const { value, selectionStart: pos } = ta;
+  const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+  let lineEnd = value.indexOf('\n', pos); if(lineEnd === -1) lineEnd = value.length;
+  const line = value.slice(lineStart, lineEnd);
+  if(/^\s*\d+[.)]\s+/.test(line) || /^\s{2,}\S/.test(line)){
+    ta.setRangeText(`\n   ${md}`, lineEnd, lineEnd, 'end');
+  } else if(!line.trim()){
+    ta.setRangeText(md, pos, pos, 'end');
+  } else {
+    ta.setRangeText(`\n${md}\n`, lineEnd, lineEnd, 'end');
+  }
+  ta.focus();
+  renderCiFiles();
+  refreshCiPreview();
+}
+
+function setCiTab(tab){
+  document.querySelectorAll('[data-ci-tab]').forEach(b => {
+    const on = b.dataset.ciTab === tab;
+    b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  $('ciDescription')?.classList.toggle('hidden', tab === 'preview');
+  $('ciPreview')?.classList.toggle('hidden', tab !== 'preview');
+  $('ciMdTools')?.classList.toggle('is-disabled', tab === 'preview');
+  refreshCiPreview();
+}
+
+function refreshCiPreview(){
+  const prev = $('ciPreview');
+  if(!prev || prev.classList.contains('hidden')) return;
+  const byName = new Map(ciFiles.map(f => [f.name, f.url]));
+  prev.innerHTML = renderMarkdown($('ciDescription')?.value || '', { resolveImage: (n) => byName.get(n) || '' })
+    || '<p class="kb-muted">Nothing written yet.</p>';
+}
+
+/* Redmine with Textile formatting: convert the Markdown written here. */
+function markdownToTextile(md){
+  const lines = String(md || '').replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  const inlineConv = (t) => t
+    .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_, alt, src) => `!${src}${alt ? `(${alt})` : ''}!`)
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '"$1":$2')
+    .replace(/\*\*([^*]+)\*\*/g, '*$1*')
+    .replace(/`([^`]+)`/g, '@$1@');
+  let inCode = false;
+  for(const raw of lines){
+    if(/^\s*```/.test(raw)){ out.push(inCode ? '</pre>' : '<pre>'); inCode = !inCode; continue; }
+    if(inCode){ out.push(raw); continue; }
+    let l = raw;
+    // image line under a list item → join it to that item (Textile has no nested blocks)
+    const img = l.match(/^\s{2,}(!\[[^\]]*\]\([^)]+\))\s*$/);
+    if(img && out.length && /^(#|\*) /.test(out[out.length - 1])){ out[out.length - 1] += ' ' + inlineConv(img[1]); continue; }
+    if(/^\s*\|?\s*:?-{2,}/.test(l) && l.includes('-') && /\|/.test(l)) continue;           // table separator
+    const h = l.match(/^(#{1,4})\s+(.*)$/);
+    if(h){ out.push(`h${Math.max(2, h[1].length)}. ${inlineConv(h[2])}`); continue; }
+    if(/^>\s?/.test(l)){ out.push('bq. ' + inlineConv(l.replace(/^>\s?/, ''))); continue; }
+    if(/^\s*\d+[.)]\s+/.test(l)){ out.push('# ' + inlineConv(l.replace(/^\s*\d+[.)]\s+/, ''))); continue; }
+    if(/^\s*[-*]\s+/.test(l)){ out.push('* ' + inlineConv(l.replace(/^\s*[-*]\s+/, ''))); continue; }
+    out.push(inlineConv(l));
+  }
+  return out.join('\n');
 }
 
 function showCreateResult(kind, html){
@@ -377,7 +565,12 @@ function generateIssueDescription(){
     desc += `\n## Out of Scope\n- (optional)\n`;
   }
 
+  // keep screenshots that were already pasted into the description
+  const prevImgs = (($('ciDescription')?.value || '').match(/^[ \t]*!\[[^\]]*\]\([^)]+\)[ \t]*$/gm) || []).map(l => l.trim());
+  if(prevImgs.length) desc = desc.trim() + '\n\n## Screenshots\n' + prevImgs.join('\n') + '\n';
   if($('ciDescription')) $('ciDescription').value = desc.trim() + '\n';
+  refreshCiPreview();
+  renderCiFiles();
   toast('Description generated — edit as needed');
 }
 
@@ -387,6 +580,7 @@ function resetCreateIssueForm(){
   if(box){ box.style.display = 'none'; box.innerHTML = ''; }
   document.querySelectorAll('#createIssueForm [data-cf-id]').forEach(el => { el.value = ''; el.classList.remove('is-invalid'); });
   clearCiFiles();
+  setCiTab('write');
   fillCreateIssueSelects();
 }
 
@@ -400,7 +594,8 @@ async function submitCreateIssue(e){
   const project_id = (projectEl?.value || '').trim();
   const tracker_id = (trackerEl?.value || '').trim();
   const subject = ($('ciSubject')?.value || '').trim();
-  const description = ($('ciDescription')?.value || '').trim();
+  const descriptionMd = ($('ciDescription')?.value || '').trim();
+  const description = ($('ciTextFormat')?.value === 'textile') ? markdownToTextile(descriptionMd) : descriptionMd;
 
   if(!project_id){
     toast('Please select a Project first', 'error');
