@@ -1058,21 +1058,41 @@
               </select>
             </div>
           </div>
-          <div class="form-row">
-            <div class="field">
-              <label>Priority</label>
-              <select class="input select" id="ciPriority">
-                <option value="">— Default —</option>
-              </select>
+          <section class="ci-details" aria-labelledby="ciDetailsTitle">
+            <h4 class="ci-details-title" id="ciDetailsTitle">Issue details</h4>
+            <div class="ci-details-grid">
+              <div class="field">
+                <label for="ciStatus">Status <span class="req">*</span></label>
+                <select class="input select" id="ciStatus" required><option value="">Loading…</option></select>
+              </div>
+              <div class="field">
+                <label for="ciPriority">Priority <span class="req">*</span></label>
+                <select class="input select" id="ciPriority" required><option value="">Loading…</option></select>
+              </div>
+              <div class="field">
+                <label for="ciAssignee">Assignee</label>
+                <select class="input select" id="ciAssignee"><option value="">Unassigned</option></select>
+              </div>
+              <div class="field">
+                <label for="ciCategory">Category</label>
+                <select class="input select" id="ciCategory"><option value="">None</option></select>
+              </div>
+              <div class="field" id="ciProjectNameField">
+                <label for="ciProjectName">Project Name <span class="req">*</span></label>
+                <input class="input" id="ciProjectName" list="ciProjectNameList" autocomplete="off" placeholder="Type or pick a project name">
+                <datalist id="ciProjectNameList"></datalist>
+              </div>
+              <div class="field" id="ciClientNameField">
+                <label for="ciClientName">Client Name</label>
+                <input class="input" id="ciClientName" list="ciClientNameList" autocomplete="off" placeholder="Type or pick a client">
+                <datalist id="ciClientNameList"></datalist>
+              </div>
             </div>
-            <div class="field">
-              <label>Category</label>
-              <select class="input select" id="ciCategory">
-                <option value="">— Optional —</option>
-              </select>
-            </div>
-          </div>
-          <div class="ci-custom hidden" id="ciCustomFields" aria-live="polite"></div>
+            <details class="ci-more hidden" id="ciMoreFields">
+              <summary>More Redmine fields <span id="ciMoreCount"></span></summary>
+              <div class="ci-custom-grid" id="ciCustomFields"></div>
+            </details>
+          </section>
           <div class="field">
             <label>Subject <span class="req">*</span></label>
             <input class="input" type="text" id="ciSubject" required placeholder="e.g. FE - Error when saving Purchase Order" maxlength="255"/>
@@ -1088,6 +1108,15 @@
               <button type="button" class="btn btn-secondary btn-sm" onclick="generateIssueDescription()">✨ Generate description</button>
             </div>
             <textarea class="input" id="ciDescription" rows="14" required placeholder="Full Redmine description…"></textarea>
+          </div>
+          <div class="field">
+            <label for="ciFiles">Attachments <span class="ci-optional">images or files, max 3 MB each</span></label>
+            <div class="ci-drop" id="ciDrop" tabindex="0" role="button" aria-label="Add attachments: click, drop files, or paste a screenshot">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+              <span><b>Click to add</b>, drop files here, or paste a screenshot (Ctrl+V)</span>
+            </div>
+            <input type="file" id="ciFiles" multiple hidden accept="image/*,.pdf,.xlsx,.xls,.csv,.docx,.doc,.txt,.zip">
+            <div class="ci-files" id="ciFileList"></div>
           </div>
           <div id="ciResult" style="display:none" class="sync-status-box" role="status"></div>
           <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
@@ -1343,6 +1372,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.48.0</span>
+                <span class="cl-note">New Issue: Assignee (developers first), Status, simplified Issue details (Status, Priority, Assignee, Category, Project Name, Client Name), and attachments with screenshot paste</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.47.2</span>
                 <span class="cl-note">New Issue fixed: form loads after reload, only trackers enabled for the project are offered, Redmine custom fields (e.g. Client Name) can be filled in, and Redmine's exact error is shown in the form</span>
@@ -2189,6 +2222,7 @@
                 <li>Type the subject, fill the description (you can generate it), then submit.</li>
               </ol>
               <p>The issue is created on the selected project using the configured Redmine API key.</p>
+              <p>The <b>Issue details</b> box holds the fields filled on most issues: <b>Status</b> and <b>Priority</b> (required, default New / Normal), <b>Assignee</b> (developers listed first), <b>Category</b>, <b>Project Name</b> (required) and <b>Client Name</b>. Other Redmine fields are under <i>More Redmine fields</i>. Add screenshots under <b>Attachments</b>: click, drop files, or paste with <kbd>Ctrl</kbd>+<kbd>V</kbd> anywhere in the form (max 3 MB per file; large images are shrunk automatically).</p>
             </article>
 
             <article class="docs-sec" id="docs-kb" data-keywords="edit menus structure module submenu menu client customer knowledge base guide how-to screenshot markdown">

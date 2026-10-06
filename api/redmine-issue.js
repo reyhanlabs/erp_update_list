@@ -2,7 +2,9 @@
  * Redmine issue create + metadata
  * GET  ?meta=1&project_id=75  → trackers, priorities, categories
  * POST body { project_id, subject, description, tracker_id, priority_id, category_id,
- *             custom_fields?: [{ id, value }] }
+ *             status_id?, assigned_to_id?, custom_fields?: [{ id, value }],
+ *             uploads?: [{ token, filename, content_type }] }
+ * POST body { action: 'upload', filename, content_type, data (base64) } → { token }
  * GET returns trackers enabled for the project, priorities, categories, and the
  * project's issue custom fields (with values seen on recent issues).
  * Env: REDMINE_API_KEY
@@ -29,6 +31,20 @@ async function readBody(req) {
   }
   // Some runtimes leave body as stream / empty — try raw if available
   return {};
+}
+
+async function fetchMemberships(apiKey, pid) {
+  const out = [];
+  for (let offset = 0; offset < 500; offset += 100) {
+    try {
+      const r = await fetch(`${REDMINE_BASE}/projects/${pid}/memberships.json?limit=100&offset=${offset}`, { headers: headers(apiKey) });
+      if (!r.ok) break;
+      const d = await r.json();
+      out.push(...(d.memberships || []));
+      if (!d.total_count || out.length >= d.total_count) break;
+    } catch (_) { break; }
+  }
+  return out;
 }
 
 export default async function handler(req, res) {
@@ -61,14 +77,31 @@ export default async function handler(req, res) {
         } catch (_) { return null; }
       };
 
-      const [project, allTrackers, prioritiesData, sample] = await Promise.all([
+      const [project, allTrackers, prioritiesData, sample, statusesData, members] = await Promise.all([
         // trackers + categories + custom fields ENABLED FOR THIS PROJECT
         projectId ? getJson(`/projects/${pid}.json?include=trackers,issue_categories,issue_custom_fields`) : null,
         getJson('/trackers.json'),
         getJson('/enumerations/issue_priorities.json'),
         // recent issues: custom fields in use (+ their values) when the include above isn't supported
-        projectId ? getJson(`/issues.json?project_id=${pid}&status_id=*&limit=50&sort=updated_on:desc`) : null
+        projectId ? getJson(`/issues.json?project_id=${pid}&status_id=*&limit=50&sort=updated_on:desc`) : null,
+        getJson('/issue_statuses.json'),
+        projectId ? fetchMemberships(apiKey, pid) : []
       ]);
+      const statuses = ((statusesData && statusesData.issue_statuses) || []).filter(st => !st.is_closed || /resolved/i.test(st.name));
+      // Assignees: project members; developers first (role name contains dev / programmer / engineer)
+      const DEV_RE = /dev|program|engineer|coder|backend|frontend|front end|back end/i;
+      const byId = new Map();
+      members.forEach(m => {
+        const who = m.user || m.group;
+        if (!who || !who.id) return;
+        const roles = (m.roles || []).map(r => r.name);
+        const prev = byId.get(who.id) || { id: who.id, name: who.name, group: !!m.group, roles: [] };
+        prev.roles = [...new Set([...prev.roles, ...roles])];
+        byId.set(who.id, prev);
+      });
+      const assignees = [...byId.values()]
+        .map(a => ({ ...a, developer: a.roles.some(r => DEV_RE.test(r)) }))
+        .sort((a, b) => (b.developer - a.developer) || a.name.localeCompare(b.name));
 
       const proj = project && project.project ? project.project : null;
       // Using the global tracker list let users pick trackers the project doesn't
@@ -102,13 +135,39 @@ export default async function handler(req, res) {
       }));
 
       return res.status(200).json({
-        trackers, priorities, categories: categories || [], customFields,
+        trackers, priorities, categories: categories || [], customFields, statuses, assignees,
         project: proj ? { id: proj.id, name: proj.name } : null
       });
     }
 
     if (req.method === 'POST') {
       const body = await readBody(req);
+
+      // Attachment upload → Redmine token (sent as base64 JSON to work on every runtime)
+      if (body.action === 'upload') {
+        const filename = String(body.filename || 'attachment').replace(/[\\/:*?"<>|\r\n]+/g, '_').slice(0, 120) || 'attachment';
+        const contentType = String(body.content_type || 'application/octet-stream').slice(0, 100);
+        let buf;
+        try { buf = Buffer.from(String(body.data || ''), 'base64'); } catch (_) { buf = null; }
+        if (!buf || !buf.length) return res.status(400).json({ error: 'Empty file' });
+        if (buf.length > 3 * 1024 * 1024) return res.status(413).json({ error: 'File too large (max 3 MB per file)' });  // base64 must stay under Vercel's 4.5 MB body limit
+        const up = await fetch(`${REDMINE_BASE}/uploads.json?filename=${encodeURIComponent(filename)}`, {
+          method: 'POST',
+          headers: { 'X-Redmine-API-Key': apiKey, 'Content-Type': 'application/octet-stream', Accept: 'application/json', 'User-Agent': 'Zahir-ERP-Update-Manager/1.0' },
+          body: buf
+        });
+        const t = await up.text();
+        let d = {}; try { d = JSON.parse(t); } catch (_) {}
+        if (!up.ok || !d.upload || !d.upload.token) {
+          return res.status(up.status || 502).json({
+            error: `Upload failed (${up.status})`,
+            errors: Array.isArray(d.errors) ? d.errors : [],
+            hint: up.status === 422 ? 'Redmine refused the file (size or type limit in Administration → Settings → Files).' : ''
+          });
+        }
+        return res.status(201).json({ token: d.upload.token, filename, content_type: contentType, size: buf.length });
+      }
+
       const projectRaw = body.project_id ?? body.projectId ?? '';
       const project_id = parseInt(String(projectRaw).trim(), 10);
       const subject = (body.subject || '').trim();
@@ -116,6 +175,8 @@ export default async function handler(req, res) {
       const tracker_id = body.tracker_id ? parseInt(String(body.tracker_id), 10) : null;
       const priority_id = body.priority_id ? parseInt(String(body.priority_id), 10) : null;
       const category_id = body.category_id ? parseInt(String(body.category_id), 10) : null;
+      const status_id = body.status_id ? parseInt(String(body.status_id), 10) : null;
+      const assigned_to_id = body.assigned_to_id ? parseInt(String(body.assigned_to_id), 10) : null;
 
       if (!projectRaw || !Number.isFinite(project_id) || project_id <= 0) {
         return res.status(400).json({
@@ -135,6 +196,15 @@ export default async function handler(req, res) {
       if (Number.isFinite(tracker_id) && tracker_id > 0) issue.tracker_id = tracker_id;
       if (Number.isFinite(priority_id) && priority_id > 0) issue.priority_id = priority_id;
       if (Number.isFinite(category_id) && category_id > 0) issue.category_id = category_id;
+      if (Number.isFinite(status_id) && status_id > 0) issue.status_id = status_id;
+      if (Number.isFinite(assigned_to_id) && assigned_to_id > 0) issue.assigned_to_id = assigned_to_id;
+      if (Array.isArray(body.uploads)) {
+        const ups = body.uploads
+          .filter(u => u && typeof u.token === 'string' && u.token)
+          .slice(0, 10)
+          .map(u => ({ token: u.token, filename: String(u.filename || 'attachment').slice(0, 120), content_type: String(u.content_type || 'application/octet-stream').slice(0, 100) }));
+        if (ups.length) issue.uploads = ups;
+      }
       // custom fields: [{ id, value }] — only non-empty values are sent
       if (Array.isArray(body.custom_fields)) {
         const cfs = body.custom_fields

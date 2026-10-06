@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.47.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.48.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.48.0**: New Issue: Assignee from project memberships (developer roles first), Status from `issue_statuses`, an *Issue details* box (Status*, Priority*, Assignee, Category, Project Name*, Client Name) with other custom fields under *More Redmine fields*, and attachments (click / drop / paste; images over 3 MB shrunk) uploaded via `/uploads.json` tokens.
 - **v4.47.2**: New Issue fixes: (1) form data loads whenever the view opens (reload/direct link left Tracker empty); (2) trackers come from the project (`/projects/{id}.json?include=trackers,...`) instead of the global list; (3) project custom fields (e.g. Client Name) are shown and sent as `custom_fields`, required ones are marked after Redmine reports them; (4) Redmine's errors and a hint per status code are shown in the form.
 - **v4.47.1**: Bell red dot fixed: `.notif-bell-dot.hidden` had no CSS rule, so the dot was always visible. The dot now means "Ready for Testing issues not opened yet", which the panel lists per category with *Mark all as seen*.
 - **v4.47.0**: Private notes on issues (`src/features/issue-notes.js`): a Note chip in every issue list row, optional "Information is missing" flag, "My notes" quick filter, search includes note text. Stored in `users/{uid}.issueNotes` (owner-only by the existing rules) with a localStorage copy; never sent to Redmine or copied.
