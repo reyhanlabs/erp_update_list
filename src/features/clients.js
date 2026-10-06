@@ -222,7 +222,7 @@ async function loadClientOverview(force){
   if(cached && !force){
     window.__clientOverview = cached;
     const nb = $('countClients');
-    if(nb){ const n = cached.clients.filter(c => (c.open || 0) > 0).length; nb.textContent = String(n); nb.dataset.zero = n ? '0' : '1'; }
+    if(nb){ const n = cached.clients.filter(c => sumProducts(c).open > 0).length; nb.textContent = String(n); nb.dataset.zero = n ? '0' : '1'; }
     if(!window.__clientQuery) renderClientIssues();
     if(Date.now() - (cached.at || 0) < OVERVIEW_TTL) return;
   }
@@ -245,7 +245,7 @@ async function loadClientOverview(force){
     window.__clientOverviewError = null;
     // sidebar: number of clients that currently have open issues
     const nb = $('countClients');
-    if(nb){ const n = ov.clients.filter(c => (c.open || 0) > 0).length; nb.textContent = String(n); nb.dataset.zero = n ? '0' : '1'; }
+    if(nb){ const n = ov.clients.filter(c => sumProducts(c).open > 0).length; nb.textContent = String(n); nb.dataset.zero = n ? '0' : '1'; }
   } catch(err){
     console.warn('client overview', err);
     window.__clientOverviewError = err.friendly || { title: 'Could not load clients', message: err.message || 'Load failed' };
@@ -274,10 +274,34 @@ function bucketOf(statusName){
 const PRODUCT_LABEL = (p) => String(p || '').replace(/^Zahir\s+/i, '').replace(/^ERP\s+Manufacturing$/i, 'Manufacturing') || p;   // ERP · ERP One · Manufacturing
 
 /* numbers for one client, optionally for one product only */
+/* Only the three Zahir products count here (v4.52.1): Zahir ERP, Zahir ERP One,
+ * Zahir ERP Manufacturing — matched by the same project list as Issue Status,
+ * with name patterns as a fallback. Issues in other Redmine projects are ignored. */
+const ZAHIR_PRODUCT_RES = [/^zahir\s*erp$/i, /^zahir\s*erp\s*one$/i, /manufactur/i];
+function isZahirProduct(projectName){
+  const n = String(projectName || '').trim();
+  try {
+    const targets = resolveNewIssueProjectIds();
+    if(targets.some(t => t.projectName && t.projectName.toLowerCase() === n.toLowerCase())) return true;
+  } catch(_){}
+  return ZAHIR_PRODUCT_RES.some(re => re.test(n));
+}
+
+function sumProducts(c){
+  const out = { total: 0, open: 0, statuses: {}, updated: '' };
+  Object.entries(c.byProject || {}).forEach(([p, bp]) => {
+    if(!isZahirProduct(p)) return;
+    out.total += bp.total || 0; out.open += bp.open || 0;
+    Object.entries(bp.statuses || {}).forEach(([k, v]) => { out.statuses[k] = (out.statuses[k] || 0) + v; });
+    if(String(bp.updated || '') > out.updated) out.updated = String(bp.updated || '');
+  });
+  return out;
+}
+
 function clientNumbers(c, product){
   const src = product && product !== 'all'
     ? (c.byProject && c.byProject[product]) || null
-    : { total: c.count, open: c.open, statuses: c.statuses || {}, updated: c.updated };
+    : sumProducts(c);
   const out = { total: 0, open: 0, updated: '', new: 0, progress: 0, rft: 0, resolved: 0, other: 0, closed: 0, otherNames: {} };
   if(!src) return out;
   out.total = src.total || 0; out.open = src.open || 0; out.updated = src.updated || '';
@@ -291,13 +315,14 @@ function clientNumbers(c, product){
 
 function clientProducts(){
   const set = new Set();
-  (window.__clientOverview?.clients || []).forEach(c => Object.keys(c.byProject || c.projects || {}).forEach(p => set.add(p)));
+  (window.__clientOverview?.clients || []).forEach(c => Object.keys(c.byProject || {}).forEach(p => { if(isZahirProduct(p)) set.add(p); }));
   const rank = (p) => { const l = PRODUCT_LABEL(p); return l === 'ERP' ? 0 : l === 'ERP One' ? 1 : l === 'Manufacturing' ? 2 : 3; };
   return [...set].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
 function ovUi(){
   const ui = window.__clientOvUi || (window.__clientOvUi = {});
+  if(ui.product && ui.product !== 'all' && !isZahirProduct(ui.product)) ui.product = 'all';
   ui.sort = ui.sort || 'open'; ui.dir = ui.dir || 'desc';
   ui.product = ui.product || 'all'; ui.show = ui.show || 'all';
   return ui;
@@ -353,7 +378,7 @@ function renderClientOverview(el){
   if(!ov){ el.innerHTML = genericLoadingSkeleton('Collecting clients from Redmine…'); return; }
   const ui = ovUi();
   const rows = overviewList();
-  const tb = $('clientsTotalBadge'); if(tb) tb.textContent = String(ov.clients.length);
+  const tb = $('clientsTotalBadge'); if(tb) tb.textContent = String(ov.clients.filter(c => sumProducts(c).total > 0).length);
   const d = new Date(ov.at);
   const upd = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
@@ -379,7 +404,7 @@ function renderClientOverview(el){
 
   const body = rows.map(({ c, n }) => {
     const prods = ui.product === 'all'
-      ? Object.keys(c.byProject || c.projects || {}).map(p => `<span class="cl-prod">${escapeHtml(PRODUCT_LABEL(p))}</span>`).join('')
+      ? Object.keys(c.byProject || {}).filter(isZahirProduct).map(p => `<span class="cl-prod">${escapeHtml(PRODUCT_LABEL(p))}</span>`).join('')
       : '';
     const otherTitle = Object.entries(n.otherNames).map(([k, v]) => `${k}: ${v}`).join(', ');
     return `<button type="button" class="cl-row" data-client="${escapeHtml(c.name)}" onclick="openClientIssues(this.dataset.client)">
@@ -394,7 +419,7 @@ function renderClientOverview(el){
     <div class="cl-filters">
       <div class="cl-seg-group" role="group" aria-label="Product">${prodBtns}</div>
       <select class="input cl-show" onchange="setClientOv('show', this.value)" aria-label="Which clients">${showOpts}</select>
-      <span class="cl-note">${rows.length} of ${ov.clients.length} clients · updated ${upd}${ov.complete ? '' : ` · first ${ov.scanned} of ${ov.total} issues scanned`}</span>
+      <span class="cl-note">${rows.length} of ${ov.clients.filter(c => sumProducts(c).total > 0).length} clients · updated ${upd}${ov.complete ? '' : ` · first ${ov.scanned} of ${ov.total} issues scanned`}</span>
     </div>
     <div class="cl-summary" aria-label="Totals for the clients shown">
       <div class="cl-sum cl-sum-new"><b>${sum.new}</b><span>New</span></div>

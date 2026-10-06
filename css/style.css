@@ -3277,8 +3277,8 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 
 /* By Client overview v2 (v4.52.0): product/status filters, fixed status columns */
 .cl-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 4px 12px}
-.cl-seg-group{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:var(--bg-subtle);border:1px solid var(--line)}
-.cl-seg{height:30px;padding:0 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-secondary);white-space:nowrap}
+.cl-seg-group{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:10px;background:var(--bg-subtle);border:1px solid var(--line);max-width:100%}
+.cl-seg{height:30px;padding:0 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-secondary);white-space:nowrap;flex-shrink:0}
 .cl-seg:hover{color:var(--text)}
 .cl-seg.is-active{background:var(--surface);color:var(--brand);box-shadow:var(--shadow-xs)}
 .cl-seg:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
