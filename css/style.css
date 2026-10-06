@@ -3154,3 +3154,17 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 [data-theme="dark"] .notif-unseen-head{color:#fca5a5}
 [data-theme="dark"] .notif-unseen-clear{color:#fca5a5}
 [data-theme="dark"] .notif-unseen-cat{border-color:rgba(220,38,38,.35)}
+
+/* Create issue: Redmine custom fields + result box (v4.47.2) */
+.ci-custom{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-elev)}
+.ci-custom.hidden{display:none}
+.ci-custom-head{font-size:13px;font-weight:650;color:var(--text);margin-bottom:10px}
+.ci-custom-head span{font-weight:500;color:var(--text-tertiary);margin-left:6px;font-size:12px}
+.ci-custom-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 14px}
+.ci-custom .input.is-invalid{border-color:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.15)}
+.ci-result-error{border-color:#fecaca !important;background:#fef2f2 !important;color:#991b1b}
+.ci-result-error ul{margin:6px 0;padding-left:18px}
+.ci-result-error p{margin:6px 0 0;font-size:12.5px}
+.ci-result-ok{border-color:#bbf7d0 !important;background:#f0fdf4 !important}
+[data-theme="dark"] .ci-result-error{background:rgba(220,38,38,.12) !important;border-color:rgba(220,38,38,.35) !important;color:#fca5a5}
+[data-theme="dark"] .ci-result-ok{background:rgba(22,163,74,.12) !important;border-color:rgba(22,163,74,.35) !important}

@@ -11,11 +11,22 @@ import { loadRedmineProjects } from '../redmine/projects.js';
 /* ============================================================
    CREATE ISSUE → Redmine
    ============================================================ */
-window.__ciMeta = window.__ciMeta || { trackers: [], priorities: [], categories: [] };
+window.__ciMeta = window.__ciMeta || { trackers: [], priorities: [], categories: [], customFields: [] };
+const CI_REQUIRED_KEY = 'erp_ci_required_cf'; // custom field ids Redmine said are required
 
 function openCreateIssueView(){
-  switchView('createissue');
-  ensureCreateIssueMeta();
+  switchView('createissue');   // switchView → onCreateIssueShown() loads the form data
+}
+
+/* Called by switchView('createissue') — also on reload / back / direct link,
+ * which previously left Tracker stuck at "Load after project". */
+let ciMetaLoading = null;
+function onCreateIssueShown(){
+  const hasTrackers = ((window.__ciMeta && window.__ciMeta.trackers) || []).length > 0;
+  if(hasTrackers){ fillCreateIssueSelects(); renderCustomFields(); return; }
+  if(!ciMetaLoading){
+    ciMetaLoading = ensureCreateIssueMeta().finally(() => { ciMetaLoading = null; });
+  }
 }
 
 async function ensureCreateIssueMeta(){
@@ -63,9 +74,11 @@ async function loadCreateIssueMeta(projectId){
     window.__ciMeta = {
       trackers: data.trackers || [],
       priorities: data.priorities || [],
-      categories: data.categories || []
+      categories: data.categories || [],
+      customFields: data.customFields || []
     };
     fillCreateIssueSelects();
+    renderCustomFields();
   } catch(err){
     toast('Failed to load Redmine metadata: ' + (err.message || err), 'error');
   }
@@ -97,6 +110,69 @@ function fillCreateIssueSelects(){
     cat.innerHTML = '<option value="">— Optional —</option>' +
       (meta.categories || []).map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
     if(cur) cat.value = cur;
+  }
+}
+
+/* ---- Redmine custom fields (e.g. Client Name) ----
+ * Missing required custom fields were the usual reason Redmine refused new
+ * issues ("… cannot be blank"). Fields are listed from the project; ones Redmine
+ * reported as required are remembered and marked with *. */
+function requiredCfIds(){
+  try { return new Set(JSON.parse(localStorage.getItem(CI_REQUIRED_KEY) || '[]').map(String)); } catch(_){ return new Set(); }
+}
+function rememberRequiredCf(ids){
+  const set = requiredCfIds();
+  ids.forEach(id => set.add(String(id)));
+  try { localStorage.setItem(CI_REQUIRED_KEY, JSON.stringify([...set])); } catch(_){}
+}
+
+function renderCustomFields(){
+  const box = $('ciCustomFields');
+  if(!box) return;
+  const fields = (window.__ciMeta && window.__ciMeta.customFields) || [];
+  // keep what the user already typed
+  const prev = {};
+  box.querySelectorAll('[data-cf-id]').forEach(el => { prev[el.dataset.cfId] = el.value; });
+  if(!fields.length){ box.innerHTML = ''; box.classList.add('hidden'); return; }
+  const req = requiredCfIds();
+  const sorted = [...fields].sort((a, b) => (req.has(String(b.id)) - req.has(String(a.id))) || a.name.localeCompare(b.name));
+  box.innerHTML = `<div class="ci-custom-head">Redmine fields <span>Fill in the ones your project requires</span></div>
+    <div class="ci-custom-grid">${sorted.map(cf => {
+      const id = String(cf.id);
+      const listId = `ciCfList${id}`;
+      const isReq = req.has(id);
+      return `<div class="field">
+        <label for="ciCf${id}">${escapeHtml(cf.name)}${isReq ? ' <span class="req">*</span>' : ''}</label>
+        <input class="input" id="ciCf${id}" data-cf-id="${id}" data-cf-name="${escapeHtml(cf.name)}" list="${listId}"
+          value="${escapeHtml(prev[id] || '')}" autocomplete="off" placeholder="${cf.values && cf.values.length ? 'Type or pick a value' : 'Optional'}">
+        <datalist id="${listId}">${(cf.values || []).map(v => `<option value="${escapeHtml(v)}"></option>`).join('')}</datalist>
+      </div>`;
+    }).join('')}</div>`;
+  box.classList.remove('hidden');
+}
+
+function collectCustomFields(){
+  const out = [];
+  document.querySelectorAll('#ciCustomFields [data-cf-id]').forEach(el => {
+    const v = (el.value || '').trim();
+    if(v) out.push({ id: Number(el.dataset.cfId), value: v });
+  });
+  return out;
+}
+
+function showCreateResult(kind, html){
+  const box = $('ciResult');
+  if(!box) return;
+  box.style.display = 'block';
+  box.className = `sync-status-box ci-result ci-result-${kind}`;
+  box.innerHTML = `<div class="box-body">${html}</div>`;
+  if(kind === 'error'){
+    // scroll only the content pane (scrollIntoView would also shift the layout)
+    const sc = document.querySelector('.content');
+    if(sc){
+      const r = box.getBoundingClientRect(), cr = sc.getBoundingClientRect();
+      if(r.bottom > cr.bottom || r.top < cr.top) sc.scrollTo({ top: sc.scrollTop + (r.top - cr.top) - 80, behavior: 'smooth' });
+    }
   }
 }
 
@@ -167,6 +243,7 @@ function resetCreateIssueForm(){
   $('createIssueForm')?.reset();
   const box = $('ciResult');
   if(box){ box.style.display = 'none'; box.innerHTML = ''; }
+  document.querySelectorAll('#ciCustomFields [data-cf-id]').forEach(el => { el.value = ''; el.classList.remove('is-invalid'); });
   fillCreateIssueSelects();
 }
 
@@ -210,6 +287,11 @@ async function submitCreateIssue(e){
   const cat = ($('ciCategory')?.value || '').trim();
   if(pr) payload.priority_id = Number(pr);
   if(cat) payload.category_id = Number(cat);
+  const cfs = collectCustomFields();
+  if(cfs.length) payload.custom_fields = cfs;
+  document.querySelectorAll('#ciCustomFields .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+  const resBox = $('ciResult');
+  if(resBox){ resBox.style.display = 'none'; resBox.innerHTML = ''; }
 
   try {
     const r = await apiFetch('/api/redmine-issue', {
@@ -219,23 +301,36 @@ async function submitCreateIssue(e){
     });
     const data = await r.json().catch(() => ({}));
     if(!r.ok){
-      const detail = Array.isArray(data.detail) ? data.detail.join(', ') : (data.detail || data.error || r.status);
-      const hint = data.hint ? ' — ' + data.hint : '';
-      const extra = data.sent ? ` (project_id=${data.sent.project_id})` : '';
-      throw new Error((typeof detail === 'string' ? detail : JSON.stringify(detail)) + extra + hint);
+      const errors = Array.isArray(data.errors) && data.errors.length ? data.errors
+        : (Array.isArray(data.detail) ? data.detail : [String(data.detail || data.error || `HTTP ${r.status}`)]);
+      // "Client Name cannot be blank" → mark that field and remember it as required
+      const inputs = [...document.querySelectorAll('#ciCustomFields [data-cf-id]')];
+      const hitIds = [];
+      errors.forEach(msg => {
+        const m = String(msg).toLowerCase();
+        inputs.forEach(el => {
+          const name = (el.dataset.cfName || '').toLowerCase();
+          if(name && m.startsWith(name)){ el.classList.add('is-invalid'); hitIds.push(el.dataset.cfId); }
+        });
+      });
+      if(hitIds.length){ rememberRequiredCf(hitIds); renderCustomFields(); hitIds.forEach(id => $('ciCf' + id)?.classList.add('is-invalid')); $('ciCf' + hitIds[0])?.focus(); }
+      const missingField = !hitIds.length && errors.some(e => /cannot be blank|tidak boleh kosong|harus diisi/i.test(e));
+      showCreateResult('error', `<b>${escapeHtml(data.error || 'Redmine refused the issue')}</b>
+        <ul>${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}</ul>
+        ${data.hint ? `<p>${escapeHtml(data.hint)}</p>` : ''}
+        ${missingField ? '<p>This field is not in the list above. Ask a Redmine admin which custom fields are required for this tracker.</p>' : ''}`);
+      const err = new Error(errors.join('; '));
+      err.shown = true;
+      throw err;
     }
     const url = data.url || (data.id ? `https://pjm.zahironline.com/issues/${data.id}` : '');
-    const box = $('ciResult');
-    if(box){
-      box.style.display = 'block';
-      box.className = 'sync-status-box';
-      box.innerHTML = `<div class="box-body"><b>Created #${data.id}</b><br>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>` : ''}</div>`;
-    }
+    showCreateResult('ok', `<b>Created #${data.id}</b><br>${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>` : ''}`);
     toast(`Issue #${data.id} created on Redmine`);
     if($('ciSubject')) $('ciSubject').value = '';
     if($('ciNotes')) $('ciNotes').value = '';
     if($('ciDescription')) $('ciDescription').value = '';
   } catch(err){
+    if(!err.shown) showCreateResult('error', `<b>Could not create the issue</b><p>${escapeHtml(err.message || String(err))}</p>`);
     toast('Create failed: ' + (err.message || err), 'error');
   } finally {
     if(btn) btn.disabled = false;
@@ -243,6 +338,7 @@ async function submitCreateIssue(e){
 }
 
 export {
+  onCreateIssueShown,
   generateIssueDescription,
   onCreateIssueProjectChange,
   openCreateIssueView,

@@ -1072,6 +1072,7 @@
               </select>
             </div>
           </div>
+          <div class="ci-custom hidden" id="ciCustomFields" aria-live="polite"></div>
           <div class="field">
             <label>Subject <span class="req">*</span></label>
             <input class="input" type="text" id="ciSubject" required placeholder="e.g. FE - Error when saving Purchase Order" maxlength="255"/>
@@ -1088,7 +1089,7 @@
             </div>
             <textarea class="input" id="ciDescription" rows="14" required placeholder="Full Redmine description…"></textarea>
           </div>
-          <div id="ciResult" style="display:none" class="sync-status-box"></div>
+          <div id="ciResult" style="display:none" class="sync-status-box" role="status"></div>
           <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
             <button type="button" class="btn btn-secondary" onclick="resetCreateIssueForm()">Reset</button>
             <button type="submit" class="btn btn-primary" id="ciSubmitBtn">Push to Redmine</button>
@@ -1342,6 +1343,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.47.2</span>
+                <span class="cl-note">New Issue fixed: form loads after reload, only trackers enabled for the project are offered, Redmine custom fields (e.g. Client Name) can be filled in, and Redmine's exact error is shown in the form</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.47.1</span>
                 <span class="cl-note">Fix: the red dot on the bell no longer shows when there is nothing new; the panel now lists Ready for Testing issues you haven't opened, with "Mark all as seen"</span>

@@ -16,6 +16,7 @@ import { openWhatNextView, refreshDashAttention } from '../features/what-next.js
 import { renderNotes } from '../features/notes.js';
 import { onDocsShown } from '../features/docs.js';
 import { onKbShown } from '../features/kb.js';
+import { onCreateIssueShown } from '../features/create-issue.js';
 
 /* ============================================================
    NAVIGATION
@@ -208,6 +209,7 @@ function switchView(view){
   if(view === 'settings') updateLastSync();
   if(view === 'docs'){ try { onDocsShown(); } catch(_){} }
   if(view === 'kb'){ try { onKbShown(); } catch(e){ console.error('kb', e); } }
+  if(view === 'createissue'){ try { onCreateIssueShown(); } catch(e){ console.error('create issue', e); } }
   if(view === 'plans') loadRedmineProjects();
   if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }
   if(view === 'tester'){
