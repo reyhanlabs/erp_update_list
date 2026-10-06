@@ -180,7 +180,8 @@ import {
   openClientsView,
   renderClientIssues,
   resolveClientNameFieldId,
-  searchClientFromGlobal
+  searchClientFromGlobal,
+  setClientOv
 } from './features/clients.js';
 import { openDocsView } from './features/docs.js';
 import { openKbArticle, openKbView } from './features/kb.js';
@@ -203,7 +204,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, clearNewIssuesFilters, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, openGptPanel, closeGptPanel, importGptText, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, backToClientOverview, loadClientOverview, onClientSearchInput, onClientSearchKey, openClientIssues, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, backToClientOverview, setClientOv, loadClientOverview, onClientSearchInput, onClientSearchKey, openClientIssues, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute, openDocsView, openKbView, openKbArticle,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync

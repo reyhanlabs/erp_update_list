@@ -70,6 +70,12 @@ function searchClientFromGlobal(name){
   if(input) input.value = q;
   if(q) loadClientIssues(q, true);
 }
+/* Called by switchView('clients') too, so reload / direct link shows the list */
+function onClientsShown(){
+  if(window.__clientQuery) renderClientIssues();
+  else { renderClientIssues(); loadClientOverview(false); }
+}
+
 function openClientsView(){
   switchView('clients');
   try {
@@ -200,7 +206,7 @@ async function loadClientIssues(clientName, force){
    The browser only receives that summary (a few KB), cached for an hour,
    so listing every client stays light. Click a client to load its issues.
    ============================================================ */
-const OVERVIEW_KEY = 'erp_client_overview_v1';
+const OVERVIEW_KEY = 'erp_client_overview_v2';   // v2: per-product numbers
 const OVERVIEW_TTL = 60 * 60 * 1000;
 
 function readOverviewCache(){
@@ -250,23 +256,73 @@ async function loadClientOverview(force){
   }
 }
 
+/* ---- status buckets: Redmine status names → fixed columns (v4.52.0) ---- */
+const CLIENT_BUCKETS = [
+  { key: 'new',      label: 'New',               short: 'New',      re: /^new$|^baru$/i },
+  { key: 'progress', label: 'In Progress',       short: 'Progress', re: /progress|proses|assigned|doing|working/i },
+  { key: 'rft',      label: 'Ready for Testing', short: 'RFT',      re: /ready.*test|^rft$|testing/i },
+  { key: 'resolved', label: 'Resolved',          short: 'Resolved', re: /resolved|fixed/i },
+  { key: 'other',    label: 'Other open',        short: 'Other',    re: null },   // feedback, rework, on deploy, …
+  { key: 'closed',   label: 'Closed',            short: 'Closed',   re: /closed|rejected|cancel|duplicate|won.?t|done|selesai/i }
+];
+function bucketOf(statusName){
+  const n = String(statusName || '');
+  for(const b of CLIENT_BUCKETS) if(b.re && b.re.test(n)) return b.key;
+  return 'other';
+}
+
+const PRODUCT_LABEL = (p) => String(p || '').replace(/^Zahir\s+/i, '').replace(/^ERP\s+Manufacturing$/i, 'Manufacturing') || p;   // ERP · ERP One · Manufacturing
+
+/* numbers for one client, optionally for one product only */
+function clientNumbers(c, product){
+  const src = product && product !== 'all'
+    ? (c.byProject && c.byProject[product]) || null
+    : { total: c.count, open: c.open, statuses: c.statuses || {}, updated: c.updated };
+  const out = { total: 0, open: 0, updated: '', new: 0, progress: 0, rft: 0, resolved: 0, other: 0, closed: 0, otherNames: {} };
+  if(!src) return out;
+  out.total = src.total || 0; out.open = src.open || 0; out.updated = src.updated || '';
+  Object.entries(src.statuses || {}).forEach(([name, n]) => {
+    const k = bucketOf(name);
+    out[k] += n;
+    if(k === 'other') out.otherNames[name] = (out.otherNames[name] || 0) + n;
+  });
+  return out;
+}
+
+function clientProducts(){
+  const set = new Set();
+  (window.__clientOverview?.clients || []).forEach(c => Object.keys(c.byProject || c.projects || {}).forEach(p => set.add(p)));
+  const rank = (p) => { const l = PRODUCT_LABEL(p); return l === 'ERP' ? 0 : l === 'ERP One' ? 1 : l === 'Manufacturing' ? 2 : 3; };
+  return [...set].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
+function ovUi(){
+  const ui = window.__clientOvUi || (window.__clientOvUi = {});
+  ui.sort = ui.sort || 'open'; ui.dir = ui.dir || 'desc';
+  ui.product = ui.product || 'all'; ui.show = ui.show || 'all';
+  return ui;
+}
+
 function overviewList(){
   const ov = window.__clientOverview;
   if(!ov) return [];
+  const ui = ovUi();
   const q = ($('clientSearchInput')?.value || '').trim().toLowerCase();
-  const ui = window.__clientOvUi || {};
-  const openOnly = $('clientsOpenOnly') ? $('clientsOpenOnly').checked : !!ui.openOnly;
-  const sort = ($('clientsSort') && $('clientsSort').value) || ui.sort || 'open';
-  const list = ov.clients
+  const rows = ov.clients
     .filter(c => !q || c.name.toLowerCase().includes(q))
-    .filter(c => !openOnly || (c.open || 0) > 0);
-  const by = {
-    open: (a, b) => (b.open || 0) - (a.open || 0) || b.count - a.count || a.name.localeCompare(b.name),
-    count: (a, b) => b.count - a.count || a.name.localeCompare(b.name),
-    updated: (a, b) => String(b.updated || '').localeCompare(String(a.updated || '')),
-    name: (a, b) => a.name.localeCompare(b.name)
-  }[sort] || ((a, b) => 0);
-  return list.sort(by);
+    .map(c => ({ c, n: clientNumbers(c, ui.product) }))
+    .filter(r => r.n.total > 0)                                   // not in this product
+    .filter(r => ui.show === 'all' ? true
+      : ui.show === 'open' ? r.n.open > 0 : (r.n[ui.show] || 0) > 0);
+  const dir = ui.dir === 'asc' ? 1 : -1;
+  const val = (r) => ui.sort === 'name' ? r.c.name.toLowerCase() : ui.sort === 'updated' ? r.n.updated : (r.n[ui.sort] || 0);
+  rows.sort((a, b) => {
+    const x = val(a), y = val(b);
+    if(x < y) return -1 * dir;
+    if(x > y) return 1 * dir;
+    return a.c.name.localeCompare(b.c.name);
+  });
+  return rows;
 }
 
 function fmtShortDate(iso){
@@ -274,6 +330,16 @@ function fmtShortDate(iso){
   const d = new Date(iso); if(isNaN(d)) return '';
   const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function setClientOv(key, value){
+  const ui = ovUi();
+  if(key === 'sort'){
+    // clicking the same column flips the direction
+    if(ui.sort === value) ui.dir = ui.dir === 'desc' ? 'asc' : 'desc';
+    else { ui.sort = value; ui.dir = value === 'name' ? 'asc' : 'desc'; }
+  } else ui[key] = value;
+  renderClientIssues();
 }
 
 function renderClientOverview(el){
@@ -285,49 +351,69 @@ function renderClientOverview(el){
     return;
   }
   if(!ov){ el.innerHTML = genericLoadingSkeleton('Collecting clients from Redmine…'); return; }
-  const list = overviewList();
+  const ui = ovUi();
+  const rows = overviewList();
   const tb = $('clientsTotalBadge'); if(tb) tb.textContent = String(ov.clients.length);
   const d = new Date(ov.at);
   const upd = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const shortProj = (p) => String(p).replace(/^Zahir\s+ERP\s+/i, '').replace(/^Zahir\s+/i, '');
-  const rows = list.map(c => {
-    const statuses = Object.entries(c.statuses || {}).sort((a, b) => b[1] - a[1]).slice(0, 4)
-      .map(([n, k]) => `<span class="cl-ov-st">${escapeHtml(n)} <b>${k}</b></span>`).join('');
-    const projects = Object.keys(c.projects || {}).map(p => `<span class="cl-ov-proj">${escapeHtml(shortProj(p))}</span>`).join('');
-    return `<button type="button" class="cl-ov-row" data-client="${escapeHtml(c.name)}" onclick="openClientIssues(this.dataset.client)">
-      <span class="cl-ov-main">
-        <span class="cl-ov-name">${escapeHtml(c.name)}</span>
-        <span class="cl-ov-meta">${projects}${statuses}</span>
-      </span>
-      <span class="cl-ov-open${c.open ? ' has-open' : ''}" title="Open issues">${c.open || 0}<small>open</small></span>
-      <span class="cl-ov-total" title="All issues">${c.count}<small>total</small></span>
-      <span class="cl-ov-date">${escapeHtml(fmtShortDate(c.updated))}</span>
+
+  // totals for what is shown
+  const sum = { new: 0, progress: 0, rft: 0, resolved: 0, other: 0, open: 0 };
+  rows.forEach(r => Object.keys(sum).forEach(k => { sum[k] += r.n[k] || 0; }));
+
+  const products = clientProducts();
+  const prodBtns = [['all', 'All products'], ...products.map(p => [p, PRODUCT_LABEL(p)])]
+    .map(([v, l]) => `<button type="button" class="cl-seg${ui.product === v ? ' is-active' : ''}" aria-pressed="${ui.product === v}" onclick="setClientOv('product', ${escapeHtml(JSON.stringify(v))})">${escapeHtml(l)}</button>`).join('');
+  const showOpts = [['all', 'All clients'], ['open', 'With open issues'], ['new', 'With New'], ['progress', 'With In Progress'], ['rft', 'With Ready for Testing'], ['resolved', 'With Resolved']]
+    .map(([v, l]) => `<option value="${v}"${ui.show === v ? ' selected' : ''}>${l}</option>`).join('');
+
+  const COLS = [
+    ['new', 'New'], ['progress', 'In Progress'], ['rft', 'Ready for Testing'], ['resolved', 'Resolved'], ['other', 'Other open'], ['open', 'Open'], ['total', 'Total']
+  ];
+  const sortHead = (key, label, cls = '') => {
+    const on = ui.sort === key;
+    const arrow = on ? (ui.dir === 'desc' ? '↓' : '↑') : '';
+    return `<button type="button" class="cl-th ${cls}${on ? ' is-sorted' : ''}" onclick="setClientOv('sort', '${key}')" aria-sort="${on ? (ui.dir === 'desc' ? 'descending' : 'ascending') : 'none'}">${label}<span class="cl-th-arrow">${arrow}</span></button>`;
+  };
+  const num = (n, key, title) => `<span class="cl-num cl-num-${key}${n ? ' has' : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${n || '–'}</span>`;
+
+  const body = rows.map(({ c, n }) => {
+    const prods = ui.product === 'all'
+      ? Object.keys(c.byProject || c.projects || {}).map(p => `<span class="cl-prod">${escapeHtml(PRODUCT_LABEL(p))}</span>`).join('')
+      : '';
+    const otherTitle = Object.entries(n.otherNames).map(([k, v]) => `${k}: ${v}`).join(', ');
+    return `<button type="button" class="cl-row" data-client="${escapeHtml(c.name)}" onclick="openClientIssues(this.dataset.client)">
+      <span class="cl-cell-name"><span class="cl-name">${escapeHtml(c.name)}</span>${prods ? `<span class="cl-prods">${prods}</span>` : ''}</span>
+      ${num(n.new, 'new')}${num(n.progress, 'progress')}${num(n.rft, 'rft')}${num(n.resolved, 'resolved')}${num(n.other, 'other', otherTitle)}
+      ${num(n.open, 'open')}<span class="cl-num cl-num-total has">${n.total}</span>
+      <span class="cl-date">${escapeHtml(fmtShortDate(n.updated))}</span>
     </button>`;
   }).join('');
+
   el.innerHTML = `
-    <div class="cl-ov-bar">
-      <select class="input cl-ov-sort" id="clientsSort" onchange="renderClientIssues()" aria-label="Sort clients">
-        <option value="open">Most open issues</option>
-        <option value="count">Most issues</option>
-        <option value="updated">Recently updated</option>
-        <option value="name">Name A–Z</option>
-      </select>
-      <label class="cl-ov-toggle"><input type="checkbox" id="clientsOpenOnly" onchange="renderClientIssues()"> With open issues only</label>
-      <span class="cl-ov-note">${list.length} of ${ov.clients.length} clients · updated ${upd}${ov.complete ? '' : ` · first ${ov.scanned} of ${ov.total} issues scanned`}</span>
+    <div class="cl-filters">
+      <div class="cl-seg-group" role="group" aria-label="Product">${prodBtns}</div>
+      <select class="input cl-show" onchange="setClientOv('show', this.value)" aria-label="Which clients">${showOpts}</select>
+      <span class="cl-note">${rows.length} of ${ov.clients.length} clients · updated ${upd}${ov.complete ? '' : ` · first ${ov.scanned} of ${ov.total} issues scanned`}</span>
     </div>
-    <div class="cl-ov-head" aria-hidden="true"><span>Client</span><span>Open</span><span>Total</span><span>Last update</span></div>
-    <div class="cl-ov-list">${rows || `<div class="kb-state kb-state-sm"><p>No client matches “${escapeHtml($('clientSearchInput')?.value || '')}”.</p></div>`}</div>`;
-  // keep the controls' state across re-renders
-  const st = window.__clientOvUi || {};
-  if(st.sort) $('clientsSort').value = st.sort;
-  if(st.openOnly) $('clientsOpenOnly').checked = true;
+    <div class="cl-summary" aria-label="Totals for the clients shown">
+      <div class="cl-sum cl-sum-new"><b>${sum.new}</b><span>New</span></div>
+      <div class="cl-sum cl-sum-progress"><b>${sum.progress}</b><span>In Progress</span></div>
+      <div class="cl-sum cl-sum-rft"><b>${sum.rft}</b><span>Ready for Testing</span></div>
+      <div class="cl-sum cl-sum-resolved"><b>${sum.resolved}</b><span>Resolved</span></div>
+      <div class="cl-sum cl-sum-other"><b>${sum.other}</b><span>Other open</span></div>
+    </div>
+    <div class="cl-table">
+      <div class="cl-head">
+        ${sortHead('name', 'Client', 'cl-th-name')}
+        ${COLS.map(([k, l]) => sortHead(k, l, `cl-th-num cl-th-${k}`)).join('')}
+        ${sortHead('updated', 'Last update', 'cl-th-date')}
+      </div>
+      <div class="cl-body">${body || `<div class="kb-state kb-state-sm"><p>No client matches these filters.</p></div>`}</div>
+    </div>`;
 }
 
-function rememberOverviewUi(){
-  // only while the overview controls are on screen (not while a client's issues are shown)
-  if(!$('clientsSort')) return;
-  window.__clientOvUi = { sort: $('clientsSort').value, openOnly: !!$('clientsOpenOnly')?.checked };
-}
+function rememberOverviewUi(){ /* state lives in window.__clientOvUi (v4.52.0) */ }
 
 function openClientIssues(name){
   const input = $('clientSearchInput');
@@ -382,7 +468,9 @@ function renderClientIssues(){
     renderClientOverview(el);
     return;
   }
-  const list = (window.__clientIssues || []).filter(i => matchesQuickFilter(i));
+  const prod = ovUi().product;
+  const list = (window.__clientIssues || []).filter(i => matchesQuickFilter(i))
+    .filter(i => prod === 'all' || (i.project && i.project.name) === prod);
   if(!list.length){
     if(filtersBar) filtersBar.classList.add('hidden');
     el.innerHTML = emptyState(ICON.inbox, 'No issues', `No issues matched “${escapeHtml(q)}”. Try the exact Client Name from Redmine.`, [
@@ -400,13 +488,20 @@ function renderClientIssues(){
     if(!groups[st]) groups[st] = [];
     groups[st].push(i);
   });
-  const keys = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length || a.localeCompare(b));
+  const order = CLIENT_BUCKETS.map(b => b.key);
+  const keys = Object.keys(groups).sort((a, b) => order.indexOf(bucketOf(a)) - order.indexOf(bucketOf(b)) || groups[b].length - groups[a].length || a.localeCompare(b));
 
   el.innerHTML = `
     <div class="list-meta-row cl-ov-back-row" style="padding:4px 4px 10px">
       <button type="button" class="cl-ov-back" onclick="backToClientOverview()">← All clients</button>
-      <span>Client <b>${escapeHtml(q)}</b> · <b>${list.length}</b> issue(s)</span>
+      <span>Client <b>${escapeHtml(q)}</b>${prod !== 'all' ? ` · ${escapeHtml(PRODUCT_LABEL(prod))}` : ''} · <b>${list.length}</b> issue(s)</span>
+      ${prod !== 'all' ? `<button type="button" class="cl-ov-back" onclick="setClientOv('product','all')">Show all products</button>` : ''}
     </div>
+    <div class="cl-detail-sum">${(() => {
+      const c = { new: 0, progress: 0, rft: 0, resolved: 0, other: 0, closed: 0 };
+      list.forEach(i => { c[bucketOf(i.status?.name)]++; });
+      return CLIENT_BUCKETS.map(b => `<span class="cl-pill cl-pill-${b.key}${c[b.key] ? ' has' : ''}">${b.label} <b>${c[b.key]}</b></span>`).join('');
+    })()}</div>
     ${keys.map(st => `
       <div class="tester-group">
         <div class="tester-group-head">
@@ -450,6 +545,8 @@ function renderClientTable(issues){
 }
 
 export {
+  onClientsShown,
+  setClientOv,
   backToClientOverview,
   loadClientOverview,
   onClientSearchInput,

@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.51.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.52.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.52.0**: By Client overview v2: `client_names` adds per-product breakdown (`byProject`); statuses mapped to fixed columns (New, In Progress, Ready for Testing, Resolved, Other open, Open, Total, Last update) with totals cards, product segment filter, "show" filter, sortable headers; product filter also applies to a client's issue list, which gets status pills and status-ordered groups. Overview also loads on reload/direct link.
 - **v4.51.1**: Update Plans *Copy for Telegram*: copies via the `copy` event inside the click (plain text + HTML with bold title and links), then the Clipboard API, then a manual-copy box; no more false "copied" toasts. Telegram plain text uses `**bold**`. Copy menu is viewport-pinned and flips above the button near the bottom of the screen.
 - **v4.51.0**: By Client opens on an all-clients overview: `resource=client_names` now also returns per client open count (`closed_on`), statuses, projects and last update; the browser gets only this summary (cached 1 h). Filter/sort/open-only, click to drill into a client, back to the list; sidebar badge = clients with open issues.
 - **v4.50.0**: New Issue *Paste from ChatGPT*: parses a QA-format bug report (plain, bold or `###` headings; `*`/`-`/numbered lists; chatty lead-ins ignored) into Subject, Tracker (`[Bug]`), Priority (from Priority or Severity), Client/Project Name and a Redmine-ready Markdown description, keeping pasted screenshots under their steps. Also: taller Notes textarea.

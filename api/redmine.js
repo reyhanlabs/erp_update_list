@@ -128,11 +128,19 @@ async function collectClientNames(apiKey, cfIdParam) {
       const pr = (issue.project && issue.project.name) || '';
       for (const name of clientValuesOf(issue, cfId)) {
         counts.set(name, (counts.get(name) || 0) + 1);
-        const s0 = stats.get(name) || { open: 0, statuses: {}, projects: {}, updated: '' };
+        const s0 = stats.get(name) || { open: 0, statuses: {}, projects: {}, updated: '', byProject: {} };
+        const upd = String(issue.updated_on || '');
         if (open) s0.open++;
         s0.statuses[st] = (s0.statuses[st] || 0) + 1;
         if (pr) s0.projects[pr] = (s0.projects[pr] || 0) + 1;
-        if (String(issue.updated_on || '') > s0.updated) s0.updated = String(issue.updated_on || '');
+        if (upd > s0.updated) s0.updated = upd;
+        // same numbers per product, so the overview can be filtered by product (v4.52.0)
+        const key = pr || 'Other';
+        const bp = s0.byProject[key] || (s0.byProject[key] = { total: 0, open: 0, statuses: {}, updated: '' });
+        bp.total++;
+        if (open) bp.open++;
+        bp.statuses[st] = (bp.statuses[st] || 0) + 1;
+        if (upd > bp.updated) bp.updated = upd;
         stats.set(name, s0);
       }
     }
@@ -153,7 +161,7 @@ async function collectClientNames(apiKey, cfIdParam) {
   const clients = [...counts.entries()]
     .map(([name, count]) => {
       const st = stats.get(name);
-      return st ? { name, count, open: st.open, statuses: st.statuses, projects: st.projects, updated: st.updated } : { name, count, open: 0 };
+      return st ? { name, count, open: st.open, statuses: st.statuses, projects: st.projects, updated: st.updated, byProject: st.byProject } : { name, count, open: 0 };
     })
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   return { clients, fieldId: cfId, scanned, total, complete };

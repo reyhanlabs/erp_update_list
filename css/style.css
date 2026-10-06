@@ -3274,3 +3274,91 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .manual-copy-card p{margin:0;font-size:13px;color:var(--text-secondary)}
 .manual-copy-card textarea{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;min-height:180px}
 .manual-copy-actions{display:flex;justify-content:flex-end}
+
+/* By Client overview v2 (v4.52.0): product/status filters, fixed status columns */
+.cl-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 4px 12px}
+.cl-seg-group{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:var(--bg-subtle);border:1px solid var(--line)}
+.cl-seg{height:30px;padding:0 12px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-secondary);white-space:nowrap}
+.cl-seg:hover{color:var(--text)}
+.cl-seg.is-active{background:var(--surface);color:var(--brand);box-shadow:var(--shadow-xs)}
+.cl-seg:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.cl-show{height:36px;width:auto;min-width:200px;padding-top:0;padding-bottom:0}
+.cl-note{margin-left:auto;font-size:12.5px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+
+.cl-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:0 4px 14px}
+.cl-sum{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);border-top:3px solid var(--line-strong)}
+.cl-sum b{font-size:20px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1}
+.cl-sum span{font-size:12px;color:var(--text-secondary)}
+.cl-sum-new{border-top-color:#2563eb}
+.cl-sum-progress{border-top-color:#7c3aed}
+.cl-sum-rft{border-top-color:#d97706}
+.cl-sum-resolved{border-top-color:#16a34a}
+.cl-sum-other{border-top-color:#94a3b8}
+
+.cl-table{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:0 4px}
+.cl-head,.cl-row{display:grid;grid-template-columns:minmax(220px,1fr) repeat(7,86px) 108px;align-items:center;gap:0}
+.cl-head{background:var(--bg-subtle);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1}
+.cl-th{display:flex;align-items:center;justify-content:flex-end;gap:3px;padding:9px 10px;font-size:11.5px;font-weight:650;color:var(--text-secondary);text-align:right;line-height:1.2}
+.cl-th-name{justify-content:flex-start;text-align:left;padding-left:14px}
+.cl-th:hover{color:var(--text)}
+.cl-th.is-sorted{color:var(--brand)}
+.cl-th-arrow{width:8px;display:inline-block}
+.cl-th:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.cl-th-open{border-left:1px solid var(--line)}
+.cl-row{width:100%;text-align:left;border-bottom:1px solid var(--line);transition:background var(--dur-fast) var(--ease)}
+.cl-row:last-child{border-bottom:0}
+.cl-row:hover{background:var(--bg-subtle)}
+.cl-row:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.cl-cell-name{display:flex;flex-direction:column;gap:4px;padding:10px 14px;min-width:0}
+.cl-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-prods{display:flex;gap:4px;flex-wrap:wrap}
+.cl-prod{font-size:10.5px;font-weight:650;padding:1px 6px;border-radius:5px;background:var(--violet-soft);color:var(--violet)}
+.cl-num{padding:10px;text-align:right;font-size:14px;font-weight:600;color:var(--line-strong);font-variant-numeric:tabular-nums}
+.cl-num.has{color:var(--text)}
+.cl-num-new.has{color:#2563eb}
+.cl-num-progress.has{color:#7c3aed}
+.cl-num-rft.has{color:#b45309}
+.cl-num-resolved.has{color:#15803d}
+.cl-num-other.has{color:var(--text-secondary)}
+.cl-num-open{border-left:1px solid var(--line);font-weight:700}
+.cl-num-open.has{color:var(--text)}
+.cl-num-total{color:var(--text-secondary) !important;font-weight:500}
+.cl-date{padding:10px 14px 10px 10px;text-align:right;font-size:12.5px;color:var(--text-tertiary);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.cl-detail-sum{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px 12px}
+.cl-pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--bg-subtle);color:var(--text-tertiary);border:1px solid var(--line)}
+.cl-pill b{font-weight:700}
+.cl-pill.has{color:var(--text)}
+.cl-pill-new.has{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.cl-pill-progress.has{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}
+.cl-pill-rft.has{background:#fffbeb;border-color:#fde68a;color:#b45309}
+.cl-pill-resolved.has{background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
+[data-theme="dark"] .cl-pill-new.has{background:rgba(37,99,235,.15);border-color:rgba(37,99,235,.35);color:#93c5fd}
+[data-theme="dark"] .cl-pill-progress.has{background:rgba(124,58,237,.15);border-color:rgba(124,58,237,.35);color:#c4b5fd}
+[data-theme="dark"] .cl-pill-rft.has{background:rgba(217,119,6,.15);border-color:rgba(217,119,6,.35);color:#fcd34d}
+[data-theme="dark"] .cl-pill-resolved.has{background:rgba(22,163,74,.15);border-color:rgba(22,163,74,.35);color:#86efac}
+[data-theme="dark"] .cl-num-new.has{color:#93c5fd}
+[data-theme="dark"] .cl-num-progress.has{color:#c4b5fd}
+[data-theme="dark"] .cl-num-rft.has{color:#fcd34d}
+[data-theme="dark"] .cl-num-resolved.has{color:#86efac}
+
+@media(max-width:1100px){
+  .cl-head,.cl-row{grid-template-columns:minmax(180px,1fr) repeat(5,64px) 64px}
+  .cl-th-other,.cl-num-other,.cl-th-total,.cl-num-total{display:none}
+  .cl-th-date,.cl-date{display:none}
+}
+@media(max-width:700px){
+  .cl-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cl-note{margin-left:0;width:100%}
+  .cl-seg-group{overflow-x:auto;max-width:100%}
+  .cl-head{display:none}
+  .cl-row{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:0}
+  .cl-cell-name{grid-column:1 / -1;padding-bottom:2px}
+  .cl-num{text-align:left;padding:4px 14px 10px;font-size:13px}
+  .cl-num::before{display:block;font-size:10.5px;font-weight:500;color:var(--text-tertiary)}
+  .cl-num-new::before{content:'New'}
+  .cl-num-progress::before{content:'Progress'}
+  .cl-num-rft::before{content:'RFT'}
+  .cl-num-resolved::before{content:'Resolved'}
+  .cl-num-open{display:none}
+}

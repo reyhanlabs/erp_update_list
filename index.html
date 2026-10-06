@@ -1425,6 +1425,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.52.0</span>
+                <span class="cl-note">By Client: filter by product and status, fixed columns for New / In Progress / Ready for Testing / Resolved, totals, sortable headers</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.51.1</span>
                 <span class="cl-note">Update Plans: Copy for Telegram works on every browser (falls back to a copy box when blocked), keeps bold title and clickable links when pasted into Telegram</span>
               </div>
@@ -2272,9 +2276,10 @@
               </ul>
             </article>
 
-            <article class="docs-sec" id="docs-clients" data-keywords="by client customer client name custom field">
+            <article class="docs-sec" id="docs-clients" data-keywords="by client customer client name custom field product filter status new resolved ready for testing">
               <header><span class="docs-ico" data-docs-icon="clients"></span><h3>By Client</h3><button type="button" class="docs-go" data-docs-go="clients">Open By Client</button></header>
-              <p>Finds all issues for one client using the Redmine <b>Client Name</b> field. Type the client name, press <kbd>Enter</kbd>, and results are grouped by status.</p>
+              <p>Lists <b>every client</b> from the Redmine field <b>Client Name</b> as a table with the same columns for everyone: <b>New</b>, <b>In Progress</b>, <b>Ready for Testing</b>, <b>Resolved</b>, <b>Other open</b> (feedback, rework, on deploy, …; hover for details), <b>Open</b>, <b>Total</b> and <b>Last update</b>, plus totals for the clients shown.</p>
+              <p>Filter by product (ERP, ERP One, Manufacturing), by name, or show only clients with open / New / In Progress / Ready for Testing / Resolved issues; click a column header to sort. Click a client (or press <kbd>Enter</kbd>) to see its issues grouped by status, with the product filter applied; <b>← All clients</b> goes back. The list is built on the server and cached for an hour; <b>Refresh</b> reloads it.</p>
             </article>
 
             <article class="docs-sec" id="docs-lists" data-keywords="note notes private catatan missing info filter chip immediate unassigned updated compact comfortable multi-select checkbox batch copy">
