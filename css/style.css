@@ -3362,3 +3362,7 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
   .cl-num-resolved::before{content:'Resolved'}
   .cl-num-open{display:none}
 }
+
+/* KB: move old screenshots to Cloudinary (v4.54.0) */
+.kb-migrate{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:10px 14px;border-radius:10px;background:var(--brand-soft);border:1px solid var(--brand-ring);font-size:13px;color:var(--text)}
+.kb-migrate span{flex:1;min-width:220px}

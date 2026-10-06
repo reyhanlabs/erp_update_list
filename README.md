@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.53.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.54.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -99,6 +99,10 @@ Files in `api/_lib/` are not routes (Vercel ignores paths starting with `_`).
 | `TELEGRAM_CHAT_ID` | ✅ | telegram + cron | Default chat/group |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | – | telegram | Extra chats that may be used from the app's Settings |
 | `CRON_SECRET` | ✅ | cron | Long random string (`openssl rand -hex 32`) |
+| `CLOUDINARY_CLOUD_NAME` | for KB images | Cloudinary → Dashboard → Cloud name |
+| `CLOUDINARY_API_KEY` | for KB images | Cloudinary → Settings → API Keys |
+| `CLOUDINARY_API_SECRET` | for KB images | same page; keep secret |
+| `CLOUDINARY_FOLDER` | – | default `erp-update-list/kb` |
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | cron (+ token verification) | Service account JSON, on one line |
 
 \* at least one of `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`.
@@ -179,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.54.0**: KB screenshots on Cloudinary. `api/cloudinary.js` signs browser uploads (secret stays server-side, same auth guard) and deletes images in the app folder; guides store `https://res.cloudinary.com/…/f_auto,q_auto/…` URLs; removed/discarded images are deleted; a banner moves old base64 `kbimg:` images (one click) and removes them from Firestore. Falls back to the old storage if Cloudinary isn't configured. Env: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, optional `CLOUDINARY_FOLDER`.
 - **v4.53.0**: Backup v2: Export JSON adds Knowledge Base guides (with image subcollections) and the menu structure, plus private issue notes; Import restores them (v1 files still work). New `src/core/clipboard.js` (`writeClipboard`, `copyTextSmart`, manual-copy box) used by every copy button; removed fallbacks that reported "copied" without copying. Audit: all 13 views load correctly on reload/direct link.
 - **v4.52.2**: Sidebar: By Client moved under Dashboard (Overview section).
 - **v4.52.1**: By Client counts only the three Zahir products (same project list as Issue Status, name patterns as fallback); other Redmine projects are ignored in numbers, product filter, chips and badges. Product segment wraps instead of overlapping.

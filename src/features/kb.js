@@ -22,6 +22,7 @@ import {
   buildTree, moduleOptions, submenuOptions, structureFromArticles, validateStructure, planRenames, usage
 } from './kb-structure.js';
 import { writeClipboard } from '../core/clipboard.js';
+import { cloudinaryConfigured, uploadToCloudinary, publicIdFromUrl, cloudUrlsIn, destroyCloudImages, migrateKbImages } from './kb-cloudinary.js';
 
 const PRODUCTS = {
   erp: { label: 'Zahir ERP', short: 'ERP' },
@@ -367,7 +368,52 @@ function renderList(el){
   el.innerHTML = `<header class="kb-list-head">
       <div><h2>${head.title}</h2>${head.sub ? `<p>${head.sub}</p>` : ''}</div>
       <span class="kb-list-count">${list.length} ${list.length === 1 ? 'guide' : 'guides'}</span>
-    </header>${body}`;
+    </header>${migrateBannerHtml()}${body}`;
+  maybeCheckCloudinary();
+}
+
+/* ---- one-time move of old in-database screenshots to Cloudinary ---- */
+function legacyImageCount(){
+  return S.articles.reduce((n, a) => n + (String(a.content || '').match(/kbimg:[A-Za-z0-9_-]+/g) || []).length, 0);
+}
+function migrateBannerHtml(){
+  const n = legacyImageCount();
+  if(!n || !S.cloudOk) return '';
+  if(S.migrating) return `<div class="kb-migrate" role="status"><span>Moving screenshots to Cloudinary… <b>${S.migrating.done} / ${S.migrating.total}</b></span></div>`;
+  return `<div class="kb-migrate">
+    <span><b>${n} screenshot${n === 1 ? '' : 's'}</b> are still stored inside the database, which makes it and the backups heavy.</span>
+    <button type="button" class="btn btn-primary btn-sm" data-kb-act="migrate-images">Move to Cloudinary</button>
+  </div>`;
+}
+let cloudChecked = false;
+function maybeCheckCloudinary(){
+  if(cloudChecked || !legacyImageCount()) return;
+  cloudChecked = true;
+  cloudinaryConfigured().then(c => { S.cloudOk = c.ok; if(c.ok && !S.selectedId && !S.editing) renderPane(); });
+}
+async function runImageMigration(){
+  const n = legacyImageCount();
+  const ok = await confirmDialog({
+    title: 'Move screenshots to Cloudinary?',
+    message: `${n} screenshot${n === 1 ? '' : 's'} will be uploaded to Cloudinary and the guides updated to use their links. The copies in the database are removed afterwards.`,
+    okText: 'Move them', cancelText: 'Not now'
+  });
+  if(!ok) return;
+  S.migrating = { done: 0, total: n };
+  renderPane();
+  try {
+    const res = await migrateKbImages(kbRef(), S.articles.slice(), (done, total) => {
+      S.migrating = { done, total };
+      const b = document.querySelector('.kb-migrate b'); if(b) b.textContent = `${done} / ${total}`;
+    });
+    toast(res.failed ? `Moved ${res.moved} of ${res.total} screenshots; ${res.failed} failed (try again later)` : `Moved ${res.moved} screenshots to Cloudinary`, res.failed ? 'error' : undefined);
+  } catch(err){
+    console.error(err);
+    toast('Moving screenshots failed: ' + (err.message || err), 'error');
+  } finally {
+    S.migrating = null;
+    renderPane();
+  }
 }
 
 function slugify(s){
@@ -447,6 +493,13 @@ function scrollPaneTo(target){
 }
 
 async function hydrateImages(root, articleId){
+  // Cloudinary / URL images: just make them zoomable
+  root.querySelectorAll('.md-figure img[src^="https://"]').forEach(img => {
+    if(img.dataset.lb) return;
+    img.dataset.lb = '1';
+    img.addEventListener('click', () => openLightbox(img.currentSrc || img.src, img.alt));
+    img.addEventListener('error', () => img.closest('figure')?.classList.add('md-figure-missing'), { once: true });
+  });
   const imgs = [...root.querySelectorAll('img[data-kbimg]')];
   for(const img of imgs){
     const id = img.dataset.kbimg;
@@ -536,6 +589,7 @@ async function deleteArticle(){
     const imgs = await kbRef().doc(a.id).collection('images').get();
     await Promise.all(imgs.docs.map(d => d.ref.delete()));
     await kbRef().doc(a.id).delete();
+    destroyCloudImages(cloudUrlsIn(a.content).map(publicIdFromUrl));
     toast('Guide deleted');
     backToList();
   } catch(err){
@@ -728,6 +782,10 @@ async function cancelEditor(){
     // screenshots uploaded for an article that was never saved
     try { await Promise.all([...ed.uploaded].map(imgId => kbRef().doc(ed.id).collection('images').doc(imgId).delete())); } catch(_){}
   }
+  if(ed.cloudUploaded && ed.cloudUploaded.size){
+    // Cloudinary images added in this session but discarded
+    destroyCloudImages([...ed.cloudUploaded]);
+  }
   closeEditor();
 }
 
@@ -805,7 +863,15 @@ async function saveEditor(){
   if(ed.isNew){ data.createdAt = now; data.createdBy = userLabel(); }
 
   try {
+    const before = (S.articles.find(x => x.id === ed.id) || {}).content || '';
     await kbRef().doc(ed.id).set(data, { merge: true });
+    // Cloudinary images that were removed from the text (or added then deleted)
+    try {
+      const keep = new Set(cloudUrlsIn(content).map(publicIdFromUrl));
+      const candidates = [...cloudUrlsIn(before).map(publicIdFromUrl), ...(ed.cloudUploaded ? [...ed.cloudUploaded] : [])];
+      const gone = candidates.filter(id => id && !keep.has(id));
+      if(gone.length) destroyCloudImages(gone);
+    } catch(e){ console.warn('cloud cleanup', e); }
     // drop screenshots that are no longer referenced in the text
     const used = new Set([...content.matchAll(/kbimg:([A-Za-z0-9_-]+)/g)].map(m => m[1]));
     try {
@@ -940,13 +1006,24 @@ async function uploadImages(files){
     setEditorHint('Uploading image…');
     try {
       const { data, w, h, bytes } = await compressImage(file);
-      const ref = kbRef().doc(ed.id).collection('images').doc();
-      await ref.set({ data, w, h, bytes, createdAt: Date.now() });
-      ed.uploaded.add(ref.id);
-      S.imgCache.set(ref.id, data);
       const name = (file.name && !/^image\.\w+$/i.test(file.name)) ? file.name.replace(/\.[^.]+$/, '') : 'Screenshot';
-      insertImage(`![${name}](kbimg:${ref.id})`);
-      setEditorHint(`Image added (${Math.round(bytes / 1024)} KB).`);
+      const cloud = await cloudinaryConfigured();
+      if(cloud.ok){
+        // v4.54.0: stored on Cloudinary, the guide keeps only the URL
+        const up = await uploadToCloudinary(data);
+        ed.cloudUploaded = ed.cloudUploaded || new Set();
+        ed.cloudUploaded.add(up.publicId);
+        insertImage(`![${name}](${up.url})`);
+        setEditorHint(`Image added (${Math.round((up.bytes || bytes) / 1024)} KB, Cloudinary).`);
+      } else {
+        // Cloudinary not set up yet: keep the old in-database storage
+        const ref = kbRef().doc(ed.id).collection('images').doc();
+        await ref.set({ data, w, h, bytes, createdAt: Date.now() });
+        ed.uploaded.add(ref.id);
+        S.imgCache.set(ref.id, data);
+        insertImage(`![${name}](kbimg:${ref.id})`);
+        setEditorHint(`Image added (${Math.round(bytes / 1024)} KB). Set up Cloudinary to keep images out of the database.`);
+      }
     } catch(err){
       console.error(err);
       setEditorHint(err.code === 'permission-denied'
@@ -1172,6 +1249,7 @@ function wire(){
       if(a === 'copy-text') return copyArticleText();
       if(a === 'copy-link') return copyArticleLink();
       if(a === 'back') return backToList();
+      if(a === 'migrate-images') return runImageMigration();
       if(a === 'manage') return openManager(act.dataset.kbManageProduct);
       if(a === 'manage-cancel') return closeManager();
       if(a === 'manage-save') return saveManager();

@@ -1425,6 +1425,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.54.0</span>
+                <span class="cl-note">Knowledge Base screenshots are stored on Cloudinary (only the link is saved); one click moves existing screenshots out of the database</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.53.0</span>
                 <span class="cl-note">Full backup (plans, summaries, Knowledge Base with screenshots and menus, private issue notes); every copy button now uses the same reliable copy with a manual-copy fallback</span>
               </div>
@@ -2330,7 +2334,7 @@
                 <li>Write steps in markdown; paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
                 <li>Check <b>Preview</b>, then <b>Save guide</b> (or <kbd>Ctrl</kbd>+<kbd>S</kbd>).</li>
               </ol>
-              <div class="docs-tip"><b>Export JSON</b> in Settings also backs up the Knowledge Base: guides, screenshots and menus.</div>
+              <div class="docs-tip">Screenshots are stored on <b>Cloudinary</b>; guides keep only their links, so the database and backups stay small. <b>Export JSON</b> in Settings backs up guides and menus (with those links).</div>
               <p>A guide with a client shows the client name in the list and at the top of the guide. Click the name to open that client's Redmine issues in <b>By Client</b>. Searching for a client name finds their guides.</p>
               <p>In the library on the left, open a module to see its submenus; guides without a submenu are listed under <i>General</i>. Inside a module, guides are grouped by submenu.</p>
               <p><b>Edit menus</b> (below the library) is where the team defines each product's modules and submenus and their order. Renaming a module or submenu updates every guide that uses it; items that guides still use can't be removed. The first time, the list is pre-filled from the modules your guides already use.</p>
