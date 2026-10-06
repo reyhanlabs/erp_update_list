@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.48.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.49.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.49.0**: Generate description v2: `/api/redmine-issue` meta learns each tracker's section headings from the last 100 issues (`templates`); the generator fills those (or a built-in layout) from labelled notes (Langkah/Steps, Hasil/Actual, Harapan/Expected, Kebutuhan, Catatan), adds Client / Project Name / category / project, localizes fallback sections, keeps screenshots under their step, and confirms before overwriting typed text.
 - **v4.48.1**: New Issue description editor modelled on the Knowledge Base (toolbar, Write/Preview). Screenshots pasted/dropped into the description are inserted at the cursor as `![](file.png)` (indented under a numbered step) and uploaded as attachments, so Redmine shows them inline. Redmine text format is guessed from recent issues (overridable); Markdown is converted to Textile when needed.
 - **v4.48.0**: New Issue: Assignee from project memberships (developer roles first), Status from `issue_statuses`, an *Issue details* box (Status*, Priority*, Assignee, Category, Project Name*, Client Name) with other custom fields under *More Redmine fields*, and attachments (click / drop / paste; images over 3 MB shrunk) uploaded via `/uploads.json` tokens.
 - **v4.47.2**: New Issue fixes: (1) form data loads whenever the view opens (reload/direct link left Tracker empty); (2) trackers come from the project (`/projects/{id}.json?include=trackers,...`) instead of the global list; (3) project custom fields (e.g. Client Name) are shown and sent as `custom_fields`, required ones are marked after Redmine reports them; (4) Redmine's errors and a hint per status code are shown in the form.

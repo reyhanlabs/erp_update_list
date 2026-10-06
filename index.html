@@ -1099,8 +1099,8 @@
           </div>
           <div class="field">
             <label>Notes for description generator</label>
-            <textarea class="input" id="ciNotes" rows="3" placeholder="Short bullets: what happens, steps, expected result, module name…"></textarea>
-            <div class="field-hint">Used only to build the description — not sent as a separate field.</div>
+            <textarea class="input" id="ciNotes" rows="5" placeholder="Muncul error saat simpan PO&#10;Langkah:&#10;1. Buka Pembelian > Purchase Order&#10;2. Klik Simpan&#10;Harapan: PO tersimpan&#10;Catatan: sejak update 4.25"></textarea>
+            <div class="field-hint">First line = the problem. Optional labels: <b>Langkah:</b> / Steps:, <b>Hasil:</b> / Actual:, <b>Harapan:</b> / Expected:, <b>Kebutuhan:</b> / Requirements:, <b>Catatan:</b> / Notes:. Numbered lines become steps. Only used to build the description.</div>
           </div>
           <div class="field">
             <div class="ci-desc-head">
@@ -1407,6 +1407,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.49.0</span>
+                <span class="cl-note">Generate description follows your team's Redmine layout per tracker, uses the form fields (Client, Project Name, category), understands labelled notes, keeps screenshots in place</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.48.1</span>
                 <span class="cl-note">New Issue: screenshots inside the description (paste at the cursor, preview), editor toolbar like the Knowledge Base, Markdown/Textile for Redmine</span>
@@ -2263,6 +2267,7 @@
               <p>The issue is created on the selected project using the configured Redmine API key.</p>
               <p>The <b>Issue details</b> box holds the fields filled on most issues: <b>Status</b> and <b>Priority</b> (required, default New / Normal), <b>Assignee</b> (developers listed first), <b>Category</b>, <b>Project Name</b> (required) and <b>Client Name</b>. Other Redmine fields are under <i>More Redmine fields</i>. Paste a screenshot with <kbd>Ctrl</kbd>+<kbd>V</kbd> <b>inside the Description</b> (or use the <b>Screenshot</b> button) to put it right where the cursor is, e.g. under step 1; check it in the <b>Preview</b> tab. Files that shouldn't appear in the text go under <b>Attachments</b>. Max 3 MB per file; large images are shrunk automatically.</p>
               <p>The description is written in Markdown, like the Knowledge Base. If your Redmine uses Textile, choose it under <b>Redmine format</b> (it's detected automatically) and the text and images are converted when the issue is sent.</p>
+              <p><b>Generate description</b> fills in the layout your team already uses in Redmine for the chosen tracker (section headings learned from recent issues); when there isn't one yet it uses a standard layout. It takes the problem, steps, expected/actual result and notes from <i>Notes for description generator</i>, adds Client, Project Name, category and project from the form, keeps screenshots under the step they belong to, and asks before replacing text you typed yourself.</p>
             </article>
 
             <article class="docs-sec" id="docs-kb" data-keywords="edit menus structure module submenu menu client customer knowledge base guide how-to screenshot markdown">

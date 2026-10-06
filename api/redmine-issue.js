@@ -33,6 +33,61 @@ async function readBody(req) {
   return {};
 }
 
+/* The team's own description layout, learned per tracker from recent issues:
+ * section headings that appear in at least ~30% of that tracker's issues,
+ * in their usual order. Used by "Generate description". */
+function headingsOf(desc) {
+  const out = [];
+  String(desc || '').split(/\r?\n/).forEach((line, idx) => {
+    const t = line.trim();
+    // "## X" = Markdown heading; a single "# " is a Textile numbered item
+    const m = t.match(/^#{2,4}\s+(.+)$/) || t.match(/^h[1-6]\.\s+(.+)$/i)
+      || t.match(/^\*\*([^*]{3,60})\*\*\s*:?$/) || t.match(/^\*([^*]{3,60})\*\s*:?$/)
+      || t.match(/^([A-Za-z][^:*#|]{2,40}):\s*$/);
+    if (!m) return;
+    const h = m[1].replace(/[:*\s]+$/, '').replace(/^\*+/, '').trim();
+    if (h.length >= 3 && h.length <= 60 && !/^https?:/i.test(h)) out.push({ h, idx });
+  });
+  return out;
+}
+
+function learnTemplates(issues) {
+  const byTracker = new Map();
+  issues.forEach(issue => {
+    const tid = issue.tracker && issue.tracker.id;
+    if (!tid) return;
+    if (!byTracker.has(tid)) byTracker.set(tid, { name: issue.tracker.name, n: 0, heads: new Map() });
+    const t = byTracker.get(tid);
+    const hs = headingsOf(issue.description);
+    if (!hs.length) return;
+    t.n++;
+    const seen = new Set();
+    hs.forEach(({ h }, pos) => {
+      const key = h.toLowerCase().replace(/\s+/g, ' ');
+      if (seen.has(key)) return;
+      seen.add(key);
+      const e = t.heads.get(key) || { labels: new Map(), count: 0, pos: 0 };
+      e.labels.set(h, (e.labels.get(h) || 0) + 1);
+      e.count++;
+      e.pos += pos / Math.max(1, hs.length - 1);
+      t.heads.set(key, e);
+    });
+  });
+  const out = {};
+  byTracker.forEach((t, tid) => {
+    if (t.n < 2) return;
+    const min = Math.max(2, Math.ceil(t.n * 0.3));
+    const heads = [...t.heads.values()]
+      .filter(e => e.count >= min)
+      .map(e => ({ label: [...e.labels.entries()].sort((a, b) => b[1] - a[1])[0][0], avg: e.pos / e.count, count: e.count }))
+      .sort((a, b) => a.avg - b.avg)
+      .slice(0, 10)
+      .map(e => e.label);
+    if (heads.length >= 2) out[tid] = { tracker: t.name, headings: heads, basedOn: t.n };
+  });
+  return out;
+}
+
 async function fetchMemberships(apiKey, pid) {
   const out = [];
   for (let offset = 0; offset < 500; offset += 100) {
@@ -83,7 +138,7 @@ export default async function handler(req, res) {
         getJson('/trackers.json'),
         getJson('/enumerations/issue_priorities.json'),
         // recent issues: custom fields in use (+ their values) when the include above isn't supported
-        projectId ? getJson(`/issues.json?project_id=${pid}&status_id=*&limit=50&sort=updated_on:desc`) : null,
+        projectId ? getJson(`/issues.json?project_id=${pid}&status_id=*&limit=100&sort=updated_on:desc`) : null,
         getJson('/issue_statuses.json'),
         projectId ? fetchMemberships(apiKey, pid) : []
       ]);
@@ -143,9 +198,11 @@ export default async function handler(req, res) {
         tx += (d.match(/^h[1-6]\.\s|^bq\.\s|!(?!\[)[^\s!]+\.(png|jpe?g|gif|webp)!|^\s*#\s|<pre>/gim) || []).length;
       });
       const textFormat = md === 0 && tx === 0 ? 'unknown' : (tx > md ? 'textile' : 'markdown');
+      const templates = learnTemplates((sample && sample.issues) || []);
 
       return res.status(200).json({
         textFormat,
+        templates,
         trackers, priorities, categories: categories || [], customFields, statuses, assignees,
         project: proj ? { id: proj.id, name: proj.name } : null
       });

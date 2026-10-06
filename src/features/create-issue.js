@@ -8,6 +8,7 @@ import { $, classifyIssueKind, escapeHtml, toast } from '../core/helpers.js';
 import { switchView } from '../ui/navigation.js';
 import { renderMarkdown } from '../core/markdown.js';
 import { loadRedmineProjects } from '../redmine/projects.js';
+import { confirmDialog } from '../ui/confirm.js';
 
 /* ============================================================
    CREATE ISSUE → Redmine
@@ -80,7 +81,8 @@ async function loadCreateIssueMeta(projectId){
       customFields: data.customFields || [],
       statuses: data.statuses || [],
       assignees: data.assignees || [],
-      textFormat: data.textFormat || 'unknown'
+      textFormat: data.textFormat || 'unknown',
+      templates: data.templates || {}
     };
     applyTextFormat();
     fillCreateIssueSelects();
@@ -511,67 +513,172 @@ async function onCreateIssueProjectChange(){
   if(pid) await loadCreateIssueMeta(pid);
 }
 
+/* ============================================================
+   GENERATE DESCRIPTION (v4.49.0)
+   Builds the description from everything already filled in the form
+   (tracker, category, Project Name, Client Name, project, notes) and
+   follows the layout the team already uses in Redmine for that tracker
+   (headings learned from recent issues). Falls back to a built-in layout.
+   ============================================================ */
+const SECTION_RULES = [
+  ['steps',        /langkah|step|reproduc|reproduksi|cara|alur|proses|flow/i],
+  ['expected',     /harap|expect|seharus|ekspektasi|desired|should/i],
+  ['actual',       /aktual|actual|saat ini|terjadi|kondisi|current|error|kendala|hasil/i],
+  ['requirements', /kebutuhan|requirement|usulan|proposed|perubahan|improvement|spesifikasi|solusi|solution/i],
+  ['acceptance',   /kriteria|acceptance|selesai|definition|done/i],
+  ['summary',      /deskripsi|ringkas|summary|masalah|problem|overview|latar|background|tujuan|goal|enhancement|fitur|feature|why|alasan/i],
+  ['environment',  /data|pendukung|info|environment|lingkungan|detail|klien|client|versi|version|modul|module/i],
+  ['notes',        /catatan|note|keterangan|tambahan|lainnya|other|out of scope/i],
+  ['screens',      /lampiran|screenshot|gambar|attachment|bukti|evidence/i]
+];
+function sectionKey(label){
+  for(const [k, re] of SECTION_RULES) if(re.test(label)) return k;
+  return 'other';
+}
+
+const BUILTIN_LAYOUTS = {
+  bug:          ['Summary', 'Steps to Reproduce', 'Actual Result', 'Expected Result', 'Environment', 'Notes'],
+  enhancement:  ['Summary', 'Why', 'Proposed Behavior', 'Acceptance Criteria', 'Environment'],
+  optimization: ['Goal', 'Current Behavior', 'Proposed Improvement', 'Acceptance Criteria', 'Environment'],
+  feature:      ['Feature Overview', 'Requirements', 'Acceptance Criteria', 'Environment', 'Out of Scope']
+};
+
+/* Notes → buckets. Understands short labels ("Langkah:", "Expected:", "Hasil:", …),
+ * numbered lines as steps, and the first plain line as the summary. */
+function parseNotes(text){
+  const b = { summary: '', steps: [], expected: [], actual: [], requirements: [], notes: [], details: [] };
+  const LABELS = [
+    ['steps',    /^(langkah(-langkah)?|steps?( to reproduce)?|cara|reproduce)\s*:/i],
+    ['expected', /^(expected( result)?|harapan|seharusnya|hasil yang diharapkan)\s*:/i],
+    ['actual',   /^(actual( result)?|hasil( saat ini)?|terjadi|error|kondisi( saat ini)?)\s*:/i],
+    ['requirements', /^(kebutuhan|requirements?|usulan|proposed)\s*:/i],
+    ['notes',    /^(catatan|notes?|keterangan)\s*:/i]
+  ];
+  let cur = null;
+  String(text || '').split(/\r?\n/).forEach(raw => {
+    let line = raw.trim();
+    if(!line) return;
+    const lab = LABELS.find(([, re]) => re.test(line));
+    if(lab){ cur = lab[0]; line = line.replace(lab[1], '').trim(); if(!line) return; }
+    const numbered = /^\d+[.)]\s+/.test(line);
+    line = line.replace(/^(\d+[.)]|[-•*])\s+/, '').trim();
+    if(!line) return;
+    if(numbered && (!cur || cur === 'steps')){ b.steps.push(line); cur = cur || 'steps'; return; }
+    if(cur){ b[cur].push(line); return; }
+    if(!b.summary) b.summary = line; else b.details.push(line);
+  });
+  return b;
+}
+
 function generateIssueDescription(){
+  const meta = window.__ciMeta || {};
   const trackerSel = $('ciTracker');
+  const trackerId = trackerSel?.value || '';
   const trackerName = trackerSel?.selectedOptions?.[0]?.text || '';
   const subject = ($('ciSubject')?.value || '').trim();
-  const notes = ($('ciNotes')?.value || '').trim();
-  const catName = $('ciCategory')?.selectedOptions?.[0]?.text || '';
-  const kind = classifyIssueKind(trackerName, subject + ' ' + notes);
+  const notesText = ($('ciNotes')?.value || '').trim();
+  const pick = (id) => { const el = $(id); const t = el?.selectedOptions?.[0]?.text || ''; return el && el.value ? t : ''; };
+  const category = pick('ciCategory');
+  const project = $('ciProject')?.selectedOptions?.[0]?.text || '';
+  const projectName = ($('ciProjectName')?.value || '').trim();
+  const clientName = ($('ciClientName')?.value || '').trim();
+  const kind = classifyIssueKind(trackerName, subject + ' ' + notesText);
+  const n = parseNotes(notesText);
 
-  const bullets = notes
-    ? notes.split(/\n+/).map(s => s.replace(/^[-•*\d.)\s]+/, '').trim()).filter(Boolean)
-    : [];
+  // layout: the team's own for this tracker, else built-in
+  const team = meta.templates && meta.templates[trackerId];
+  const headings = team ? team.headings : (BUILTIN_LAYOUTS[kind] || BUILTIN_LAYOUTS.feature);
 
-  let desc = '';
-  const header = subject ? `**${subject}**\n\n` : '';
+  // keep screenshots already in the description: under step N, or loose
+  const ta = $('ciDescription');
+  const old = ta ? ta.value : '';
+  const stepImgs = new Map(); const looseImgs = [];
+  let stepNo = 0;
+  old.split('\n').forEach(line => {
+    if(/^\s*\d+[.)]\s+/.test(line)){ stepNo++; return; }
+    const img = line.match(/^\s*(!\[[^\]]*\]\([^)]+\))\s*$/);
+    if(!img) return;
+    if(/^\s{2,}/.test(line) && stepNo) { if(!stepImgs.has(stepNo)) stepImgs.set(stepNo, []); stepImgs.get(stepNo).push(img[1]); }
+    else looseImgs.push(img[1]);
+  });
 
-  if(kind === 'bug'){
-    desc = header;
-    desc += `## Summary\n${bullets[0] || subject || '(brief summary of the bug)'}\n\n`;
-    desc += `## Steps to Reproduce\n`;
-    if(bullets.length > 1){
-      bullets.slice(1).forEach((b, i) => { desc += `${i + 1}. ${b}\n`; });
-    } else {
-      desc += `1. Open the related menu/module\n2. Perform the action that triggers the issue\n3. Observe the result\n`;
+  const envLinesFor = (L) => [
+    clientName && `- ${L.client}: ${clientName}`,
+    projectName && `- Project Name: ${projectName}`,
+    category && `- ${L.module}: ${category}`,
+    project && `- ${L.project}: ${project}`
+  ].filter(Boolean);
+  const bullets = (arr, empty) => (arr.length ? arr : [empty]).map(x => `- ${x}`).join('\n');
+  const steps = (L) => {
+    const list = n.steps.length ? n.steps : L.steps;
+    return list.map((s, i) => {
+      const imgs = (stepImgs.get(i + 1) || []).map(x => `   ${x}`);
+      stepImgs.delete(i + 1);
+      return [`${i + 1}. ${s}`, ...imgs].join('\n');
+    }).join('\n');
+  };
+  const summary = (L) => [n.summary || subject || L.sum, ...n.details.map(d => `- ${d}`)].join('\n');
+
+  const keys = new Set(headings.map(sectionKey));
+  // extra sections in the team's language
+  const indo = /langkah|hasil|deskripsi|catatan|harap|kebutuhan|masalah|pendukung|latar/i.test(headings.join(' '));
+  const L = indo
+    ? { env: 'Data Pendukung', notes: 'Catatan', shots: 'Lampiran', now: '(jelaskan yang terjadi sekarang)', should: '(seharusnya bagaimana)',
+        steps: ['(buka menu / modul)', '(lakukan aksinya)', '(lihat hasilnya)'], change: '(jelaskan perubahan yang dibutuhkan)',
+        done: 'Berjalan sesuai penjelasan di atas, alur lain tetap normal', envEmpty: '- (klien, versi, modul)', sum: '(ringkasan singkat)',
+        client: 'Klien', module: 'Modul / kategori', project: 'Project Redmine' }
+    : { env: 'Environment', notes: 'Notes', shots: 'Screenshots', now: '(what happens now)', should: '(what should happen)',
+        steps: ['(open the menu / module)', '(do the action)', '(see the result)'], change: '(describe the change)',
+        done: 'Works as described above, existing flows still work', envEmpty: '- (client, version, module)', sum: '(short summary)',
+        client: 'Client', module: 'Module / category', project: 'Redmine project' };
+  const envLines = envLinesFor(L);
+
+  const used = new Set();
+  const body = (label) => {
+    const k = sectionKey(label);
+    used.add(k);
+    switch(k){
+      case 'summary':      return summary(L);
+      case 'steps':        return steps(L);
+      // the problem line already sits in the summary section when there is one
+      case 'actual':       return bullets(n.actual, keys.has('summary') ? L.now : (n.summary || L.now));
+      case 'expected':     return bullets(n.expected, L.should);
+      case 'requirements': return bullets(n.requirements.length ? n.requirements : n.details, L.change);
+      case 'acceptance':   return bullets([], L.done);
+      case 'environment':  return envLines.join('\n') || L.envEmpty;
+      case 'notes':        return bullets(n.notes, '-').replace(/^- -$/, '-');
+      case 'screens':      return looseImgs.splice(0).join('\n') || '-';
+      default:             return '-';
     }
-    desc += `\n## Expected Result\n- (what should happen)\n\n`;
-    desc += `## Actual Result\n- ${bullets[0] || '(what actually happens)'}\n\n`;
-    desc += `## Environment\n`;
-    desc += `- Module / area: ${catName && catName !== '— Optional —' ? catName : '(FE / BE / …)'}\n`;
-    desc += `- Project: ${$('ciProject')?.selectedOptions?.[0]?.text || '—'}\n`;
-    desc += `\n## Notes\n${notes || '- '}\n`;
-  } else if(kind === 'optimization'){
-    desc = header;
-    desc += `## Goal\n${bullets[0] || subject || '(what to optimize)'}\n\n`;
-    desc += `## Current Behavior\n- (describe current performance / flow)\n\n`;
-    desc += `## Proposed Improvement\n`;
-    (bullets.length ? bullets : ['(describe the change)']).forEach(b => { desc += `- ${b}\n`; });
-    desc += `\n## Acceptance Criteria\n- Measurable improvement or clearer UX\n- No regression on related flows\n`;
-  } else if(kind === 'enhancement'){
-    desc = header;
-    desc += `## Enhancement\n${bullets[0] || subject || '(what to improve)'}\n\n`;
-    desc += `## Why\n- (business / user reason)\n\n`;
-    desc += `## Proposed Behavior\n`;
-    (bullets.length ? bullets : ['(describe expected behavior)']).forEach(b => { desc += `- ${b}\n`; });
-    desc += `\n## Acceptance Criteria\n- Behavior matches description\n- Existing flows still work\n`;
-  } else {
-    // feature / other
-    desc = header;
-    desc += `## Feature Overview\n${bullets[0] || subject || '(what to build)'}\n\n`;
-    desc += `## Requirements\n`;
-    (bullets.length ? bullets : ['(list functional requirements)']).forEach(b => { desc += `- ${b}\n`; });
-    desc += `\n## Acceptance Criteria\n- All requirements above are met\n- Covered by basic manual test\n`;
-    desc += `\n## Out of Scope\n- (optional)\n`;
-  }
+  };
 
-  // keep screenshots that were already pasted into the description
-  const prevImgs = (($('ciDescription')?.value || '').match(/^[ \t]*!\[[^\]]*\]\([^)]+\)[ \t]*$/gm) || []).map(l => l.trim());
-  if(prevImgs.length) desc = desc.trim() + '\n\n## Screenshots\n' + prevImgs.join('\n') + '\n';
-  if($('ciDescription')) $('ciDescription').value = desc.trim() + '\n';
-  refreshCiPreview();
-  renderCiFiles();
-  toast('Description generated — edit as needed');
+  const parts = headings.map(h => `## ${h}\n${body(h)}`);
+  // anything the layout had no room for still ends up in the description
+  if(!used.has('environment') && envLines.length) parts.push(`## ${L.env}\n${envLines.join('\n')}`);
+  if(!used.has('notes') && n.notes.length) parts.push(`## ${L.notes}\n${bullets(n.notes, '-')}`);
+  const leftover = [...looseImgs, ...[...stepImgs.values()].flat()];
+  if(leftover.length) parts.push(`## ${L.shots}\n${leftover.join('\n')}`);
+  const desc = parts.join('\n\n').trim() + '\n';
+
+  const apply = () => {
+    if(ta) ta.value = desc;
+    window.__ciLastGenerated = desc;
+    refreshCiPreview();
+    renderCiFiles();
+    toast(team ? `Generated with your team's ${team.tracker} layout (from ${team.basedOn} recent issues)` : 'Description generated, edit as needed');
+  };
+  // don't silently overwrite text typed by hand (pasting screenshots doesn't count)
+  const textOnly = (v) => String(v || '').replace(/^[ \t]*!\[[^\]]*\]\([^)]+\)[ \t]*\n?/gm, '').trim();
+  const typed = textOnly(old);
+  if(typed && typed !== textOnly(window.__ciLastGenerated)){
+    confirmDialog({
+      title: 'Replace the description?',
+      message: 'The description has text you typed. Generating replaces it (screenshots are kept).',
+      okText: 'Replace', cancelText: 'Keep mine'
+    }).then(ok => { if(ok) apply(); });
+    return;
+  }
+  apply();
 }
 
 function resetCreateIssueForm(){
