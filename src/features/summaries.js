@@ -21,6 +21,7 @@ import { switchView } from '../ui/navigation.js';
 import { closeModal, openModal } from '../ui/modal.js';
 import { enrichPlanIssueCategories, getPlanProjectKey, projectKeyLabel } from './plans/plans.js';
 import { emptyState } from '../ui/list-controls.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    SUMMARIES CRUD
@@ -224,15 +225,10 @@ async function deleteSummary(id){
 function copySummary(id){
   const d = State.summaries.get(id);
   if(!d) return;
-  navigator.clipboard.writeText(d.text).then(()=>{
+  // when the browser blocks copying, writeClipboard shows a box to copy by hand
+  writeClipboard(d.text).then(()=>{
     toast('Copied — ready to paste into WhatsApp');
-  }).catch(()=>{
-    const ta = document.createElement('textarea');
-    ta.value = d.text;
-    document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); ta.remove();
-    toast('Copied to clipboard');
-  });
+  }).catch(()=>{});
 }
 
 function renderSummaries(){

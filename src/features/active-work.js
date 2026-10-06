@@ -25,6 +25,7 @@ import {
   resolveNewIssueProjectIds
 } from './new-issues.js';
 import { getIssueNote } from './issue-notes.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    ACTIVE WORK — In Progress + On Deploy across 3 projects
@@ -361,10 +362,10 @@ async function copyActiveWorkLinks(which){
     text += `#${i.id} [${who}] ${i.subject || ''}\nhttps://pjm.zahironline.com/issues/${i.id}\n`;
   });
   try {
-    await navigator.clipboard.writeText(text.trim());
+    await writeClipboard(text.trim());
     toast('Links copied');
   } catch(_){
-    toast('Copy failed', 'error');
+    toast('Copying was blocked, copy it from the box', 'error');
   }
   try { updateBatchBar(); } catch(_){}
 }

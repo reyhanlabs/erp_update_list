@@ -6,6 +6,7 @@ import { apiFetch } from '../api.js';
 import { $, toast } from '../core/helpers.js';
 import { switchView } from '../ui/navigation.js';
 import { loadWhatNext, refreshDashAttention } from './what-next.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 const TG_CHAT_KEY = 'erp_telegram_chat_id';
 
@@ -65,7 +66,7 @@ async function sendTelegramBriefing(){
     });
     const data = await r.json().catch(() => ({}));
     if(!r.ok){
-      try { await navigator.clipboard.writeText(text); } catch(_){}
+      try { await writeClipboard(text); } catch(_){}
       const detail = data.hint || data.error || data.description || ('HTTP ' + r.status);
       toast('Telegram: ' + detail + ' — text copied', 'error');
       console.warn('[telegram]', r.status, data);
@@ -73,7 +74,7 @@ async function sendTelegramBriefing(){
     }
     toast('Briefing sent to Telegram');
   } catch(err){
-    try { await navigator.clipboard.writeText(text); } catch(_){}
+    try { await writeClipboard(text); } catch(_){}
     toast('Send failed — briefing copied to clipboard', 'error');
   }
 }

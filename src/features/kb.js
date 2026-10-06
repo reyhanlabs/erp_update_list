@@ -21,6 +21,7 @@ import {
   STRUCTURE_ID, GENERAL, PRODUCT_KEYS, canonicalProduct, newId, emptyStructure, normalizeStructure, cloneStructure,
   buildTree, moduleOptions, submenuOptions, structureFromArticles, validateStructure, planRenames, usage
 } from './kb-structure.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 const PRODUCTS = {
   erp: { label: 'Zahir ERP', short: 'ERP' },
@@ -509,14 +510,14 @@ async function copyArticleText(){
   if(!a) return;
   const p = PRODUCTS[a.product];
   const text = `*${a.title}*\n${p ? p.label : ''} › ${a.module || ''}${submenuOf(a) ? ` › ${submenuOf(a)}` : ''}${a.version ? ` (${a.version})` : ''}${a.client ? `\nClient: ${a.client}` : ''}\n\n${markdownToText(a.content)}`;
-  try { await navigator.clipboard.writeText(text); toast('Guide text copied'); }
+  try { await writeClipboard(text); toast('Guide text copied'); }
   catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
 
 async function copyArticleLink(){
   if(!S.selectedId) return;
   const url = `${location.origin}${location.pathname}?view=kb&doc=${encodeURIComponent(S.selectedId)}`;
-  try { await navigator.clipboard.writeText(url); toast('Guide link copied'); }
+  try { await writeClipboard(url); toast('Guide link copied'); }
   catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
 

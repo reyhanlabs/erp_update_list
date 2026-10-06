@@ -5,6 +5,7 @@
 import { State } from '../../core/state.js';
 import { formatDate, parseIssueLines, toast } from '../../core/helpers.js';
 import { enrichPlanIssueCategories, renderPlans } from './plans.js';
+import { copyTextSmart, showManualCopy } from '../../core/clipboard.js';
 
 /* ============================================================
    EXPAND/COLLAPSE PLAN CARD
@@ -101,67 +102,6 @@ function buildCopyHtml(plan, format){
     if(full) html += '<br>';
   });
   return html;
-}
-
-/* Copy that works on every browser: a synchronous copy inside the click
- * (keeps formatting), then the Clipboard API, and if both are blocked a
- * box with the text selected so it can be copied by hand.
- * The old code reported "copied" even when the fallback silently failed. */
-function copyRichSync(text, html){
-  // Put exactly our plain text + HTML on the clipboard via the copy event
-  // (synchronous, inside the click, so no permission prompt is needed).
-  let fired = false;
-  const onCopy = (e) => {
-    fired = true;
-    e.clipboardData.setData('text/plain', text);
-    if(html) e.clipboardData.setData('text/html', html);
-    e.preventDefault();
-  };
-  const ta = document.createElement('textarea');
-  ta.value = text || ' ';
-  ta.setAttribute('readonly', '');
-  ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
-  document.body.appendChild(ta);
-  document.addEventListener('copy', onCopy, true);
-  let ok = false;
-  try { ta.focus(); ta.select(); ok = document.execCommand('copy'); } catch(_){ ok = false; }
-  document.removeEventListener('copy', onCopy, true);
-  ta.remove();
-  return ok && fired;
-}
-
-async function copyTextSmart(text, html){
-  if(copyRichSync(text, html)) return true;
-  try {
-    if(html && window.ClipboardItem && navigator.clipboard?.write){
-      await navigator.clipboard.write([new ClipboardItem({
-        'text/plain': new Blob([text], { type: 'text/plain' }),
-        'text/html': new Blob([html], { type: 'text/html' })
-      })]);
-      return true;
-    }
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch(_){ return false; }
-}
-
-function showManualCopy(text){
-  document.getElementById('manualCopyBox')?.remove();
-  const wrap = document.createElement('div');
-  wrap.id = 'manualCopyBox';
-  wrap.className = 'manual-copy';
-  wrap.innerHTML = `<div class="manual-copy-card" role="dialog" aria-label="Copy manually">
-      <b>Your browser blocked copying</b>
-      <p>The text is selected below: press <kbd>Ctrl</kbd>+<kbd>C</kbd> (or long-press → Copy), then close.</p>
-      <textarea class="input" readonly rows="10"></textarea>
-      <div class="manual-copy-actions"><button type="button" class="btn btn-primary btn-sm">Close</button></div>
-    </div>`;
-  document.body.appendChild(wrap);
-  const ta = wrap.querySelector('textarea');
-  ta.value = text; ta.focus(); ta.select();
-  const close = () => wrap.remove();
-  wrap.querySelector('button').addEventListener('click', close);
-  wrap.addEventListener('click', (e) => { if(e.target === wrap) close(); });
 }
 
 async function copyPlan(id, format){
@@ -289,7 +229,6 @@ document.addEventListener('keydown', (e) => {
 });
 
 export {
-  copyTextSmart,
   closeAllCopyMenus,
   copyPlan,
   restoreOpenCopyMenu,

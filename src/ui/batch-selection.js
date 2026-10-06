@@ -3,6 +3,7 @@
  * (split from the former monolithic src/app.js — v4.40.0)
  */
 import { escapeHtml, toast } from '../core/helpers.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    BATCH SELECTION (Monday-style multi-select)
@@ -81,10 +82,10 @@ async function copySelectedIssueLinks(){
   const urls = getSelectedIssueUrls();
   if(!urls.length){ toast('No issues selected', 'error'); return; }
   try {
-    await navigator.clipboard.writeText(urls.join('\n'));
+    await writeClipboard(urls.join('\n'));
     toast(`${urls.length} link(s) copied`);
   } catch(_){
-    toast('Copy failed', 'error');
+    toast('Copying was blocked, copy it from the box', 'error');
   }
 }
 
@@ -94,10 +95,10 @@ async function copySelectedTelegram(){
   // Links only — SDET-friendly
   const text = urls.join('\n');
   try {
-    await navigator.clipboard.writeText(text);
+    await writeClipboard(text);
     toast(`${urls.length} link(s) for Telegram`);
   } catch(_){
-    toast('Copy failed', 'error');
+    toast('Copying was blocked, copy it from the box', 'error');
   }
 }
 

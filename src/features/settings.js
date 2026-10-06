@@ -5,6 +5,7 @@
 import { APP_VERSION, APP_VERSION_DATE, APP_VERSION_NOTE } from '../config.js';
 import { $, toast } from '../core/helpers.js';
 import { CloudSync } from '../core/cloud-sync.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    VERSION DISPLAY
@@ -40,7 +41,7 @@ function usePersonalWorkspace(){
 function copyWorkspaceId(){
   const id = CloudSync.workspaceId || '';
   if(!id){ toast('No workspace yet', 'error'); return; }
-  navigator.clipboard.writeText(id).then(()=>toast('Workspace code copied')).catch(()=>toast(id));
+  writeClipboard(id).then(()=>toast('Workspace code copied')).catch(()=>toast(id));
 }
 
 export {

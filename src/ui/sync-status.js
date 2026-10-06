@@ -3,6 +3,7 @@
  * (split from the former monolithic src/app.js — v4.40.0)
  */
 import { $, toast } from '../core/helpers.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    SYNC STATUS UI
@@ -62,7 +63,7 @@ function updateLastSync(){
 function copyUID(){
   const uidText = $('userUID')?.textContent;
   if(!uidText || uidText === '—') return;
-  navigator.clipboard.writeText(uidText).then(()=>{
+  writeClipboard(uidText).then(()=>{
     toast('UID copied to clipboard');
   }).catch(()=>{
     toast('Failed to copy', 'error');

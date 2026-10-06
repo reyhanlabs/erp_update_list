@@ -17,6 +17,7 @@ import { loadRedmineProjects } from '../redmine/projects.js';
 import { assigneeChip, categoryChip, projectChip, resolveNewIssueProjectIds } from './new-issues.js';
 import { fetchIssuesByStatusName } from './active-work.js';
 import { issueNoteChip, getIssueNote } from './issue-notes.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    WHAT NEXT — rank New issues by urgency (priority + age)
@@ -247,10 +248,10 @@ async function copyWhatNextList(){
     text += `   https://pjm.zahironline.com/issues/${i.id}\n\n`;
   });
   try {
-    await navigator.clipboard.writeText(text.trim());
+    await writeClipboard(text.trim());
     toast('Top list copied');
   } catch(_){
-    toast('Copy failed', 'error');
+    toast('Copying was blocked, copy it from the box', 'error');
   }
 }
 

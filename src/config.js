@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.52.2';
+export const APP_VERSION = '4.53.0';
 export const APP_VERSION_DATE = '2026-10-04';
-export const APP_VERSION_NOTE = 'By Client under Dashboard';
+export const APP_VERSION_NOTE = 'Full backup and reliable copy everywhere';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';

@@ -27,6 +27,7 @@ import { loadRedmineProjects } from '../redmine/projects.js';
 import { getIssueStatusDef, openIssueStatusView, persistIssueStatusCache } from './issue-status.js';
 import { ACTIVE_WORK_STATUSES, fetchIssuesByStatusName } from './active-work.js';
 import { issueNoteChip, getIssueNote } from './issue-notes.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    NEW ISSUES — status "New" from 3 Zahir projects
@@ -582,7 +583,7 @@ function copyGroupIssueLinks(groupKey){
   });
   if(!list.length){ toast('No links to copy', 'error'); return; }
   const text = list.map(i => `https://pjm.zahironline.com/issues/${i.id}`).join('\n');
-  navigator.clipboard.writeText(text).then(() => toast('Links copied')).catch(() => toast('Copy failed', 'error'));
+  writeClipboard(text).then(() => toast('Links copied')).catch(() => {});
 }
 
 function buildNewIssueLinksText(key){
@@ -605,10 +606,10 @@ async function copyNewIssueLinks(key){
     return;
   }
   try {
-    await navigator.clipboard.writeText(text);
+    await writeClipboard(text);
     toast('Links copied');
   } catch(_){
-    toast('Copy failed', 'error');
+    toast('Copying was blocked, copy it from the box', 'error');
   }
 }
 
@@ -620,10 +621,10 @@ async function copyAllNewIssueLinks(){
     return;
   }
   try {
-    await navigator.clipboard.writeText(parts.join('\n\n'));
+    await writeClipboard(parts.join('\n\n'));
     toast('All project links copied');
   } catch(_){
-    toast('Copy failed', 'error');
+    toast('Copying was blocked, copy it from the box', 'error');
   }
 }
 

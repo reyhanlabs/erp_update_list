@@ -30,6 +30,7 @@ import { notifyNewTesterIssues } from './notifications.js';
 import { getSelectedProjectId, loadRedmineProjects } from '../../redmine/projects.js';
 import { assigneeChip, categoryChip, issueDescriptionCell, projectChip } from '../new-issues.js';
 import { getIssueNote } from '../issue-notes.js';
+import { writeClipboard } from '../../core/clipboard.js';
 
 function getFilteredTesterIssues(){
   const q = ($('testerSearch')?.value || '').toLowerCase().trim();
@@ -366,17 +367,9 @@ async function copyTesterList(){
   }
 
   try {
-    await navigator.clipboard.writeText(text.trim());
+    await writeClipboard(text.trim());
     toast(`Copied ${list.length} issue(s)`);
-  } catch(_){
-    const ta = document.createElement('textarea');
-    ta.value = text.trim();
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    toast(`Copied ${list.length} issue(s)`);
-  }
+  } catch(_){ /* blocked: a box to copy by hand is shown */ }
 }
 
 

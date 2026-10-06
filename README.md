@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.52.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.53.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -179,6 +179,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.53.0**: Backup v2: Export JSON adds Knowledge Base guides (with image subcollections) and the menu structure, plus private issue notes; Import restores them (v1 files still work). New `src/core/clipboard.js` (`writeClipboard`, `copyTextSmart`, manual-copy box) used by every copy button; removed fallbacks that reported "copied" without copying. Audit: all 13 views load correctly on reload/direct link.
 - **v4.52.2**: Sidebar: By Client moved under Dashboard (Overview section).
 - **v4.52.1**: By Client counts only the three Zahir products (same project list as Issue Status, name patterns as fallback); other Redmine projects are ignored in numbers, product filter, chips and badges. Product segment wraps instead of overlapping.
 - **v4.52.0**: By Client overview v2: `client_names` adds per-product breakdown (`byProject`); statuses mapped to fixed columns (New, In Progress, Ready for Testing, Resolved, Other open, Open, Total, Last update) with totals cards, product segment filter, "show" filter, sortable headers; product filter also applies to a client's issue list, which gets status pills and status-ordered groups. Overview also loads on reload/direct link.

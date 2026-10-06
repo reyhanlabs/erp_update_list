@@ -89,6 +89,24 @@ async function saveNote(id, text, missing){
 }
 
 function getIssueNote(id){ return notes[String(id)] || null; }
+
+/* backup / restore (v4.53.0) */
+function getAllIssueNotes(){ return JSON.parse(JSON.stringify(notes)); }
+async function importIssueNotes(map){
+  const clean = {};
+  Object.entries(map || {}).forEach(([id, n]) => {
+    if(!/^\d+$/.test(id) || !n || (!n.text && !n.missing)) return;
+    const cur = notes[id];
+    if(cur && (cur.at || 0) > (n.at || 0)) return;          // keep the newer one
+    clean[id] = { text: String(n.text || '').slice(0, MAX_LEN), missing: !!n.missing, at: n.at || Date.now() };
+  });
+  Object.assign(notes, clean);
+  writeLocal();
+  refreshAllNoteChips();
+  const ref = userDoc();
+  if(ref && Object.keys(clean).length) await ref.set({ issueNotes: clean }, { merge: true });
+  return Object.keys(clean).length;
+}
 function hasIssueNote(id){ const n = getIssueNote(id); return !!(n && (n.text || n.missing)); }
 
 /* ---------------- rendering ---------------- */
@@ -190,4 +208,4 @@ document.addEventListener('click', (e) => {
   openNoteEditor(chip, chip.dataset.noteId);
 }, true);
 
-export { issueNoteChip, getIssueNote, hasIssueNote, loadIssueNotes, closeNoteEditor };
+export { getAllIssueNotes, importIssueNotes, issueNoteChip, getIssueNote, hasIssueNote, loadIssueNotes, closeNoteEditor };

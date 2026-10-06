@@ -1425,6 +1425,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.53.0</span>
+                <span class="cl-note">Full backup (plans, summaries, Knowledge Base with screenshots and menus, private issue notes); every copy button now uses the same reliable copy with a manual-copy fallback</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.52.2</span>
                 <span class="cl-note">Sidebar: By Client moved right under Dashboard</span>
               </div>
@@ -2326,7 +2330,7 @@
                 <li>Write steps in markdown; paste screenshots with <kbd>Ctrl</kbd>+<kbd>V</kbd>.</li>
                 <li>Check <b>Preview</b>, then <b>Save guide</b> (or <kbd>Ctrl</kbd>+<kbd>S</kbd>).</li>
               </ol>
-              <div class="docs-tip">Knowledge Base guides are not included in <b>Export JSON</b>. They stay in the cloud workspace.</div>
+              <div class="docs-tip"><b>Export JSON</b> in Settings also backs up the Knowledge Base: guides, screenshots and menus.</div>
               <p>A guide with a client shows the client name in the list and at the top of the guide. Click the name to open that client's Redmine issues in <b>By Client</b>. Searching for a client name finds their guides.</p>
               <p>In the library on the left, open a module to see its submenus; guides without a submenu are listed under <i>General</i>. Inside a module, guides are grouped by submenu.</p>
               <p><b>Edit menus</b> (below the library) is where the team defines each product's modules and submenus and their order. Renaming a module or submenu updates every guide that uses it; items that guides still use can't be removed. The first time, the list is pre-filled from the modules your guides already use.</p>
@@ -2353,7 +2357,7 @@
             <article class="docs-sec" id="docs-backup" data-keywords="export import json delete backup restore">
               <header><span class="docs-ico" data-docs-icon="backup"></span><h3>Backup &amp; restore</h3><button type="button" class="docs-go" data-docs-go="settings">Open Settings</button></header>
               <ul class="docs-list">
-                <li><b>Export JSON</b> saves plans and summaries for backup.</li>
+                <li><b>Export JSON</b> saves a full backup: plans, summaries, Knowledge Base (guides, screenshots, menus) and your private issue notes. <b>Import JSON</b> restores it.</li>
                 <li><b>Import JSON</b> restores data from that backup file.</li>
               </ul>
               <div class="docs-tip docs-tip-warn">If you are on a team workspace, <b>Delete All Data</b> also deletes teammates’ data. Export JSON first before deleting.</div>

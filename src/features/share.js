@@ -8,6 +8,7 @@ import { $, escapeHtml, formatDate, parseIssueLines, toast } from '../core/helpe
 import { switchView } from '../ui/navigation.js';
 import { closeAllCopyMenus } from './plans/copy-menu.js';
 import { updateNotifToggleUI } from './tester/notifications.js';
+import { writeClipboard } from '../core/clipboard.js';
 
 /* ============================================================
    PUBLIC SHARE LINK (no workspace / no login)
@@ -77,7 +78,7 @@ async function copyPlanShareLink(planId){
     });
     const url = `${location.origin}/share?id=${id}`;
     try {
-      await navigator.clipboard.writeText(url);
+      await writeClipboard(url);
       toast('Short share link copied');
     } catch(_){
       prompt('Copy this share link:', url);
@@ -95,7 +96,7 @@ async function copyPlanShareLink(planId){
       }
       const url = `${location.origin}/share.html#${token}`;
       try {
-        await navigator.clipboard.writeText(url);
+        await writeClipboard(url);
         toast('Share link copied (long form — publish Firestore /shares rules for short links)');
       } catch(_){
         prompt('Copy this share link:', url);
@@ -187,7 +188,7 @@ function copySharedIssueLinks(){
   const data = window.__sharedPlanData;
   if(!data) return;
   const lines = (data.issues || []).map(it => it.url || (it.number ? `https://pjm.zahironline.com/issues/${it.number}` : '')).filter(Boolean);
-  navigator.clipboard.writeText(lines.join('\n')).then(() => toast('Links copied')).catch(() => toast('Copy failed', 'error'));
+  writeClipboard(lines.join('\n')).then(() => toast('Links copied')).catch(() => {});
 }
 
 function copySharedTelegram(){
@@ -198,7 +199,7 @@ function copySharedTelegram(){
     return url;
   }).filter(Boolean);
   const text = `${data.title || 'Update Plan'}\n\n` + lines.join('\n');
-  navigator.clipboard.writeText(text).then(() => toast('Copied for Telegram')).catch(() => toast('Copy failed', 'error'));
+  writeClipboard(text).then(() => toast('Copied for Telegram')).catch(() => {});
 }
 
 function bootShareMode(){
