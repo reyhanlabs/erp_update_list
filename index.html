@@ -1120,7 +1120,19 @@
                     <option value="team">Team layout (from Redmine)</option>
                   </select>
                 </label>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openGptPanel()" title="Fill the form from a bug report written by ChatGPT">📋 Paste from ChatGPT</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="generateIssueDescription()">✨ Generate description</button>
+              </div>
+            </div>
+            <div class="ci-gpt hidden" id="ciGptPanel">
+              <div class="ci-gpt-head">
+                <b>Paste the ChatGPT answer</b>
+                <span>Title → Subject · [Bug] → Tracker · Severity / Priority → Priority · Client / Project → fields · the rest → Description</span>
+              </div>
+              <textarea class="input ci-gpt-text" id="ciGptText" rows="10" placeholder="Title:&#10;[Bug] …&#10;&#10;Environment:&#10;* App : ERP Web&#10;…&#10;&#10;Steps to Reproduce:&#10;1. …"></textarea>
+              <div class="ci-gpt-actions">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeGptPanel()">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="importGptText()">Fill the form</button>
               </div>
             </div>
             <div class="kb-compose ci-compose">
@@ -1414,6 +1426,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.50.0</span>
+                <span class="cl-note">New Issue: "Paste from ChatGPT" fills Subject, Tracker, Priority, Client/Project and Description from a ChatGPT bug report</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.49.1</span>
                 <span class="cl-note">Generate description: QA bug-report format (Environment, Precondition, Steps to Reproduce, Actual/Expected, Severity/Priority, Notes, Attachment) and "[Bug] …" subject</span>
@@ -2280,6 +2296,7 @@
               <p>The description is written in Markdown, like the Knowledge Base. If your Redmine uses Textile, choose it under <b>Redmine format</b> (it's detected automatically) and the text and images are converted when the issue is sent.</p>
               <p><b>Generate description</b> fills in the layout your team already uses in Redmine for the chosen tracker (section headings learned from recent issues); when there isn't one yet it uses a standard layout. It takes the problem, steps, expected/actual result and notes from <i>Notes for description generator</i>, adds Client, Project Name, category and project from the form, keeps screenshots under the step they belong to, and asks before replacing text you typed yourself.</p>
               <p>The default <b>QA format</b> layout produces Environment (App, Module, Menu, Environment, Browser, OS, Version, Client, Project), Precondition, Steps to Reproduce (starting with "Login ke ERP."), Actual Result, Expected Result, Severity / Priority (from the Priority field, or <i>Severity:</i>/<i>Priority:</i> in the notes), Notes and Attachment, and prefixes the subject like <i>[Bug] …</i>. Choose <b>Team layout</b> to use the headings learned from Redmine instead.</p>
+              <p><b>Paste from ChatGPT</b>: ask ChatGPT for the bug report in the QA format, click the button and paste the answer (it's picked up from the clipboard when the browser allows). <i>Title</i> becomes the Subject, <i>[Bug]</i> picks the Tracker, <i>Severity / Priority</i> sets Priority (Critical/P0 → Immediate, High/P1 → High, Medium/P2 → Normal, Low → Low), <i>Client</i> / <i>Project</i> in Environment fill Client Name / Project Name, and every other section goes into the Description. Screenshots you already pasted stay under their step.</p>
             </article>
 
             <article class="docs-sec" id="docs-kb" data-keywords="edit menus structure module submenu menu client customer knowledge base guide how-to screenshot markdown">

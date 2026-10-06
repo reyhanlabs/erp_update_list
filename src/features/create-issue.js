@@ -693,6 +693,204 @@ function buildQaDescription(ctx){
   return sections.map(([h, body]) => `**${h}:**\n\n${body}`).join('\n\n') + '\n';
 }
 
+/* ============================================================
+   PASTE FROM CHATGPT (v4.50.0)
+   Takes a bug report written by ChatGPT in the team's QA format
+   ("Title:", "Environment:", "Steps to Reproduce:", … "Attachment:")
+   and fills the form: Title → Subject, [Bug] → Tracker,
+   Severity / Priority → Priority, Client / Project → custom fields,
+   the rest → Description (Markdown, Redmine-ready).
+   ============================================================ */
+const GPT_SECTIONS = [
+  ['title',        /^title$|^judul$|^subject$/i],
+  ['environment',  /^environment$|^env$|^lingkungan$/i],
+  ['precondition', /^pre-?conditions?$|^prasyarat$|^kondisi awal$/i],
+  ['steps',        /^steps?( to reproduce)?$|^langkah(-langkah)?$|^reproduction steps$/i],
+  ['actual',       /^actual( result)?s?$|^hasil( saat ini)?$/i],
+  ['expected',     /^expected( result)?s?$|^harapan$|^hasil yang diharapkan$/i],
+  ['severity',     /^severity\s*\/\s*priority$|^priority\s*\/\s*severity$|^severity$|^priority$/i],
+  ['notes',        /^notes?$|^catatan$|^additional notes$/i],
+  ['attachment',   /^attachments?$|^lampiran$|^evidence$/i],
+  ['summary',      /^summary$|^description$|^deskripsi$|^ringkasan$/i]
+];
+const GPT_TITLES = {
+  environment: 'Environment', precondition: 'Precondition', steps: 'Steps to Reproduce', actual: 'Actual Result',
+  expected: 'Expected Result', severity: 'Severity / Priority', notes: 'Notes', attachment: 'Attachment', summary: 'Summary'
+};
+
+function parseGptReport(text){
+  const out = { title: '', sections: new Map(), order: [] };
+  let cur = null;
+  String(text || '').replace(/\r\n?/g, '\n').split('\n').forEach(raw => {
+    // "**Title:** …", "### Steps to Reproduce", "Environment :" …
+    const clean = raw.trim().replace(/^#{1,4}\s+/, '').replace(/\*\*/g, '').trim();
+    const m = clean.match(/^([A-Za-z][A-Za-z /-]{1,40}?)\s*:\s*(.*)$/) || clean.match(/^([A-Za-z][A-Za-z /-]{1,40})$/);
+    const key = m ? (GPT_SECTIONS.find(([, re]) => re.test(m[1].trim())) || [])[0] : null;
+    if(key){
+      // a known heading (with or without text after the colon)
+      const after = (m[2] || '').trim();
+      // "Severity: High" / "Priority: P1" written without bullets inside that section
+      if(cur === 'severity' && key === 'severity' && after){ out.sections.get('severity').push(clean); return; }
+      if(key === 'title'){ out.title = after; cur = after ? null : 'title'; return; }
+      cur = key;
+      if(!out.sections.has(key)){ out.sections.set(key, []); out.order.push(key); }
+      if(after) out.sections.get(key).push(after);
+      return;
+    }
+    if(cur === 'title'){ if(clean){ out.title = clean; cur = null; } return; }
+    // chatty lead-in like "Berikut bug report-nya:" / "Here is the bug report:"
+    if(!cur && /^(berikut|here('s| is)|tentu|baik|sure|oke|ok\b|this is)/i.test(clean)) return;
+    if(!cur){ if(clean){ if(!out.sections.has('summary')){ out.sections.set('summary', []); out.order.push('summary'); } out.sections.get('summary').push(raw.trim()); } return; }
+    out.sections.get(cur).push(raw.replace(/\s+$/, ''));
+  });
+  return out;
+}
+
+/* bullets "* x" / "• x" → "- x"; numbered stay numbered; blank lines collapsed */
+function tidyLines(lines){
+  const res = [];
+  lines.forEach(l => {
+    const t = l.trim();
+    if(!t){ if(res.length && res[res.length - 1] !== '') res.push(''); return; }
+    if(/^\d+[.)]\s+/.test(t)) res.push(t.replace(/^(\d+)[)]\s+/, '$1. '));
+    else if(/^[*•\-–]\s+/.test(t)) res.push('- ' + t.replace(/^[*•\-–]\s+/, ''));
+    // "Severity: High" on its own line → list item, so Redmine keeps one per line
+    else if(/^\**[A-Za-z][A-Za-z /]{1,30}\**\s*:\s*\S/.test(t)) res.push('- ' + t);
+    else res.push(t);
+  });
+  while(res.length && res[res.length - 1] === '') res.pop();
+  // inside a section, drop blank lines between list items (ChatGPT adds them)
+  return res.filter((l, i, a) => !(l === '' && /^(- |\d+\. )/.test(a[i - 1] || '') && /^(- |\d+\. )/.test(a[i + 1] || '')));
+}
+
+function kv(lines, re){
+  for(const l of lines){
+    const m = l.replace(/^[-*•\s]+/, '').replace(/\*\*/g, '').match(re);
+    if(m) return m[1].trim();
+  }
+  return '';
+}
+
+function selectByText(sel, test){
+  if(!sel) return false;
+  const opt = [...sel.options].find(o => o.value && test(o.text.trim()));
+  if(opt){ sel.value = opt.value; sel.dispatchEvent(new Event('change', { bubbles: true })); return true; }
+  return false;
+}
+
+function applyGptReport(text){
+  const r = parseGptReport(text);
+  const filled = [];
+  if(!r.title && !r.order.some(k => k !== 'summary')){
+    toast('This doesn\'t look like a bug report: no Title / Steps / Expected sections found', 'error');
+    return false;
+  }
+
+  // Title → Subject, "[Bug]" → Tracker
+  if(r.title){
+    const subj = $('ciSubject');
+    if(subj){ subj.value = r.title.slice(0, 255); filled.push('Subject'); }
+    const tag = r.title.match(/^\s*\[([^\]]+)\]/);
+    if(tag && selectByText($('ciTracker'), t => t.toLowerCase() === tag[1].trim().toLowerCase())) filled.push('Tracker');
+  }
+
+  // Severity / Priority → Priority select
+  const sevLines = r.sections.get('severity') || [];
+  const pr = kv(sevLines, /^priority\s*:\s*(.+)$/i), sv = kv(sevLines, /^severity\s*:\s*(.+)$/i);
+  const prSel = $('ciPriority');
+  let prDone = false;
+  if(pr) prDone = selectByText(prSel, t => t.toLowerCase() === pr.toLowerCase());
+  if(!prDone){
+    const fromLevel = { p0: /immediate|urgent/i, p1: /high/i, p2: /normal|medium/i, p3: /low/i, p4: /low/i }[pr.toLowerCase().replace(/\s/g, '')];
+    const fromSev = /critical|blocker/i.test(sv) ? /immediate|urgent/i : /high|major/i.test(sv) ? /high/i : /medium|minor|normal/i.test(sv) ? /normal/i : /low|trivial/i.test(sv) ? /low/i : null;
+    const re = fromLevel || fromSev;
+    if(re) prDone = selectByText(prSel, t => re.test(t));
+  }
+  if(prDone) filled.push('Priority');
+
+  // Environment "Client : …" / "Project : …" → custom fields
+  const env = r.sections.get('environment') || [];
+  const client = kv(env, /^(?:client|klien)(?:\s*name)?\s*:\s*(.+)$/i);
+  const proj = kv(env, /^project(?:\s*name)?\s*:\s*(.+)$/i);
+  const cn = $('ciClientName'), pn = $('ciProjectName');
+  if(client && cn && !cn.closest('.hidden')){ cn.value = client; filled.push('Client Name'); }
+  if(proj && pn && !pn.closest('.hidden')){ pn.value = proj; filled.push('Project Name'); }
+
+  // Description: every section except Title, in ChatGPT's order; screenshots already
+  // pasted stay under the same step number, others go to Attachment
+  const ta = $('ciDescription');
+  const old = ta ? ta.value : '';
+  const stepImgs = new Map(); const looseImgs = [];
+  let stepNo = 0;
+  old.split('\n').forEach(line => {
+    if(/^\s*\d+[.)]\s+/.test(line)){ stepNo++; return; }
+    const img = line.match(/^\s*(!\[[^\]]*\]\([^)]+\))\s*$/);
+    if(!img) return;
+    if(/^\s{2,}/.test(line) && stepNo){ if(!stepImgs.has(stepNo)) stepImgs.set(stepNo, []); stepImgs.get(stepNo).push(img[1]); }
+    else looseImgs.push(img[1]);
+  });
+  const parts = [];
+  r.order.forEach(key => {
+    let lines = tidyLines(r.sections.get(key) || []);
+    if(!lines.length) return;
+    if(key === 'steps'){
+      let n = 0;
+      lines = lines.flatMap(l => {
+        if(!/^\d+\.\s/.test(l)) return [l];
+        n++;
+        const imgs = (stepImgs.get(n) || []).map(x => `   ${x}`);
+        stepImgs.delete(n);
+        return [l, ...imgs];
+      });
+    }
+    if(key === 'attachment'){
+      const extra = [...looseImgs.splice(0), ...[...stepImgs.values()].flat()];
+      stepImgs.clear();
+      lines = [...lines, ...extra];
+    }
+    parts.push(`**${GPT_TITLES[key] || key}:**\n\n${lines.join('\n')}`);
+  });
+  const leftover = [...looseImgs, ...[...stepImgs.values()].flat()];
+  if(leftover.length) parts.push(`**Attachment:**\n\n${leftover.join('\n')}`);
+  const desc = parts.join('\n\n').trim() + '\n';
+
+  const apply = () => {
+    if(ta) ta.value = desc;
+    window.__ciLastGenerated = desc;
+    refreshCiPreview();
+    renderCiFiles();
+    closeGptPanel();
+    toast(`Filled from ChatGPT: ${['Description', ...filled].join(', ')}`);
+  };
+  const textOnly = (v) => String(v || '').replace(/^[ \t]*!\[[^\]]*\]\([^)]+\)[ \t]*\n?/gm, '').trim();
+  if(textOnly(old) && textOnly(old) !== textOnly(window.__ciLastGenerated)){
+    confirmDialog({
+      title: 'Replace the description?',
+      message: 'The description has text you typed. Importing replaces it (screenshots are kept).',
+      okText: 'Replace', cancelText: 'Keep mine'
+    }).then(ok => { if(ok) apply(); });
+    return true;
+  }
+  apply();
+  return true;
+}
+
+function openGptPanel(){
+  const p = $('ciGptPanel');
+  if(!p) return;
+  p.classList.remove('hidden');
+  const ta = $('ciGptText');
+  if(ta){ ta.value = ''; ta.focus(); }
+  // fill straight from the clipboard when the browser allows it
+  if(navigator.clipboard && navigator.clipboard.readText){
+    navigator.clipboard.readText().then(t => {
+      if(t && /steps to reproduce|expected result|actual result|^\s*\**title\**\s*:/im.test(t) && ta && !ta.value) ta.value = t;
+    }).catch(() => {});
+  }
+}
+function closeGptPanel(){ $('ciGptPanel')?.classList.add('hidden'); }
+function importGptText(){ applyGptReport($('ciGptText')?.value || ''); }
+
 function generateIssueDescription(){
   const meta = window.__ciMeta || {};
   const trackerSel = $('ciTracker');
@@ -945,6 +1143,9 @@ async function submitCreateIssue(e){
 }
 
 export {
+  openGptPanel,
+  closeGptPanel,
+  importGptText,
   onCreateIssueShown,
   generateIssueDescription,
   onCreateIssueProjectChange,
