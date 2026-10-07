@@ -1425,6 +1425,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.55.0</span>
+                <span class="cl-note">By Client: Report tab per client with each request, what was asked, latest progress note, grouped by Not started / In progress / Done; copy and CSV export</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.54.0</span>
                 <span class="cl-note">Knowledge Base screenshots are stored on Cloudinary (only the link is saved); one click moves existing screenshots out of the database</span>
               </div>
@@ -2296,6 +2300,7 @@
               <header><span class="docs-ico" data-docs-icon="clients"></span><h3>By Client</h3><button type="button" class="docs-go" data-docs-go="clients">Open By Client</button></header>
               <p>Lists <b>every client</b> from the Redmine field <b>Client Name</b> as a table with the same columns for everyone: <b>New</b>, <b>In Progress</b>, <b>Ready for Testing</b>, <b>Resolved</b>, <b>Other open</b> (feedback, rework, on deploy, …; hover for details), <b>Open</b>, <b>Total</b> and <b>Last update</b>, plus totals for the clients shown.</p>
               <p>Only the three Zahir products are counted (ERP, ERP One, Zahir ERP Manufacturing); issues in other Redmine projects are left out. Filter by product, by name, or show only clients with open / New / In Progress / Ready for Testing / Resolved issues; click a column header to sort. Click a client (or press <kbd>Enter</kbd>) to see its issues grouped by status, with the product filter applied; <b>← All clients</b> goes back. The list is built on the server and cached for an hour; <b>Refresh</b> reloads it.</p>
+              <p><b>Report tab</b> (inside a client): every request grouped into <b>Not started</b>, <b>In progress</b> and <b>Done</b> (done items from the last 90 days; <i>Show older</i> for the rest). Each card shows what was asked (from the issue description; Actual/Expected for QA-format issues) and the latest progress note from Redmine, with who wrote it and when. <b>Copy for WhatsApp / Telegram</b> gives a ready-to-send summary; <b>Export Excel (CSV)</b> gives one row per issue.</p>
             </article>
 
             <article class="docs-sec" id="docs-lists" data-keywords="note notes private catatan missing info filter chip immediate unassigned updated compact comfortable multi-select checkbox batch copy">

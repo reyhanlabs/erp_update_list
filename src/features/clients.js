@@ -12,6 +12,7 @@ import { fetchRedmine } from '../redmine/client.js';
 import { fetchRedmineAllIssues, genericLoadingSkeleton, priorityBadge } from './tester/queue.js';
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { issueDescriptionCell, resolveNewIssueProjectIds } from './new-issues.js';
+import { renderClientReport, resetClientReport } from './client-report.js';
 
 /* ============================================================
    BY CLIENT — Redmine custom field "Client Name"
@@ -121,6 +122,7 @@ async function loadClientIssues(clientName, force){
         const params = new URLSearchParams();
         params.set('status_id', '*'); // all statuses
         params.set('sort', 'updated_on:desc');
+        params.set('with_description', '1');   // Client Report needs the request text
         if(t.projectId) params.set('project_id', String(t.projectId));
         if(cfId){
           params.set('client_cf_id', String(cfId));
@@ -440,7 +442,13 @@ function renderClientOverview(el){
 
 function rememberOverviewUi(){ /* state lives in window.__clientOvUi (v4.52.0) */ }
 
+function setClientTab(tab){
+  window.__clientTab = tab === 'report' ? 'report' : 'issues';
+  renderClientIssues();
+}
+
 function openClientIssues(name){
+  if(name !== window.__clientQuery) resetClientReport();
   const input = $('clientSearchInput');
   if(input) input.value = name;
   loadClientIssues(name, false);
@@ -506,6 +514,25 @@ function renderClientIssues(){
   }
   if(filtersBar) filtersBar.classList.remove('hidden');
 
+  const tabs = `<div class="cr-tabs" role="tablist" aria-label="Client view">
+      <button type="button" role="tab" class="cr-tab${window.__clientTab !== 'report' ? ' is-active' : ''}" aria-selected="${window.__clientTab !== 'report'}" onclick="setClientTab('issues')">Issues</button>
+      <button type="button" role="tab" class="cr-tab${window.__clientTab === 'report' ? ' is-active' : ''}" aria-selected="${window.__clientTab === 'report'}" onclick="setClientTab('report')">Report</button>
+    </div>`;
+  const backRow = `<div class="list-meta-row cl-ov-back-row" style="padding:4px 4px 10px">
+      <button type="button" class="cl-ov-back" onclick="backToClientOverview()">← All clients</button>
+      <span>Client <b>${escapeHtml(q)}</b>${prod !== 'all' ? ` · ${escapeHtml(PRODUCT_LABEL(prod))}` : ''} · <b>${list.length}</b> issue(s)</span>
+      ${prod !== 'all' ? `<button type="button" class="cl-ov-back" onclick="setClientOv('product','all')">Show all products</button>` : ''}
+      ${tabs}
+    </div>`;
+  if(window.__clientTab === 'report'){
+    // report covers every issue of the client (quick-filter chips don't apply)
+    const all = (window.__clientIssues || []).filter(i => prod === 'all' || (i.project && i.project.name) === prod);
+    el.innerHTML = backRow + '<div id="clientReportBody" class="cr-body"></div>';
+    renderClientReport($('clientReportBody'), q, all);
+    if(filtersBar) filtersBar.classList.add('hidden');
+    return;
+  }
+
   // Group by status
   const groups = {};
   list.forEach(i => {
@@ -517,11 +544,7 @@ function renderClientIssues(){
   const keys = Object.keys(groups).sort((a, b) => order.indexOf(bucketOf(a)) - order.indexOf(bucketOf(b)) || groups[b].length - groups[a].length || a.localeCompare(b));
 
   el.innerHTML = `
-    <div class="list-meta-row cl-ov-back-row" style="padding:4px 4px 10px">
-      <button type="button" class="cl-ov-back" onclick="backToClientOverview()">← All clients</button>
-      <span>Client <b>${escapeHtml(q)}</b>${prod !== 'all' ? ` · ${escapeHtml(PRODUCT_LABEL(prod))}` : ''} · <b>${list.length}</b> issue(s)</span>
-      ${prod !== 'all' ? `<button type="button" class="cl-ov-back" onclick="setClientOv('product','all')">Show all products</button>` : ''}
-    </div>
+    ${backRow}
     <div class="cl-detail-sum">${(() => {
       const c = { new: 0, progress: 0, rft: 0, resolved: 0, other: 0, closed: 0 };
       list.forEach(i => { c[bucketOf(i.status?.name)]++; });
@@ -570,6 +593,7 @@ function renderClientTable(issues){
 }
 
 export {
+  setClientTab,
   onClientsShown,
   setClientOv,
   backToClientOverview,

@@ -214,6 +214,33 @@ export default async function handler(req, res) {
       }
     }
 
+    // Latest progress notes per issue (Client Report, v4.55.0): ids=1,2,3 (max 50)
+    if (resource === 'journals') {
+      const ids = String(req.query.ids || '').split(',').map(x => x.trim()).filter(x => /^\d{1,9}$/.test(x)).slice(0, 50);
+      if (!ids.length) return res.status(400).json({ error: 'ids required' });
+      const started = Date.now();
+      const out = {};
+      const one = async (id) => {
+        if (Date.now() - started > 8000) return;          // stay inside the function time limit
+        try {
+          const d = await redmineGet(apiKey, `/issues/${id}.json?include=journals`);
+          const js = ((d.issue && d.issue.journals) || []).filter(j => String(j.notes || '').trim());
+          out[id] = {
+            notes: js.slice(-2).reverse().map(j => ({
+              text: String(j.notes).trim().slice(0, 1500),
+              by: (j.user && j.user.name) || '',
+              at: j.created_on || ''
+            })),
+            count: js.length
+          };
+        } catch (err) {
+          out[id] = { error: err.status || 'failed' };
+        }
+      };
+      for (let i = 0; i < ids.length; i += 6) await Promise.all(ids.slice(i, i + 6).map(one));
+      return res.status(200).json({ journals: out, partial: ids.some(id => !out[id]) });
+    }
+
     // List custom fields (to resolve "Client Name" id, etc.)
     if (resource === 'custom_fields') {
       const cfRes = await fetch(`${REDMINE_BASE}/custom_fields.json`, {
@@ -329,7 +356,14 @@ export default async function handler(req, res) {
         assigned_to: issue.assigned_to,
         created_on: issue.created_on,
         updated_on: issue.updated_on,
-        custom_fields: issue.custom_fields || []
+        custom_fields: issue.custom_fields || [],
+        // Client Report (v4.55.0): the request text and progress fields
+        ...(req.query.with_description ? {
+          description: String(issue.description || '').slice(0, 6000),
+          done_ratio: issue.done_ratio ?? null,
+          closed_on: issue.closed_on || null,
+          due_date: issue.due_date || null
+        } : {})
       }));
     }
 
