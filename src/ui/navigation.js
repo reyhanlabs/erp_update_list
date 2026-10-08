@@ -18,6 +18,7 @@ import { onDocsShown } from '../features/docs.js';
 import { onKbShown } from '../features/kb.js';
 import { onCreateIssueShown } from '../features/create-issue.js';
 import { onClientsShown } from '../features/clients.js';
+import { onSitesShown } from '../features/sites.js';
 
 /* ============================================================
    NAVIGATION
@@ -31,6 +32,7 @@ const VIEW_META = {
   tester:    { title:'Tester Queue', sub:'Issues Ready for Testing · filtered by category', addBtn:false },
   newissues:{ title:'Issue Status', sub:'New · On Progress · On Deploy · Rework · Feedback', addBtn:false },
   clients:  { title:'By Client', sub:'All clients from Redmine, and their issues', addBtn:false },
+  sites:    { title:'Client Versions', sub:"Clients' Zahir ERP sites and the version each one runs", addBtn:false },
   activework:{ title:'Active Work', sub:'In Progress & On Deploy · who is working on what', addBtn:false },
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
@@ -79,7 +81,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
      /?view=summaries
      /?view=settings
    ============================================================ */
-const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','clients','share','settings','docs','kb']);
+const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','clients','sites','share','settings','docs','kb']);
 const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
 let __applyingRoute = false; // prevent pushState loop
 
@@ -212,6 +214,7 @@ function switchView(view){
   if(view === 'kb'){ try { onKbShown(); } catch(e){ console.error('kb', e); } }
   if(view === 'createissue'){ try { onCreateIssueShown(); } catch(e){ console.error('create issue', e); } }
   if(view === 'clients'){ try { onClientsShown(); } catch(e){ console.error('clients', e); } }
+  if(view === 'sites'){ try { onSitesShown(); } catch(e){ console.error('sites', e); } }
   if(view === 'plans') loadRedmineProjects();
   if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }
   if(view === 'tester'){

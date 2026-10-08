@@ -30,6 +30,13 @@ service cloud.firestore {
       match /summaries/{summaryId} {
         allow read, write: if request.auth != null;
       }
+      // Client Versions: clients' Zahir ERP sites (v4.56.0)
+      match /sites/{siteId} {
+        allow read, delete: if request.auth != null;
+        allow create, update: if request.auth != null
+          && request.resource.data.name is string && request.resource.data.name.size() <= 120
+          && request.resource.data.url is string && request.resource.data.url.size() <= 300;
+      }
       // Knowledge Base guides + their screenshots (v4.42.0)
       match /kb/{articleId} {
         allow read, write: if request.auth != null;

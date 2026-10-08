@@ -60,7 +60,8 @@ const GO = {
   notes: () => openNotesView(),
   search: () => openGlobalSearch(),
   settings: () => switchView('settings'),
-  kb: () => switchView('kb')
+  kb: () => switchView('kb'),
+  sites: () => switchView('sites')
 };
 
 let wired = false;

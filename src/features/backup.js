@@ -31,12 +31,21 @@ async function collectKb(){
   return { guides, structure, images };
 }
 
+/* Client Versions list (v4.56.0) */
+function sitesRef(){ return db.collection('workspaces').doc(CloudSync.workspaceId).collection('sites'); }
+async function collectSites(){
+  const snap = await sitesRef().get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 async function exportAll(){
   toast('Preparing backup…');
   let kb = { guides: [], structure: null, images: 0 };
   try { kb = await collectKb(); }
   catch(err){ console.warn('backup kb', err); toast('Knowledge Base could not be read; backing up plans and summaries only', 'error'); }
   const notes = getAllIssueNotes();
+  let sites = [];
+  try { sites = await collectSites(); } catch(err){ console.warn('backup sites', err); }
   const data = {
     version: 2,
     exportedAt: new Date().toISOString(),
@@ -45,7 +54,8 @@ async function exportAll(){
     plans: State.plans.all(),
     summaries: State.summaries.all(),
     kb: { guides: kb.guides, structure: kb.structure },
-    issueNotes: notes
+    issueNotes: notes,
+    sites
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -54,7 +64,7 @@ async function exportAll(){
   a.download = `zahir-erp-backup-${todayISO()}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
-  toast(`Backup downloaded: ${data.plans.length} plans, ${data.summaries.length} summaries, ${kb.guides.length} guides (${kb.images} images), ${Object.keys(notes).length} notes`);
+  toast(`Backup downloaded: ${data.plans.length} plans, ${data.summaries.length} summaries, ${kb.guides.length} guides (${kb.images} images), ${Object.keys(notes).length} notes, ${sites.length} client sites`);
 }
 
 async function restoreKb(kb){
@@ -86,11 +96,13 @@ function importAll(ev){
       if(!Array.isArray(data.plans) || !Array.isArray(data.summaries)) throw new Error('Invalid format');
       const kb = data.kb && Array.isArray(data.kb.guides) ? data.kb : null;
       const notes = data.issueNotes && typeof data.issueNotes === 'object' ? data.issueNotes : null;
+      const sites = Array.isArray(data.sites) ? data.sites.filter(x => x && x.id && x.name && x.url) : null;
       const imgCount = kb ? kb.guides.reduce((n, g) => n + ((g.images || []).length), 0) : 0;
       const lines = [
         `<b>${data.plans.length} plans</b> and <b>${data.summaries.length} summaries</b> (replace the current ones)`,
         kb ? `<b>${kb.guides.length} Knowledge Base guides</b> with ${imgCount} images${kb.structure ? ' and the menu structure' : ''} (guides with the same id are replaced)` : '',
-        notes ? `<b>${Object.keys(notes).length} private issue notes</b> (merged, newer note wins)` : ''
+        notes ? `<b>${Object.keys(notes).length} private issue notes</b> (merged, newer note wins)` : '',
+        sites && sites.length ? `<b>${sites.length} client sites</b> for Client Versions (same id is replaced)` : ''
       ].filter(Boolean);
 
       const ok = await confirmDialog({
@@ -110,6 +122,10 @@ function importAll(ev){
       }
       if(notes){
         try { noteCount = await importIssueNotes(notes); } catch(err){ console.error(err); }
+      }
+      if(sites && sites.length){
+        try { for(const { id, ...rest } of sites) await sitesRef().doc(id).set(rest); }
+        catch(err){ console.error(err); toast('Client sites restore failed: ' + (err.message || err), 'error'); }
       }
       toast(`Import done: ${data.plans.length} plans, ${data.summaries.length} summaries${kb ? `, ${kbRes.guides} guides` : ''}${notes ? `, ${noteCount} notes` : ''}`);
     } catch(err){

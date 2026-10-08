@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.55.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.56.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -103,6 +103,7 @@ Files in `api/_lib/` are not routes (Vercel ignores paths starting with `_`).
 | `CLOUDINARY_API_KEY` | for KB images | Cloudinary → Settings → API Keys |
 | `CLOUDINARY_API_SECRET` | for KB images | same page; keep secret |
 | `CLOUDINARY_FOLDER` | – | default `erp-update-list/kb` |
+| `ERP_VERSION_HOSTS` | – | extra hosts for Client Versions besides `*.zahirerp.com`, comma-separated |
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | cron (+ token verification) | Service account JSON, on one line |
 
 \* at least one of `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`.
@@ -183,6 +184,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.56.0**: **Client Versions** menu (`src/features/sites.js`): hand-kept list of clients' Zahir ERP addresses in `workspaces/{id}/sites` (new Firestore rule — republish `firestore.rules`). The version is read from each site's public login page by `api/erp-version.js` (JSON endpoints the app calls, app-version constants in its JS bundles incl. lazy chunks, then HTML; library versions filtered out; https + `*.zahirerp.com` only, extend with `ERP_VERSION_HOSTS`). Auto-check on open when older than 6 h, version chips with latest/behind, change history, manual pin, paste-a-list, CSV export, included in backups.
 - **v4.55.0**: Client Report (`src/features/client-report.js`): Report tab in a client's By Client view, grouped Not started / In progress / Done (done = last 90 days, toggle for older). Request text from the description (QA Actual/Expected when present), latest progress from Redmine journals via new `resource=journals&ids=` (≤50 ids, batched, session-cached). Issue lists accept `with_description=1`. Copy as WhatsApp/Telegram text, export CSV.
 - **v4.54.0**: KB screenshots on Cloudinary. `api/cloudinary.js` signs browser uploads (secret stays server-side, same auth guard) and deletes images in the app folder; guides store `https://res.cloudinary.com/…/f_auto,q_auto/…` URLs; removed/discarded images are deleted; a banner moves old base64 `kbimg:` images (one click) and removes them from Firestore. Falls back to the old storage if Cloudinary isn't configured. Env: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, optional `CLOUDINARY_FOLDER`.
 - **v4.53.0**: Backup v2: Export JSON adds Knowledge Base guides (with image subcollections) and the menu structure, plus private issue notes; Import restores them (v1 files still work). New `src/core/clipboard.js` (`writeClipboard`, `copyTextSmart`, manual-copy box) used by every copy button; removed fallbacks that reported "copied" without copying. Audit: all 13 views load correctly on reload/direct link.
