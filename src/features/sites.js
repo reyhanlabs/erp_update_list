@@ -438,6 +438,7 @@ function render(){
 function renderNow(){
   const el = $('sitesBody');
   if(!el || !isVisible()) return;
+  if(S.cmpOpen) renderCompare();
   if(!S.loaded){ el.innerHTML = '<div class="kb-state"><div class="spinner-sm"></div><p>Loading…</p></div>'; return; }
   if(!S.sites.length){
     el.innerHTML = `<div class="kb-welcome">
@@ -494,6 +495,7 @@ function renderNow(){
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
         ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k + 'Error'] ? ` <span class="sv-err">· ${escapeHtml(s[k + 'Error'])}</span>` : ''}${s[k + 'Raw'] ? ` <code title="Answer of ${k === 'v2' ? '/api/v2/versions/dev' : '/api/v3/version'}">${escapeHtml(s[k + 'Raw'].slice(0, 120))}</code>` : ''}</p>`).join('')}
         ${historyHtml(s)}
+        <p><button type="button" class="btn btn-secondary btn-xs" onclick="openSitesCompare('${s.id}')">Compare this site…</button></p>
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}
       </div>` : '';
     return `<div class="sv-row${open ? ' is-open' : ''}${s.isTest ? ' is-test' : ''}" onclick="siteRowClick(event,'${s.id}')">
@@ -607,6 +609,152 @@ function siteRowClick(ev, id){
 }
 function toggleSiteDetails(id){ S.open = S.open === id ? null : id; renderNow(); }
 
+/* ---------------- compare 2–4 sites side by side ---------------- */
+// Columns are site ids; the first column is the reference (e.g. DEV) and every
+// other column shows how far each part is behind or ahead of it.
+const CMP_KEY = 'erp_sites_compare_v1';
+const CMP_MAX = 4;
+function loadCompareIds(){ try { return JSON.parse(localStorage.getItem(CMP_KEY) || '[]').filter(x => typeof x === 'string').slice(0, CMP_MAX); } catch(_){ return []; } }
+function saveCompareIds(){ try { localStorage.setItem(CMP_KEY, JSON.stringify(S.cmpIds)); } catch(_){} }
+S.cmpIds = loadCompareIds();
+S.cmpOpen = false;
+
+function defaultCompareIds(){
+  // test servers first (DEV), then the most common front-end version (≈ production), then empty
+  const tests = S.sites.filter(x => x.isTest).map(x => x.id);
+  const ids = [...tests.slice(0, 1)];
+  const live = S.sites.filter(x => !x.isTest && shownVersion(x));
+  if(live.length){
+    const count = new Map(); live.forEach(x => count.set(shownVersion(x), (count.get(shownVersion(x)) || 0) + 1));
+    const common = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const prod = live.find(x => shownVersion(x) === common && !ids.includes(x.id));
+    if(prod) ids.push(prod.id);
+  }
+  return ids;
+}
+function openSitesCompare(id){
+  S.cmpIds = S.cmpIds.filter(x => S.sites.some(s => s.id === x));
+  if(!S.cmpIds.length) S.cmpIds = defaultCompareIds();
+  if(id && !S.cmpIds.includes(id)){
+    if(S.cmpIds.length >= CMP_MAX) S.cmpIds[CMP_MAX - 1] = id; else S.cmpIds.push(id);
+  }
+  if(S.cmpIds.length < 2) S.cmpIds.push('');
+  saveCompareIds();
+  S.cmpOpen = true;
+  renderCompare();
+  $('sitesCompare')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function closeSitesCompare(){ S.cmpOpen = false; renderCompare(); }
+function setCompareSite(i, id){ S.cmpIds[i] = id; S.cmpIds = S.cmpIds.slice(0, CMP_MAX); saveCompareIds(); renderCompare(); }
+function addCompareColumn(){ if(S.cmpIds.length < CMP_MAX){ S.cmpIds.push(''); renderCompare(); } }
+function removeCompareColumn(i){ S.cmpIds.splice(i, 1); if(S.cmpIds.length < 2) S.cmpIds.push(''); saveCompareIds(); renderCompare(); }
+function moveCompareFirst(i){ const [x] = S.cmpIds.splice(i, 1); S.cmpIds.unshift(x); saveCompareIds(); renderCompare(); }
+async function checkComparedSites(){
+  const list = S.cmpIds.map(id => S.sites.find(s => s.id === id)).filter(Boolean);
+  if(!list.length) return;
+  toast(`Checking ${list.length} site(s)…`);
+  await checkMany(list, { quiet: true });
+  renderCompare();
+}
+
+function diffLabel(v, refV){
+  if(!v || !refV) return { cls: 'is-none', text: '' };
+  if(cmpVersion(v, refV) === 0) return { cls: 'is-same', text: 'same' };
+  const a = buildDate(v), b = buildDate(refV);
+  const newer = cmpVersion(v, refV) > 0;
+  let gap = '';
+  if(a && b){
+    const h = Math.round(Math.abs(a - b) / 3600000);
+    gap = h >= 48 ? `${Math.round(h / 24)} days` : h >= 1 ? `${h} h` : 'minutes';
+  }
+  return { cls: newer ? 'is-newer' : 'is-older', text: gap ? `${gap} ${newer ? 'newer' : 'older'}` : (newer ? 'newer' : 'older') };
+}
+function compareCols(){ return S.cmpIds.map(id => S.sites.find(s => s.id === id) || null); }
+
+function compareText(){
+  const cols = compareCols().filter(Boolean);
+  if(cols.length < 2) return '';
+  const ref = cols[0];
+  let t = `Zahir ERP version compare (vs ${ref.name})\n`;
+  PARTS.forEach(p => {
+    t += `\n${p.label}\n`;
+    cols.forEach((c, i) => {
+      const v = p.get(c);
+      const d = i ? diffLabel(v, p.get(ref)).text : 'reference';
+      t += `  ${c.name}: ${v || '—'}${d ? ` (${d})` : ''}\n`;
+    });
+  });
+  return t.trim();
+}
+async function copyCompare(){
+  const text = compareText();
+  if(!text){ toast('Pick at least two sites', 'error'); return; }
+  try { await navigator.clipboard.writeText(text); toast('Comparison copied'); }
+  catch(_){ toast('Could not copy', 'error'); }
+}
+
+function renderCompare(){
+  const box = $('sitesCompare');
+  if(!box) return;
+  if(!S.cmpOpen || !S.sites.length){ box.classList.add('hidden'); box.innerHTML = ''; return; }
+  // don't rebuild while a site picker is open / focused (background checks re-render often)
+  if(box.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
+  box.classList.remove('hidden');
+  const cols = compareCols();
+  const ref = cols[0];
+  const options = (sel) => {
+    const list = S.sites.slice().sort((a, b) => (b.isTest ? 1 : 0) - (a.isTest ? 1 : 0) || a.name.localeCompare(b.name));
+    return `<option value="">Choose a site…</option>` + list.map(x => `<option value="${x.id}"${x.id === sel ? ' selected' : ''}>${escapeHtml(x.name)}${x.isTest ? ' (test)' : ''} — ${escapeHtml(hostOf(x.url))}</option>`).join('');
+  };
+  const head = cols.map((c, i) => `<th scope="col">
+      <div class="svc-pick">
+        <span class="svc-role">${i === 0 ? 'Reference' : 'Compared'}</span>
+        <select aria-label="Site ${i + 1}" onchange="setCompareSite(${i}, this.value)">${options(c ? c.id : '')}</select>
+        <span class="svc-tools">
+          ${i > 0 && c ? `<button type="button" class="btn btn-ghost btn-xs" onclick="moveCompareFirst(${i})" title="Use as reference">Set as reference</button>` : ''}
+          ${cols.length > 2 ? `<button type="button" class="btn btn-ghost btn-xs" onclick="removeCompareColumn(${i})" aria-label="Remove column">✕</button>` : ''}
+        </span>
+      </div>
+    </th>`).join('');
+  const body = PARTS.map(p => `<tr>
+      <th scope="row">${p.label}</th>
+      ${cols.map((c, i) => {
+        if(!c) return '<td class="svc-empty">—</td>';
+        const v = p.get(c);
+        const at = buildDate(v);
+        const d = i && ref ? diffLabel(v, p.get(ref)) : { cls: 'is-ref', text: '' };
+        return `<td class="${d.cls}">
+          <div class="svc-ver">${v ? escapeHtml(v) : '—'}</div>
+          ${at ? `<div class="svc-date">Built ${escapeHtml(fmtBuild(at))}</div>` : ''}
+          ${d.text ? `<div class="svc-diff">${escapeHtml(d.text)}</div>` : ''}
+        </td>`;
+      }).join('')}
+    </tr>`).join('') + `<tr class="svc-meta"><th scope="row">Last checked</th>${cols.map(c => `<td>${c ? `${escapeHtml(ago(c.checkedAt))}${c.checkError ? ` <span class="sv-err" title="${escapeHtml(c.checkError)}">· couldn't read</span>` : ''}` : ''}</td>`).join('')}</tr>`;
+
+  // one-line verdict per compared site
+  const verdicts = ref ? cols.slice(1).filter(Boolean).map(c => {
+    const parts = PARTS.map(p => ({ p, d: diffLabel(p.get(c), p.get(ref)) })).filter(x => x.d.cls === 'is-older' || x.d.cls === 'is-newer');
+    if(!parts.length) return `<li><b>${escapeHtml(c.name)}</b> runs the same front-end, API V2 and API V3 as ${escapeHtml(ref.name)}.</li>`;
+    return `<li><b>${escapeHtml(c.name)}</b> vs ${escapeHtml(ref.name)}: ${parts.map(x => `${x.p.label} <span class="${x.d.cls}">${escapeHtml(x.d.text)}</span>`).join(', ')}.</li>`;
+  }).join('') : '';
+
+  box.innerHTML = `
+    <div class="svc-head">
+      <h4>Compare versions</h4>
+      <div class="svc-actions">
+        ${cols.length < CMP_MAX ? '<button type="button" class="btn btn-secondary btn-sm" onclick="addCompareColumn()">+ Add site</button>' : ''}
+        <button type="button" class="btn btn-secondary btn-sm" onclick="checkComparedSites()">Check these now</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyCompare()">Copy</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeSitesCompare()" aria-label="Close compare">Close</button>
+      </div>
+    </div>
+    <div class="svc-scroll"><table class="svc-table">
+      <thead><tr><th></th>${head}</tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>
+    ${verdicts ? `<ul class="svc-verdict">${verdicts}</ul>` : ''}`;
+}
+
 /* ---------------- view ---------------- */
 let wired = false;
 function wire(){
@@ -641,5 +789,6 @@ export {
   onSitesShown, openSiteForm, closeSiteForm, openBulk as openSitesBulk, saveBulk as saveSitesBulk,
   checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
-  setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings
+  setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings,
+  openSitesCompare, closeSitesCompare, setCompareSite, addCompareColumn, removeCompareColumn, moveCompareFirst, checkComparedSites, copyCompare
 };
