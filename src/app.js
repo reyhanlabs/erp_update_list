@@ -184,7 +184,7 @@ import {
   setClientOv,
   setClientTab
 } from './features/clients.js';
-import { onSitesShown, openSiteForm, closeSiteForm, openSitesBulk, saveSitesBulk, checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails } from './features/sites.js';
+import { onSitesShown, openSiteForm, closeSiteForm, openSitesBulk, saveSitesBulk, checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, setSitesRecentOpen, showAllSiteChanges, setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings } from './features/sites.js';
 import { copyClientReport, exportClientReport, toggleClientReportDone } from './features/client-report.js';
 import { openDocsView } from './features/docs.js';
 import { openKbArticle, openKbView } from './features/kb.js';
@@ -207,7 +207,7 @@ function exposeAppGlobals(){
     finishSyncAndShowPlans,
     openNewIssuesView, openIssueStatusView, applyIssueStatusBadgesFromCache, prefetchAllIssueStatusBadges, persistIssueStatusCache, restoreIssueStatusCache, loadNewIssues, renderNewIssues, clearNewIssuesFilters, copyGroupIssueLinks, collectNewIssuesFlat, copyNewIssueLinks, copyAllNewIssueLinks, refreshDashNewIssueCounts,
     openActiveWorkView, openCreateIssueView, onCreateIssueProjectChange, generateIssueDescription, openGptPanel, closeGptPanel, importGptText, submitCreateIssue, resetCreateIssueForm, loadActiveWork, renderActiveWork, copyActiveWorkLinks,
-    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, backToClientOverview, setClientOv, openSiteForm, closeSiteForm, openSitesBulk, saveSitesBulk, checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, setClientTab, copyClientReport, exportClientReport, toggleClientReportDone, loadClientOverview, onClientSearchInput, onClientSearchKey, openClientIssues, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
+    openWhatNextView, resolveClientNameFieldId, getIssueClientName, renderClientIssues, loadClientIssues, openClientsView, searchClientFromGlobal, backToClientOverview, setClientOv, openSiteForm, closeSiteForm, openSitesBulk, saveSitesBulk, checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, setSitesRecentOpen, showAllSiteChanges, setTelegramVersionsEnabled, testTelegramVersions, setClientTab, copyClientReport, exportClientReport, toggleClientReportDone, loadClientOverview, onClientSearchInput, onClientSearchKey, openClientIssues, showMoreTester, openNotesView, renderNotes, openNoteEditor, deleteNote, openGlobalSearch, setNavCount, applyDensityOnBoot, matchesQuickFilter, setListDensity, setQuickFilter, updateBatchBar, copySelectedTelegram, copySelectedIssueLinks, clearIssueSelection, toggleSelectAllIssues, toggleIssueSelect, closeGlobalSearch, onGlobalSearchInput, genericLoadingSkeleton, loadWhatNext, renderWhatNext, copyWhatNextList, createPlanFromWhatNext,
     applyRouteFromUrl, syncUrlToRoute, openDocsView, openKbView, openKbArticle,
     refreshDashAttention, saveTelegramChatId, sendTelegramBriefing, loadTelegramChatId, setTelegramRftEnabled, isTelegramRftEnabled, testTelegramRftAlert, checkTesterNotifications,
     CloudSync
@@ -226,6 +226,7 @@ export async function startApp(){
   try { initSidebarCollapse(); } catch(_){}
   try { startBackgroundAutoRefresh(); } catch(_){}
   try { loadTelegramChatId(); } catch(_){}
+  try { initSitesSettings(); } catch(_){}
 
   // Restore notification preference
   try {

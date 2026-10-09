@@ -930,6 +930,7 @@
             <label class="field"><span>Notes</span><input class="input" id="siteNotes" maxlength="500" placeholder="PIC, server, contract…"></label>
             <label class="field"><span>Version (only if it can't be read)</span><input class="input" id="sitePinned" maxlength="40" placeholder="leave empty: read automatically"></label>
           </div>
+          <label class="sv-check"><input type="checkbox" id="siteIsTest"> Test / internal server (e.g. a dev server): not used for Latest, rollout or Behind latest</label>
           <div class="sv-form-actions">
             <button type="button" class="btn btn-secondary btn-sm" onclick="closeSiteForm()">Cancel</button>
             <button type="submit" class="btn btn-primary btn-sm">Save</button>
@@ -1392,6 +1393,13 @@
               <button type="button" class="btn btn-secondary btn-sm" onclick="testTelegramRftAlert()">Send test RFT alert</button>
               <button type="button" class="btn btn-secondary btn-sm" onclick="checkTesterNotifications()">Check for new RFT now</button>
             </div>
+            <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--text-secondary);cursor:pointer">
+              <input type="checkbox" id="telegramVersionsToggle" onchange="setTelegramVersionsEnabled(this.checked)" />
+              Notify Telegram when a client's Zahir ERP version changes (Client Versions)
+            </label>
+            <div class="workspace-row" style="margin-top:10px">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="testTelegramVersions()">Send test version alert</button>
+            </div>
             <p style="font-size:11.5px;color:var(--text-tertiary);margin-top:8px;line-height:1.5">
               In-browser poll needs the tab open (~90s). For alerts while the tab is closed, set up Vercel Cron + TELEGRAM_CHAT_ID (see What’s New / README).
             </p>
@@ -1477,6 +1485,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.59.0</span>
+                <span class="cl-note">Client Versions: rollout % per part, recent changes + per-client version history, optional Telegram alert on version change, "parts out of step" warning, and a Test server option</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.58.2</span>
                 <span class="cl-note">Client Versions: Latest FE, Latest V2 and Latest V3 filters with the newest version of each; Behind latest now covers all three</span>
@@ -2403,6 +2415,10 @@
                 <li><b>Add client</b> one by one, or <b>Paste a list</b> (name and address per line, straight from Excel).</li>
                 <li>Versions are checked when you add a client, when you open the menu (up to 100 sites whose last check is older than 6 hours), and with <b>Check all versions</b>.</li>
                 <li>Besides the front-end version, each check also reads the backend versions: <b>API V2</b> from <code>/api/v2/versions/dev</code> and <b>API V3</b> from <code>/api/v3/version</code> on the same address (no sign-in). The highest value of each column is green, older ones amber; click a client's name to see the raw answer.</li>
+                <li><b>Rollout</b> cards on top show, for front-end, API V2 and API V3, the newest version and how many clients already run it (in %).</li>
+                <li><b>Recent changes</b> lists every version change seen in the last 30 days (who, which part, from → to). Each client keeps its own <b>version history</b> (last 50 changes) in its details. Optionally, Settings → Telegram can post each batch of changes to your Telegram chat.</li>
+                <li><b>⚠ Parts out of step</b> marks a site whose front-end, API V2 and API V3 were built more than 14 days apart (read from the build stamp in the version, e.g. 2.26.10.081600 = 8 Oct 2026 16:00), which often means a deploy that was not finished.</li>
+                <li>Tick <b>Test / internal server</b> in Edit for a dev or test site: it then doesn't set the Latest version, isn't counted in the rollout or Behind latest, and newer builds on it show in blue.</li>
                 <li>Filters on top: <b>Latest FE</b>, <b>Latest V2</b> and <b>Latest V3</b> (each shows the highest version of that part and how many clients run it), <b>Behind latest</b> (behind on front-end, API V2 or API V3), <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts clients behind on any of the three.</li>
                 <li>When a version changes, the row shows the previous version and when it changed. Click a client's name to see where the version was found.</li>
                 <li>If a site's version can't be read, enter it by hand in <b>Edit</b>; it is marked <i>manual</i>.</li>
