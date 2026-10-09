@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.59.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.59.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -183,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.59.3**: Client Versions rows are clickable as a whole (`siteRowClick`): only the name text was a button, so clicks next to it (on the empty part of the name cell) did nothing. Links, action buttons and the details box keep their own behaviour; Enter on the focused name still toggles.
 - **v4.59.2**: Client Versions redraw no longer depends on `requestAnimationFrame` alone (the browser pauses it when the window is covered, during screen sharing / picture-in-picture, or in a background tab, so clicks changed state but the list never redrew). User actions (name click, filters, sort, search) now call `renderNow()` directly; background updates are batched with rAF backed by a 120 ms timer; the pointer hold auto-expires after 1.5 s.
 - **v4.59.1**: Client Versions holds table redraws while a pointer button is pressed inside the list (released on pointerup, after the click handler), so clicks on names / ↻ / edit are no longer lost while checks keep redrawing the rows.
 - **v4.59.0**: Client Versions — (1) every real change of FE / V2 / V3 found by a check is appended to the site's `history` (`{at, part, from, to}`, last 50); "Recent changes" panel (30 days) and per-client history in the details; (2) changes are collected for 4 s and announced once: toast, plus Telegram via `/api/telegram` when *Settings → Notify Telegram when a client's Zahir ERP version changes* is on (per browser, uses the saved Chat ID); (3) rollout cards: latest version per part and % of clients on it; (4) "Parts out of step" when the build stamps (`major.yy.mm.ddhhmm`, V3 `yy.mm.ddhhmm`) of a site's parts are more than 14 days apart; (5) `isTest` flag (Edit → Test / internal server) keeps dev sites out of Latest / rollout / Behind latest, newer builds there show blue. CSV gains "Parts out of step", "Test server", "Last change".

@@ -496,10 +496,10 @@ function renderNow(){
         ${historyHtml(s)}
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}
       </div>` : '';
-    return `<div class="sv-row${open ? ' is-open' : ''}${s.isTest ? ' is-test' : ''}">
+    return `<div class="sv-row${open ? ' is-open' : ''}${s.isTest ? ' is-test' : ''}" onclick="siteRowClick(event,'${s.id}')">
       <div class="sv-main">
         <div class="sv-name-line">
-          <button type="button" class="sv-name" onclick="toggleSiteDetails('${s.id}')" aria-expanded="${open}">${escapeHtml(s.name)}</button>
+          <button type="button" class="sv-name" aria-expanded="${open}" title="Show details">${escapeHtml(s.name)}</button>
           ${s.isTest ? '<span class="sv-tag" title="Test / internal server: not used for Latest, rollout or Behind latest">test</span>' : ''}
           ${mm ? `<span class="sv-mismatch" title="${escapeHtml('Parts out of step: ' + mm.text)}" aria-label="Parts out of step">⚠ ${mm.days}d apart</span>` : ''}
         </div>
@@ -598,6 +598,13 @@ function showAllSiteChanges(){ S.showAllChanges = true; S.recentOpen = true; ren
 
 function setSitesFilter(v){ S.versionFilter = v; renderNow(); }
 function setSitesSort(v){ S.sort = v; renderNow(); }
+/* the whole row opens / closes the details, except links, action buttons and the details box itself */
+function siteRowClick(ev, id){
+  const t = ev && ev.target;
+  if(t && t.closest && t.closest('a, .sv-acts, .sv-details, input, select, textarea')) return;
+  if(window.getSelection && String(window.getSelection()).length > 2) return;   // selecting text, not clicking
+  toggleSiteDetails(id);
+}
 function toggleSiteDetails(id){ S.open = S.open === id ? null : id; renderNow(); }
 
 /* ---------------- view ---------------- */
@@ -632,7 +639,7 @@ function getAllSites(){ return S.sites.map(({ id, ...rest }) => ({ id, ...rest }
 
 export {
   onSitesShown, openSiteForm, closeSiteForm, openBulk as openSitesBulk, saveBulk as saveSitesBulk,
-  checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails,
+  checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
   setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings
 };
