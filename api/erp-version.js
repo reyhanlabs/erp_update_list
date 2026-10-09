@@ -132,19 +132,30 @@ function scanPackageJson(text, source) {
 }
 
 /* webpack 5 runtime: chunk id → file name, e.g.
-   (({123:"npm.react"}[e]||e)+"."+{98513:"fb09bdf1",...}[e]+".chunk.js")  */
+     e+"."+{98513:"fb09bdf1…","npm.react":"14a4599…"}[e]+".chunk.js"
+   Named chunks (npm.*) use their name as id, so keys are numbers or quoted strings.
+   An optional name map ({123:"npm.react"}[e]||e) is honoured too. */
 function webpackChunks(text, baseUrl) {
-  const hashMaps = [], nameMap = {};
-  for (const m of text.matchAll(/\{((?:\d+:"[0-9a-f]{5,32}",?){2,})\}\[\w+\]\s*\+\s*"(\.chunk)?\.js"/g)) hashMaps.push({ body: m[1], suffix: (m[2] || '') + '.js' });
-  for (const m of text.matchAll(/\{((?:\d+:"[\w.\-~]+",?){2,})\}\[\w+\]\s*\|\|\s*\w+\)/g)) {
-    for (const p of m[1].matchAll(/(\d+):"([\w.\-~]+)"/g)) nameMap[p[1]] = p[2];
+  const entryRe = /(\d+|"[^"\\]{1,80}"|[A-Za-z_$][\w$]{0,40}):"([^"\\]{1,80})"/g;
+  const objectBefore = (endIdx) => {            // the {...} that closes right before endIdx
+    if (text[endIdx] !== '}') return null;
+    const open = text.lastIndexOf('{', endIdx);
+    return open >= 0 ? text.slice(open + 1, endIdx) : null;
+  };
+  const nameMap = {};
+  for (const m of text.matchAll(/\}\[\w+\]\s*\|\|\s*\w+\)/g)) {
+    const body = objectBefore(m.index);
+    if (body) for (const p of body.matchAll(entryRe)) nameMap[p[1].replace(/"/g, '')] = p[2];
   }
-  const out = [];
-  for (const { body, suffix } of hashMaps) {
-    for (const p of body.matchAll(/(\d+):"([0-9a-f]{5,32})"/g)) {
-      const id = p[1], name = nameMap[id] || id;
-      const u = sameSiteUrl(`${name}.${p[2]}${suffix}`, baseUrl);
-      if (u) out.push({ id, name, url: u, vendor: /^npm\.|vendor/i.test(name) });
+  const out = [], seen = new Set();
+  for (const m of text.matchAll(/\}\[\w+\]\s*\+\s*"((?:\.chunk)?\.js)"/g)) {
+    const body = objectBefore(m.index);
+    if (!body) continue;
+    for (const p of body.matchAll(entryRe)) {
+      if (!/^[0-9a-f]{5,32}$/.test(p[2])) continue;
+      const id = p[1].replace(/"/g, ''), name = nameMap[id] || id;
+      const u = sameSiteUrl(`${name}.${p[2]}${m[1]}`, baseUrl);
+      if (u && !seen.has(u)) { seen.add(u); out.push({ id, name, url: u, vendor: /^npm\.|vendor/i.test(name) }); }
     }
   }
   return out;
@@ -275,7 +286,7 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
     };
     await Promise.all(Array.from({ length: CHUNK_PARALLEL }, worker));
     fetched.push(`webpack chunks: ${chunkMap.size} known, ${chunkFiles} read`);
-  }
+  } else fetched.push(`webpack chunks: ${chunkMap.size} known${chunkMap.size ? ' (skipped, strong value already found)' : ''}`);
 
   // 3) JSON endpoints (only real JSON counts; the app answers HTML for unknown paths)
   const endpoints = [...endpointRefs].map(r => sameSiteUrl(r, page.finalUrl)).filter(Boolean).slice(0, 10);
