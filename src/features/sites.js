@@ -502,7 +502,7 @@ function renderNow(){
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
         ${s.tlsNote ? `<p class="sv-err"><b>Certificate:</b> ${escapeHtml(s.tlsNote)}</p>` : ''}
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
-        ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k] && apiRelease(s, k) ? ` · released ${escapeHtml(fmtDay(apiRelease(s, k)))}` : ''}${s[k + 'Error'] ? ` <span class="sv-err">· ${escapeHtml(s[k + 'Error'])}</span>` : ''}</p>`).join('')}
+        ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k] && apiRelease(s, k) ? ` | Released ${escapeHtml(fmtDay(apiRelease(s, k)))}` : ''}${s[k + 'Error'] ? ` <span class="sv-err">| ${escapeHtml(s[k + 'Error'])}</span>` : ''}</p>`).join('')}
         ${historyHtml(s)}
         <p><button type="button" class="btn btn-secondary btn-xs" onclick="openSitesCompare('${s.id}')">Compare this site…</button></p>
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}
