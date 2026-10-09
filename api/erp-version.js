@@ -21,9 +21,12 @@ const BUDGET_MS = 8500;
 const MAX_FILE = 6 * 1024 * 1024;
 const MAX_TOTAL = 16 * 1024 * 1024;
 const MAX_FILES = 16;
+const MAX_CHUNKS = 150;      // webpack lazy chunks read while looking for the bundled package.json
+const CHUNK_PARALLEL = 10;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
 
-const VER = String.raw`v?(\d{1,4}\.\d{1,3}(?:\.\d{1,5}){0,2}(?:[-+][0-9A-Za-z.\-]{1,24})?)`;
+// Accepts "4.25.1", "v4.25.1" and Zahir ERP's "V2.26.07.221600" (4 parts, build stamp up to 8 digits).
+const VER = String.raw`[vV]?(\d{1,4}\.\d{1,3}(?:\.\d{1,8}){0,3}(?:[-+][0-9A-Za-z.\-]{1,24})?)`;
 const LIB_NEAR = /\b(vue|react|angular|axios|core-js|lodash|moment|dayjs|chart|bootstrap|jquery|element|antd|ant-design|quasar|vuetify|sentry|firebase|webpack|babel|tslib|zone\.js|rxjs|swiper|sweetalert|popper|tinymce|quill|pdf|xlsx|socket|echarts|apexcharts|highcharts|leaflet|i18n|pinia|vuex|router|primevue|naive|tailwind|fontawesome|crypto|uuid|nprogress|workbox|hammer)\b/i;
 
 function allowedSuffixes() {
@@ -93,12 +96,56 @@ function scanText(text, source, isVendor) {
     [new RegExp(String.raw`(?:VUE_APP_VERSION|VITE_APP_VERSION|REACT_APP_VERSION|NG_APP_VERSION|APP_VERSION|app_?[Vv]ersion|appVersion|buildVersion|BUILD_VERSION|releaseVersion|RELEASE_VERSION|webVersion|clientVersion|frontendVersion|feVersion|FE_VERSION|erpVersion|ERP_VERSION|versionApp|version_app|versi_?[Aa]plikasi)["']?\s*[:=]\s*["'\x60]` + VER + `["'\x60]`, 'g'), 100],
     // text shown to users: "Version 4.25.1" / "Versi 4.25.1" / "Ver. 4.25"
     [new RegExp(String.raw`(?:Version|Versi|VERSION|VERSI|Ver\.)\s*:?\s*` + VER + String.raw`(?![\d.])`, 'g'), 75],
+    // Zahir ERP build string, e.g. "V2.26.07.221600" (major.yy.mm.ddhhmm) in any quoted literal
+    [new RegExp(String.raw`["'\x60]V(\d{1,2}\.\d{2}\.\d{2}\.\d{4,8})["'\x60]`, 'g'), 92],
     // generic  version:"x.y.z"
     [new RegExp(String.raw`["']?version["']?\s*[:=]\s*["'\x60]` + VER + `["'\x60]`, 'g'), 45]
   ];
   for (const [re, score] of rules) {
     let m;
     while ((m = re.exec(text)) && out.length < 400) push(m[1], score, m.index, m[0].length);
+  }
+  out.push(...scanPackageJson(text, source));
+  return out;
+}
+
+/* The app's own package.json bundled by webpack 5 with mangled keys, e.g.
+   e.exports=JSON.parse('{"UU":"zahironline","rE":"2.26.10.081600"}')   (Zahir ERP) */
+function scanPackageJson(text, source) {
+  const out = [];
+  const re = /JSON\.parse\('(\{[^'{}]{5,400}\})'\)/g;
+  let m;
+  while ((m = re.exec(text)) && out.length < 20) {
+    let obj;
+    try { obj = JSON.parse(m[1].replace(/\\'/g, "'")); } catch (_) { continue; }
+    const vals = Object.values(obj).filter(v => typeof v === 'string');
+    if (!vals.length || vals.length > 8) continue;
+    const ver = vals.find(v => new RegExp('^' + VER + '$').test(v.trim()));
+    if (!ver) continue;
+    const name = vals.find(v => v !== ver && /^@?[a-z][\w.\-\/]{1,60}$/i.test(v));
+    if (!name) continue;
+    const zahir = /zahir|erp/i.test(name);
+    if (!zahir && LIB_NEAR.test(name)) continue;
+    out.push({ value: ver.trim().replace(/^v/i, ''), score: zahir ? 97 : 80, source: `${source} (package ${name})`, context: m[1].slice(0, 180) });
+  }
+  return out;
+}
+
+/* webpack 5 runtime: chunk id → file name, e.g.
+   (({123:"npm.react"}[e]||e)+"."+{98513:"fb09bdf1",...}[e]+".chunk.js")  */
+function webpackChunks(text, baseUrl) {
+  const hashMaps = [], nameMap = {};
+  for (const m of text.matchAll(/\{((?:\d+:"[0-9a-f]{5,32}",?){2,})\}\[\w+\]\s*\+\s*"(\.chunk)?\.js"/g)) hashMaps.push({ body: m[1], suffix: (m[2] || '') + '.js' });
+  for (const m of text.matchAll(/\{((?:\d+:"[\w.\-~]+",?){2,})\}\[\w+\]\s*\|\|\s*\w+\)/g)) {
+    for (const p of m[1].matchAll(/(\d+):"([\w.\-~]+)"/g)) nameMap[p[1]] = p[2];
+  }
+  const out = [];
+  for (const { body, suffix } of hashMaps) {
+    for (const p of body.matchAll(/(\d+):"([0-9a-f]{5,32})"/g)) {
+      const id = p[1], name = nameMap[id] || id;
+      const u = sameSiteUrl(`${name}.${p[2]}${suffix}`, baseUrl);
+      if (u) out.push({ id, name, url: u, vendor: /^npm\.|vendor/i.test(name) });
+    }
   }
   return out;
 }
@@ -127,7 +174,7 @@ function sameSiteUrl(ref, base) {
   } catch (_) { return null; }
 }
 
-export async function detectVersion(rawUrl) {
+export async function detectVersion(rawUrl, { hint = '' } = {}) {
   const started = Date.now();
   const deadline = started + BUDGET_MS;
   const target = normalizeUrl(rawUrl);
@@ -159,6 +206,8 @@ export async function detectVersion(rawUrl) {
   const seen = new Set(queue);
   const endpointRefs = new Set(['/version.json', '/assets/version.json', '/config.json', '/assets/config.json', '/env.json', '/app-config.json', '/build.json', '/meta.json', '/static/version.json']);
 
+  const chunkMap = new Map();      // webpack chunk id -> { id, name, url, vendor }
+  const chunkRefs = [];            // chunk ids the app loads (n.e(98513)), in order of appearance
   const takeScript = async (url) => {
     if (fetched.length >= MAX_FILES || totalBytes > MAX_TOTAL || Date.now() > deadline - 400) return;
     try {
@@ -173,6 +222,9 @@ export async function detectVersion(rawUrl) {
         const u = sameSiteUrl(m[1], url);
         if (u && !seen.has(u) && /auth|login|signin|sign-in|app|main|index|layout|footer|version|about|setting/i.test(m[1])) { seen.add(u); queue.push(u); }
       }
+      // webpack 5 lazy chunks (Create React App etc.)
+      webpackChunks(r.text, url).forEach(c => { if (!chunkMap.has(c.id)) chunkMap.set(c.id, c); });
+      for (const m of r.text.matchAll(/\.e\((\d{1,7})\)/g)) chunkRefs.push(m[1]);
       // version endpoints the app itself calls
       for (const m of r.text.matchAll(/["'\x60]((?:https:\/\/[\w.\-]+)?\/[\w\-\/.]*?(?:version|versi|build-info|buildinfo|app-info|appinfo)[\w\-\/.]*)["'\x60]/gi)) {
         if (m[1].length < 120 && !/\.(js|css|png|svg)$/i.test(m[1])) endpointRefs.add(m[1]);
@@ -182,6 +234,43 @@ export async function detectVersion(rawUrl) {
   while (queue.length && fetched.length < MAX_FILES && Date.now() < deadline - 400) {
     const batch = queue.splice(0, 4);
     await Promise.all(batch.map(takeScript));
+  }
+
+  // 2b) webpack lazy chunks: the app's package.json often sits in one of them (Zahir ERP does this).
+  //     Skipped when a strong value was already found. Order: last known chunk (hint), chunks
+  //     the app code loads, then the rest; vendor (npm.*) chunks never.
+  const strong = () => candidates.some(c => c.score >= 90);
+  let chunkFiles = 0, chunkHit = null;
+  if (chunkMap.size && !strong()) {
+    const order = [];
+    const add = (id) => { const c = chunkMap.get(String(id)); if (c && !c.vendor && !order.includes(c)) order.push(c); };
+    String(hint || '').split(',').forEach(h => add(h.trim()));
+    chunkRefs.forEach(add);
+    [...chunkMap.keys()].forEach(add);
+    let i = 0;
+    const worker = async () => {
+      while (i < order.length && !strong() && Date.now() < deadline - 500 && chunkFiles < MAX_CHUNKS && totalBytes < MAX_TOTAL) {
+        const c = order[i++];
+        chunkFiles++;
+        try {
+          const r = await fetchText(c.url, deadline);
+          if (r.status >= 400 || /text\/html/i.test(r.type)) continue;
+          totalBytes += r.text.length;
+          // chunks this chunk loads come next (the login route usually pulls in the package.json chunk)
+          const next = [];
+          for (const m of r.text.matchAll(/\.e\((\d{1,7})\)/g)) {
+            const n = chunkMap.get(m[1]);
+            if (n && !n.vendor && order.indexOf(n) >= i && !next.includes(n)) next.push(n);
+          }
+          next.forEach(n => order.splice(order.indexOf(n), 1));
+          order.splice(i, 0, ...next);
+          const found = scanPackageJson(r.text, c.url.replace(/^https:\/\/[^/]+/, ''));
+          if (found.length) { candidates.push(...found); if (!chunkHit) chunkHit = c.id; log(c.url, 'package.json'); }
+        } catch (_) { /* ignore one chunk */ }
+      }
+    };
+    await Promise.all(Array.from({ length: CHUNK_PARALLEL }, worker));
+    fetched.push(`webpack chunks: ${chunkMap.size} known, ${chunkFiles} read`);
   }
 
   // 3) JSON endpoints (only real JSON counts; the app answers HTML for unknown paths)
@@ -218,6 +307,7 @@ export async function detectVersion(rawUrl) {
     confidence: !best ? 'none' : best.score >= 90 ? 'high' : best.score >= 70 ? 'medium' : 'low',
     source: best ? best.source : null,
     candidates: ranked.slice(0, 10).map(c => ({ value: c.value, score: c.score, hits: c.hits, source: c.source, context: c.context })),
+    chunkHint: chunkHit || undefined,
     files: fetched,
     ms: Date.now() - started
   };
@@ -229,7 +319,7 @@ export default async function handler(req, res) {
   if (!user) return;
   if (req.method !== 'GET') return res.status(405).json({ error: 'Use GET' });
   try {
-    const out = await detectVersion(req.query.url);
+    const out = await detectVersion(req.query.url, { hint: String(req.query.hint || '').slice(0, 60) });
     if (out.error) return res.status(out.error.startsWith('Host not allowed') || out.error === 'Invalid URL' ? 400 : 502).json(out);
     if (!req.query.debug) delete out.files;
     return res.status(200).json(out);

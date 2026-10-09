@@ -87,6 +87,9 @@ function subscribe(){
   }, err => {
     console.error('sites', err);
     S.loaded = true;
+    // Firestore drops a listener after an error; forget it so the next visit subscribes again
+    try { S.unsub && S.unsub(); } catch(_){}
+    S.unsub = null; S.ws = null;
     const el = $('sitesBody');
     if(el) el.innerHTML = `<div class="kb-state"><h3>Client Versions cannot be opened</h3><p>${escapeHtml(err.code === 'permission-denied'
       ? 'Firestore denied access. Publish the latest firestore.rules in the Firebase Console.'
@@ -108,7 +111,9 @@ async function checkSite(site, { quiet = false } = {}){
   S.checking.add(site.id);
   render();
   try {
-    const r = await apiFetch(`/api/erp-version?url=${encodeURIComponent(site.url)}`);
+    // where the version was found last time (webpack chunk id) — the same build is shared by most clients
+    const hints = [...new Set([site.chunkHint, ...S.sites.map(x => x.chunkHint)].filter(Boolean))].slice(0, 3).join(',');
+    const r = await apiFetch(`/api/erp-version?url=${encodeURIComponent(site.url)}${hints ? '&hint=' + encodeURIComponent(hints) : ''}`);
     const d = await r.json().catch(() => ({}));
     const now = Date.now();
     if(!r.ok || d.error){
@@ -121,6 +126,7 @@ async function checkSite(site, { quiet = false } = {}){
       confidence: d.confidence || '', versionSource: d.source || '',
       candidates: (d.candidates || []).slice(0, 6)
     };
+    if(d.chunkHint) patch.chunkHint = String(d.chunkHint);
     if(d.version){
       patch.version = d.version;
       if(site.version && site.version !== d.version){ patch.prevVersion = site.version; patch.versionChangedAt = now; }
