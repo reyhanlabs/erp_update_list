@@ -19,6 +19,7 @@
  */
 import { requireUser } from './_lib/auth.js';
 import { lookup } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
 
 const BUDGET_MS = 8500;
 const MAX_FILE = 12 * 1024 * 1024;
@@ -85,6 +86,61 @@ function normalizeUrl(raw) {
   return u;
 }
 
+/* Many self-hosted Zahir ERP servers send an incomplete certificate chain (no
+   intermediate). Browsers repair that by themselves, Node does not, so fetch()
+   fails with UNABLE_TO_VERIFY_LEAF_SIGNATURE. For those hosts only, we read the
+   public login files again without chain verification: the request is still a
+   plain GET without credentials, the result is only a version label, and the
+   check is reported as "certificate not verified". */
+const TLS_CHAIN_CODES = new Set(['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'CERT_UNTRUSTED', 'CERT_HAS_EXPIRED', 'ERR_TLS_CERT_ALTNAME_INVALID']);
+const looseTls = new Set();       // hosts read without chain verification (this invocation)
+
+function netCode(err) {
+  return (err && (err.cause && (err.cause.code || err.cause.name))) || (err && (err.code || err.name)) || '';
+}
+function explainNetError(err) {
+  const code = netCode(err);
+  if (TLS_CHAIN_CODES.has(code)) return `certificate problem (${code})`;
+  const map = {
+    ENOTFOUND: 'address not found (DNS)', EAI_AGAIN: 'address lookup failed (DNS)',
+    ECONNREFUSED: 'the server refused the connection', ECONNRESET: 'the server cut the connection',
+    ETIMEDOUT: 'no answer in time (the server may only accept visitors from Indonesia/its own network)',
+    UND_ERR_CONNECT_TIMEOUT: 'no answer in time (the server may only accept visitors from Indonesia/its own network)',
+    AbortError: 'no answer in time', EHOSTUNREACH: 'server unreachable', ENETUNREACH: 'server unreachable',
+    EPROTO: 'TLS handshake failed (old or unusual HTTPS setup)', ERR_SSL_WRONG_VERSION_NUMBER: 'the port does not speak HTTPS'
+  };
+  if (map[code]) return `${map[code]} [${code}]`;
+  return code ? `${err.message} [${code}]` : (err && err.message) || String(err);
+}
+
+/* Plain https GET with node:https, TLS chain not verified; the connection is
+   pinned to an address that passed the public-address check. */
+function httpsGetLoose(url, timeoutMs, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(url, {
+      method: 'GET', rejectUnauthorized: false, timeout: timeoutMs,
+      headers: { 'User-Agent': UA, Accept: '*/*', 'Accept-Encoding': 'identity' },
+      lookup: (host, opts, cb) => {
+        lookup(host, { all: true, verbatim: true }).then(list => {
+          const bad = !list.length || list.some(x => ipPrivate(x.address));
+          if (bad) return cb(new Error('host resolves to a private address'));
+          if (opts && opts.all) return cb(null, list);
+          cb(null, list[0].address, list[0].family);
+        }, cb);
+      }
+    }, (res) => {
+      const chunks = []; let size = 0;
+      res.on('data', (c) => { size += c.length; if (size > maxBytes) { req.destroy(new Error('file too large')); return; } chunks.push(c); });
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, text: Buffer.concat(chunks).toString('utf8') }));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' })));
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function fetchText(url, deadline, { maxBytes = MAX_FILE } = {}) {
   let current = new URL(url);
   for (let hop = 0; hop < 4; hop++) {
@@ -92,20 +148,36 @@ async function fetchText(url, deadline, { maxBytes = MAX_FILE } = {}) {
     await assertPublicHost(current.hostname);
     const left = deadline - Date.now();
     if (left < 300) throw new Error('time budget used up');
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), Math.min(left, 6000));
-    let r;
-    try {
-      r = await fetch(current, { redirect: 'manual', signal: ctrl.signal, headers: { 'User-Agent': UA, Accept: '*/*' } });
-    } finally { clearTimeout(timer); }
-    if (r.status >= 300 && r.status < 400 && r.headers.get('location')) {
-      current = new URL(r.headers.get('location'), current);
+    const wait = Math.min(left, 6000);
+
+    let status, type, location, body;
+    if (!looseTls.has(current.hostname)) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), wait);
+      try {
+        const r = await fetch(current, { redirect: 'manual', signal: ctrl.signal, headers: { 'User-Agent': UA, Accept: '*/*' } });
+        status = r.status; type = r.headers.get('content-type') || ''; location = r.headers.get('location');
+        if (!(status >= 300 && status < 400 && location)) {
+          const len = Number(r.headers.get('content-length') || 0);
+          if (len && len > maxBytes) throw new Error('file too large');
+          body = await r.text();
+        }
+      } catch (err) {
+        if (!TLS_CHAIN_CODES.has(netCode(err))) throw new Error(explainNetError(err));
+        looseTls.add(current.hostname);
+      } finally { clearTimeout(timer); }
+    }
+    if (looseTls.has(current.hostname) && status === undefined) {
+      try {
+        const r = await httpsGetLoose(current, Math.min(deadline - Date.now(), 6000), maxBytes);
+        status = r.status; type = String(r.headers['content-type'] || ''); location = r.headers.location; body = r.text;
+      } catch (err) { throw new Error(explainNetError(err)); }
+    }
+    if (status >= 300 && status < 400 && location) {
+      current = new URL(location, current);
       continue;
     }
-    const len = Number(r.headers.get('content-length') || 0);
-    if (len && len > maxBytes) throw new Error('file too large');
-    const text = await r.text();
-    return { status: r.status, type: r.headers.get('content-type') || '', text: text.slice(0, maxBytes), finalUrl: current.toString() };
+    return { status, type, text: String(body || '').slice(0, maxBytes), finalUrl: current.toString(), looseTls: looseTls.has(current.hostname) };
   }
   throw new Error('too many redirects');
 }
@@ -359,6 +431,7 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
     source: best ? best.source : null,
     candidates: ranked.slice(0, 10).map(c => ({ value: c.value, score: c.score, hits: c.hits, source: c.source, context: c.context })),
     chunkHint: chunkHit || undefined,
+    tlsNote: looseTls.has(new URL(page.finalUrl).hostname) ? 'Certificate chain could not be verified (incomplete or self-signed certificate on the client server); version read anyway.' : undefined,
     files: fetched,
     ms: Date.now() - started
   };

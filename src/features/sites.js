@@ -124,7 +124,7 @@ async function checkSite(site, { quiet = false } = {}){
     }
     const patch = {
       checkedAt: now, checkError: d.version ? '' : 'Version not found on the login page', checkHint: '',
-      confidence: d.confidence || '', versionSource: d.source || '',
+      confidence: d.confidence || '', versionSource: d.source || '', tlsNote: d.tlsNote || '',
       candidates: (d.candidates || []).slice(0, 6)
     };
     if(d.chunkHint) patch.chunkHint = String(d.chunkHint);
@@ -330,6 +330,7 @@ function renderNow(){
     const details = open ? `<div class="sv-details">
         ${s.pinnedVersion ? `<p><b>Version set by hand:</b> ${escapeHtml(s.pinnedVersion)}${s.version ? ` (detected: ${escapeHtml(s.version)})` : ''}</p>` : ''}
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
+        ${s.tlsNote ? `<p class="sv-err"><b>Certificate:</b> ${escapeHtml(s.tlsNote)}</p>` : ''}
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
         ${(s.candidates || []).length ? `<p><b>Other values seen:</b> ${(s.candidates || []).slice(1).map(c => `<code title="${escapeHtml(c.context || '')}">${escapeHtml(c.value)}</code>`).join(' ') || '—'}</p>` : ''}
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}

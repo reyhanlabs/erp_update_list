@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.57.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.57.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -183,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.57.1**: `api/erp-version.js` explains network failures instead of Node's bare "fetch failed" (DNS, refused, reset, timeout / probably geo-blocked, TLS handshake, certificate code). Hosts whose certificate chain can't be verified (missing intermediate, self-signed, expired — common on self-hosted servers; browsers repair missing intermediates themselves) are re-read with `node:https` without chain verification, still GET-only and pinned to an address that passed the public-address check; the result carries `tlsNote`, shown in the site details.
 - **v4.57.0**: Client Versions accepts any public https address, not only `*.zahirerp.com` (`ERP_VERSION_HOSTS` is gone). Guard rails in `api/erp-version.js`: default https port only, no IP literals or local names, every host incl. redirects must resolve (DNS) to public addresses only (private, loopback, link-local/metadata, CGNAT, multicast blocked), and only files on the page's own host are read. Long lists: 6 checks in parallel, at most 100 stale sites auto-checked per visit (oldest first), rendering throttled to one per frame, paste-a-list writes in batches of 400.
 - **v4.56.3**: webpack chunk map parser accepts quoted keys — named chunks (`"npm.react":"14a4599…"`) use their name as id, which made the whole Zahir ERP map unreadable before. Debug output always reports `webpack chunks: N known`.
 - **v4.56.2**: `api/erp-version.js` orders webpack chunks by how many `Promise.all` groups in the app code load them (the package.json chunk is a shared one, e.g. 98513 on Zahir ERP), so it is found within the first reads even when the runtime lists ~2000 chunks; per-file cap 12 MB, total 48 MB. Debug from the app's console: `fetch('/api/erp-version?debug=1&url=…', {headers:{Authorization:'Bearer '+await firebase.auth().currentUser.getIdToken()}})`.
