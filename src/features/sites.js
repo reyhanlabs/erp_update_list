@@ -535,15 +535,6 @@ function renderNow(){
           ${s.isTest ? '<span class="sv-tag" title="Test / internal server: not used for Latest, rollout or Behind latest">test</span>' : ''}
         </div>
         <a class="sv-url" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(hostOf(s.url))}</a>
-        ${(() => {
-          // small badges under the address, so the client name keeps the full width
-          const c = redmineOf(s);
-          const tags = [
-            c && c.open ? `<button type="button" class="sv-issues" onclick="openSiteClientIssues('${s.id}')" title="Redmine client “${escapeHtml(c.name)}” — open in By Client">${c.open} open issue${c.open === 1 ? '' : 's'}</button>` : '',
-            mm ? `<span class="sv-mismatch" title="${escapeHtml('Parts out of step: ' + mm.text)}" aria-label="Parts out of step">⚠ ${mm.days}d apart</span>` : ''
-          ].filter(Boolean);
-          return tags.length ? `<div class="sv-tags">${tags.join('')}</div>` : '';
-        })()}
         ${s.notes ? `<span class="sv-notes" title="${escapeHtml(s.notes)}">${escapeHtml(s.notes)}</span>` : ''}
       </div>
       <div class="sv-ver">

@@ -1489,6 +1489,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.61.4</span>
+                <span class="cl-note">Client Versions: rows show only name, address and versions (open issues are in By Client; "out of step" stays in the filter and details)</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.61.3</span>
                 <span class="cl-note">Client Versions: client names are no longer cut off; open-issue and out-of-step badges sit under the address</span>
               </div>
@@ -2464,10 +2468,10 @@
                 <li>Besides the front-end version, each check also reads the backend versions: <b>API V2</b> from <code>/api/v2/versions/dev</code> and <b>API V3</b> from <code>/api/v3/version</code> on the same address (no sign-in). The highest value of each column is green, older ones amber; a client's details show each API version with its release date.</li>
                 <li><b>Rollout</b> cards on top show, for front-end, API V2 and API V3, the newest version and how many clients already run it (in %).</li>
                 <li><b>Recent changes</b> lists every version change seen in the last 30 days (who, which part, from → to). Each client keeps its own <b>version history</b> (last 50 changes) in its details. Optionally, Settings → Telegram can post each batch of changes to your Telegram chat.</li>
-                <li><b>⚠ Parts out of step</b> marks a site whose front-end, API V2 and API V3 were built more than 14 days apart (read from the build stamp in the version, e.g. 2.26.10.081600 = 8 Oct 2026 16:00), which often means a deploy that was not finished.</li>
+                <li><b>⚠ Parts out of step</b> marks a site whose front-end, API V2 and API V3 were built more than 14 days apart (read from the build stamp in the version, e.g. 2.26.10.081600 = 8 Oct 2026 16:00), which often means a deploy that was not finished. Use the <b>Parts out of step</b> filter or a client's details to see them.</li>
                 <li><b>Compare</b> (top right, or <i>Compare this site…</i> in a client's details) puts 2–4 sites side by side, e.g. DEV, production and one client. The first column is the reference; every other column shows, per part, how many hours/days older or newer its build is, plus a one-line summary. <b>Copy</b> gives the comparison as text for chat; your choice of sites is remembered.</li>
                 <li>A <b>server check</b> runs every night (and more often if a scheduler calls it): it re-checks every site, records version changes and posts to Telegram which sites changed version, which are <b>not reachable</b> (2 failed checks in a row) and which are back up. Such sites show <i>● down since …</i> and are listed under the <b>Down</b> filter; "(server)" marks checks done by the server.</li>
-                <li>Each site is linked to its <b>Redmine client</b> (Edit → Redmine client name; empty = same name as the site). The row then shows its open issues, which open <b>By Client</b>; there, the client's FE / V2 / V3 versions are shown above its issues.</li>
+                <li>Each site is linked to its <b>Redmine client</b> (Edit → Redmine client name; empty = same name as the site). Its details show the open issues with a link to <b>By Client</b>; there, the client's FE / V2 / V3 versions are shown above its issues.</li>
                 <li>Tick <b>Test / internal server</b> in Edit for a dev, test or reference site: it is listed in its own block at the top of the table (whatever the sort or filter), doesn't set the Latest version, isn't counted in the rollout or Behind latest, and newer builds on it show in blue.</li>
                 <li>Filters on top: <b>Latest FE</b>, <b>Latest V2</b> and <b>Latest V3</b> (each shows the highest version of that part and how many clients run it), <b>Behind latest</b> (behind on front-end, API V2 or API V3), <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts clients behind on any of the three.</li>
                 <li>When a version changes, hovering the version shows the previous one and when it changed. Click anywhere on a client's row to open its details (where the version was found, API answers, version history).</li>
