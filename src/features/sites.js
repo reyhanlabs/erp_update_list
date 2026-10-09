@@ -503,8 +503,9 @@ function renderNow(){
     const v = shownVersion(s);
     const busy = S.checking.has(s.id);
     const mm = mismatch(s);
-    const changed = s.prevVersion && s.versionChangedAt && Date.now() - s.versionChangedAt < 30 * 86400000
-      ? `<span class="sv-changed" title="Changed ${new Date(s.versionChangedAt).toLocaleDateString()}">from ${escapeHtml(s.prevVersion)} · ${escapeHtml(ago(s.versionChangedAt))}</span>` : '';
+    // last change goes in the badge tooltip (the row stays one line); full list in Version history
+    const changedTip = s.prevVersion && s.versionChangedAt ? `Changed from ${s.prevVersion} · ${ago(s.versionChangedAt)}` : '';
+    const feTitle = [builtTitle(v), changedTip].filter(Boolean).join(' · ');
     const by = s.checkedBy === 'server' ? ' (server)' : '';
     const isDown = (s.failCount || 0) >= 2 && s.downSince;
     const status = busy ? '<span class="sv-status is-busy">checking…</span>'
@@ -539,8 +540,7 @@ function renderNow(){
         ${s.notes ? `<span class="sv-notes" title="${escapeHtml(s.notes)}">${escapeHtml(s.notes)}</span>` : ''}
       </div>
       <div class="sv-ver">
-        ${v ? `<span class="sv-badge${tone(v, latest)}"${builtTitle(v) ? ` title="${escapeHtml(builtTitle(v))}"` : ''}>${escapeHtml(v)}${s.pinnedVersion ? '<small>manual</small>' : ''}</span>` : '<span class="sv-badge is-none">unknown</span>'}
-        ${changed}
+        ${v ? `<span class="sv-badge${tone(v, latest)}"${feTitle ? ` title="${escapeHtml(feTitle)}"` : ''}>${escapeHtml(v)}${s.pinnedVersion ? '<small>manual</small>' : ''}</span>` : '<span class="sv-badge is-none">unknown</span>'}
       </div>
       ${apiCell(s, 'v2')}
       ${apiCell(s, 'v3')}
