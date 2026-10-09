@@ -18,8 +18,8 @@
 import { requireUser } from './_lib/auth.js';
 
 const BUDGET_MS = 8500;
-const MAX_FILE = 6 * 1024 * 1024;
-const MAX_TOTAL = 16 * 1024 * 1024;
+const MAX_FILE = 12 * 1024 * 1024;
+const MAX_TOTAL = 48 * 1024 * 1024;
 const MAX_FILES = 16;
 const MAX_CHUNKS = 150;      // webpack lazy chunks read while looking for the bundled package.json
 const CHUNK_PARALLEL = 10;
@@ -245,7 +245,11 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
     const order = [];
     const add = (id) => { const c = chunkMap.get(String(id)); if (c && !c.vendor && !order.includes(c)) order.push(c); };
     String(hint || '').split(',').forEach(h => add(h.trim()));
-    chunkRefs.forEach(add);
+    // shared chunks (the package.json one is shared by many routes) are loaded by many
+    // Promise.all groups, so the most-referenced chunks come first
+    const freq = new Map();
+    chunkRefs.forEach((id, n) => { const f = freq.get(id); if (f) f.c++; else freq.set(id, { c: 1, n }); });
+    [...freq.entries()].sort((a, b) => b[1].c - a[1].c || a[1].n - b[1].n).forEach(([id]) => add(id));
     [...chunkMap.keys()].forEach(add);
     let i = 0;
     const worker = async () => {
