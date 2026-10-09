@@ -141,6 +141,15 @@ function updateNavCount(){
   if(el) setNavCount(el, behind);
 }
 
+/* release date of an API answer ("release_date":"2026-10-06"); also read from the
+   stored raw answer so sites checked before this version show it too */
+function releaseOf(raw){
+  const m = String(raw || '').match(/"(?:release_?date|releaseDate|released_?at|build_?date|date)"\s*:\s*"(\d{4}-\d{2}-\d{2})/i);
+  return m ? m[1] : '';
+}
+const apiRelease = (s, k) => s[k + 'Release'] || releaseOf(s[k + 'Raw']);
+const fmtDay = (iso) => { const d = new Date(iso + 'T00:00:00'); return isNaN(d) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
+
 /* ---------------- version checks ---------------- */
 const API_KEYS = ['v2', 'v3'];                // backend versions: /api/v2/versions/dev and /api/v3/version
 function backendPatch(site, backend, now){
@@ -150,6 +159,7 @@ function backendPatch(site, backend, now){
     const b = backend[k];
     if(!b) return;
     patch[k + 'Raw'] = b.raw || '';
+    if(b.version) patch[k + 'Release'] = b.releaseDate || releaseOf(b.raw);
     patch[k + 'Error'] = b.version ? '' : (b.error || 'not found');
     if(b.version){                              // keep the last known value when a check fails
       patch[k] = b.version;
@@ -466,7 +476,7 @@ function renderNow(){
   const builtTitle = (v) => { const at = buildDate(v); return at ? `Built ${fmtBuild(at)}` : ''; };
   const apiCell = (s, k) => {
     const v = s[k];
-    const title = [builtTitle(v), s[k + 'Error'] ? `Last check: ${s[k + 'Error']}` : '', s[k + 'Prev'] ? `Previously ${s[k + 'Prev']}` : ''].filter(Boolean).join(' · ');
+    const title = [builtTitle(v), v && apiRelease(s, k) ? `Released ${fmtDay(apiRelease(s, k))}` : '', s[k + 'Error'] ? `Last check: ${s[k + 'Error']}` : '', s[k + 'Prev'] ? `Previously ${s[k + 'Prev']}` : ''].filter(Boolean).join(' · ');
     return `<div class="sv-api"><span class="sv-api-label">API ${k.toUpperCase()}</span><span class="sv-badge sv-badge-sm${tone(v, tops[k])}"${title ? ` title="${escapeHtml(title)}"` : ''}>${v ? escapeHtml(v) : '—'}</span></div>`;
   };
   const historyHtml = (s) => {
@@ -492,7 +502,7 @@ function renderNow(){
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
         ${s.tlsNote ? `<p class="sv-err"><b>Certificate:</b> ${escapeHtml(s.tlsNote)}</p>` : ''}
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
-        ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k + 'Error'] ? ` <span class="sv-err">· ${escapeHtml(s[k + 'Error'])}</span>` : ''}${s[k + 'Raw'] ? ` <code title="Answer of ${k === 'v2' ? '/api/v2/versions/dev' : '/api/v3/version'}">${escapeHtml(s[k + 'Raw'].slice(0, 120))}</code>` : ''}</p>`).join('')}
+        ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k] && apiRelease(s, k) ? ` · released ${escapeHtml(fmtDay(apiRelease(s, k)))}` : ''}${s[k + 'Error'] ? ` <span class="sv-err">· ${escapeHtml(s[k + 'Error'])}</span>` : ''}</p>`).join('')}
         ${historyHtml(s)}
         <p><button type="button" class="btn btn-secondary btn-xs" onclick="openSitesCompare('${s.id}')">Compare this site…</button></p>
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}
@@ -738,6 +748,7 @@ function renderCompare(){
         return `<td class="${d.cls}">
           <div class="svc-ver">${v ? escapeHtml(v) : '—'}</div>
           ${at ? `<div class="svc-date">Built ${escapeHtml(fmtBuild(at))}</div>` : ''}
+          ${p.key !== 'fe' && v && apiRelease(c, p.key) ? `<div class="svc-date">Released ${escapeHtml(fmtDay(apiRelease(c, p.key)))}</div>` : ''}
           ${d.text ? `<div class="svc-diff">${escapeHtml(d.text)}</div>` : ''}
         </td>`;
       }).join('')}

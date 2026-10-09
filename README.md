@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.60.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.60.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -183,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.60.2**: API V2 / V3 answers: `release_date` is returned as `backend.vN.releaseDate` and stored as `v2Release` / `v3Release` (read from the stored raw answer for older checks); details show "version · released 6 Oct 2026" instead of the raw JSON, Compare and the badge tooltip show the release date too.
 - **v4.60.1**: Client Versions lists `isTest` sites in their own block on top ("Test servers · reference for the tester version", by name), independent of sort and version filters (search still applies); clients follow under "Clients".
 - **v4.60.0**: Client Versions **Compare** panel (`#sitesCompare`, outside the list so background redraws don't close an open picker): 2–4 sites, first = reference; per part the version, build date and "N h / N days older|newer" (from the build stamps), a one-line verdict per site, Copy as text, "Check these now", "Set as reference". Defaults to the first test server + a site on the most common front-end version (≈ production); selection kept in `localStorage` (`erp_sites_compare_v1`). Also reachable from a client's details.
 - **v4.59.3**: Client Versions rows are clickable as a whole (`siteRowClick`): only the name text was a button, so clicks next to it (on the empty part of the name cell) did nothing. Links, action buttons and the details box keep their own behaviour; Enter on the focused name still toggles.

@@ -1488,6 +1488,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.60.2</span>
+                <span class="cl-note">Client Versions details: API V2 / V3 show just the version and release date instead of the raw answer</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.60.1</span>
                 <span class="cl-note">Client Versions: sites marked Test are listed in their own block at the top, as the reference for the clients below</span>
               </div>
@@ -2436,7 +2440,7 @@
               <ul>
                 <li><b>Add client</b> one by one, or <b>Paste a list</b> (name and address per line, straight from Excel).</li>
                 <li>Versions are checked when you add a client, when you open the menu (up to 100 sites whose last check is older than 6 hours), and with <b>Check all versions</b>.</li>
-                <li>Besides the front-end version, each check also reads the backend versions: <b>API V2</b> from <code>/api/v2/versions/dev</code> and <b>API V3</b> from <code>/api/v3/version</code> on the same address (no sign-in). The highest value of each column is green, older ones amber; click a client's name to see the raw answer.</li>
+                <li>Besides the front-end version, each check also reads the backend versions: <b>API V2</b> from <code>/api/v2/versions/dev</code> and <b>API V3</b> from <code>/api/v3/version</code> on the same address (no sign-in). The highest value of each column is green, older ones amber; a client's details show each API version with its release date.</li>
                 <li><b>Rollout</b> cards on top show, for front-end, API V2 and API V3, the newest version and how many clients already run it (in %).</li>
                 <li><b>Recent changes</b> lists every version change seen in the last 30 days (who, which part, from → to). Each client keeps its own <b>version history</b> (last 50 changes) in its details. Optionally, Settings → Telegram can post each batch of changes to your Telegram chat.</li>
                 <li><b>⚠ Parts out of step</b> marks a site whose front-end, API V2 and API V3 were built more than 14 days apart (read from the build stamp in the version, e.g. 2.26.10.081600 = 8 Oct 2026 16:00), which often means a deploy that was not finished.</li>

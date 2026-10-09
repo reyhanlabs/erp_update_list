@@ -337,6 +337,12 @@ function versionFromBody(body, type) {
   return keyed[0] || any[0] || null;
 }
 
+/* release date from the answer, e.g. {"release_date":"2026-10-06", …} → "2026-10-06" */
+function releaseDateFromBody(body) {
+  const m = String(body || '').match(/"(?:release_?date|releaseDate|released_?at|build_?date|date)"\s*:\s*"(\d{4}-\d{2}-\d{2})[^"]*"/i);
+  return m ? m[1] : '';
+}
+
 async function backendVersions(origin, deadline) {
   const out = {};
   await Promise.all(Object.entries(BACKEND_PATHS).map(async ([key, path]) => {
@@ -345,7 +351,7 @@ async function backendVersions(origin, deadline) {
       const raw = String(r.text || '').trim().replace(/\s+/g, ' ').slice(0, 200);
       if (r.status >= 400) { out[key] = { version: null, error: `HTTP ${r.status}`, raw }; return; }
       const v = versionFromBody(r.text, r.type);
-      out[key] = v ? { version: v, raw } : { version: null, error: /^\s*</.test(r.text || '') ? 'not available on this site' : 'no version in the answer', raw };
+      out[key] = v ? { version: v, releaseDate: releaseDateFromBody(r.text), raw } : { version: null, error: /^\s*</.test(r.text || '') ? 'not available on this site' : 'no version in the answer', raw };
     } catch (err) {
       out[key] = { version: null, error: err.message };
     }
