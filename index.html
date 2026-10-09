@@ -1488,6 +1488,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.60.1</span>
+                <span class="cl-note">Client Versions: sites marked Test are listed in their own block at the top, as the reference for the clients below</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.60.0</span>
                 <span class="cl-note">Client Versions: Compare 2–4 sites side by side (e.g. DEV, production and a client) with how far each part is behind or ahead, and copy it as text</span>
               </div>
@@ -2437,7 +2441,7 @@
                 <li><b>Recent changes</b> lists every version change seen in the last 30 days (who, which part, from → to). Each client keeps its own <b>version history</b> (last 50 changes) in its details. Optionally, Settings → Telegram can post each batch of changes to your Telegram chat.</li>
                 <li><b>⚠ Parts out of step</b> marks a site whose front-end, API V2 and API V3 were built more than 14 days apart (read from the build stamp in the version, e.g. 2.26.10.081600 = 8 Oct 2026 16:00), which often means a deploy that was not finished.</li>
                 <li><b>Compare</b> (top right, or <i>Compare this site…</i> in a client's details) puts 2–4 sites side by side, e.g. DEV, production and one client. The first column is the reference; every other column shows, per part, how many hours/days older or newer its build is, plus a one-line summary. <b>Copy</b> gives the comparison as text for chat; your choice of sites is remembered.</li>
-                <li>Tick <b>Test / internal server</b> in Edit for a dev or test site: it then doesn't set the Latest version, isn't counted in the rollout or Behind latest, and newer builds on it show in blue.</li>
+                <li>Tick <b>Test / internal server</b> in Edit for a dev, test or reference site: it is listed in its own block at the top of the table (whatever the sort or filter), doesn't set the Latest version, isn't counted in the rollout or Behind latest, and newer builds on it show in blue.</li>
                 <li>Filters on top: <b>Latest FE</b>, <b>Latest V2</b> and <b>Latest V3</b> (each shows the highest version of that part and how many clients run it), <b>Behind latest</b> (behind on front-end, API V2 or API V3), <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts clients behind on any of the three.</li>
                 <li>When a version changes, the row shows the previous version and when it changed. Click anywhere on a client's row to open its details (where the version was found, API answers, version history).</li>
                 <li>If a site's version can't be read, enter it by hand in <b>Edit</b>; it is marked <i>manual</i>.</li>

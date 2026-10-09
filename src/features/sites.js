@@ -475,8 +475,7 @@ function renderNow(){
     return `<div class="sv-hist"><b>Version history</b><ul>${h.map(c => `<li><span>${escapeHtml(new Date(c.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span><b>${partLabel(c.part)}</b> ${escapeHtml(c.from)} → <b>${escapeHtml(c.to)}</b></li>`).join('')}</ul></div>`;
   };
 
-  const list = sorted(filtered());
-  const rows = list.map(s => {
+  const rowHtml = (s) => {
     const v = shownVersion(s);
     const busy = S.checking.has(s.id);
     const mm = mismatch(s);
@@ -525,7 +524,20 @@ function renderNow(){
       </div>
       ${details}
     </div>`;
-  }).join('');
+  };
+
+  // Test / internal servers sit in their own block on top (by name), whatever the
+  // sort or version filter: they are the reference the clients are compared to.
+  const q = S.query.trim().toLowerCase();
+  const matchesQuery = (x) => !q || `${x.name} ${x.url} ${x.notes || ''} ${shownVersion(x)} ${x.v2 || ''} ${x.v3 || ''}`.toLowerCase().includes(q);
+  const testSites = S.sites.filter(x => x.isTest && matchesQuery(x)).sort((a, b) => a.name.localeCompare(b.name));
+  const clientSites = sorted(filtered().filter(x => !x.isTest));
+  const group = (label, n, cls) => `<div class="sv-group ${cls}"><span>${label}</span><b>${n}</b></div>`;
+  const rows = (testSites.length
+      ? group('Test servers · reference for the tester version', testSites.length, 'is-test') + testSites.map(rowHtml).join('')
+        + group('Clients', clientSites.length, '')
+      : '')
+    + (clientSites.length ? clientSites.map(rowHtml).join('') : (testSites.length ? '<div class="kb-state kb-state-sm"><p>No client matches this filter.</p></div>' : ''));
 
   el.innerHTML = `
     ${rolloutHtml(tops)}
