@@ -17,7 +17,8 @@ import { confirmDialog } from '../ui/confirm.js';
 import { setNavCount } from '../ui/list-controls.js';
 
 const STALE_MS = 6 * 60 * 60 * 1000;     // re-check sites older than 6 hours when the menu opens
-const PARALLEL = 3;
+const PARALLEL = 6;
+const AUTO_MAX = 100;                     // stale sites re-checked automatically per visit (oldest first); "Check all" does the rest
 
 const S = {
   sites: [], loaded: false, unsub: null, ws: null,
@@ -152,7 +153,8 @@ let autoRan = false;
 function autoCheckStale(){
   if(autoRan || !isVisible()) return;
   autoRan = true;
-  const stale = S.sites.filter(s => s.url && Date.now() - (s.checkedAt || 0) > STALE_MS);
+  const stale = S.sites.filter(s => s.url && Date.now() - (s.checkedAt || 0) > STALE_MS)
+    .sort((a, b) => (a.checkedAt || 0) - (b.checkedAt || 0)).slice(0, AUTO_MAX);
   if(stale.length) checkMany(stale, { quiet: true });
 }
 
@@ -187,7 +189,7 @@ async function saveSite(ev){
   const name = $('siteName').value.trim();
   const url = cleanUrl($('siteUrl').value);
   if(!name){ toast('Client name is required', 'error'); $('siteName').focus(); return; }
-  if(!url){ toast('Enter the Zahir ERP address, e.g. apt.zahirerp.com', 'error'); $('siteUrl').focus(); return; }
+  if(!url){ toast('Enter the Zahir ERP address, e.g. apt.zahirerp.com or erp.client.com', 'error'); $('siteUrl').focus(); return; }
   const dup = S.sites.find(s => s.id !== S.editing?.id && hostOf(s.url) === hostOf(url));
   if(dup){ toast(`${hostOf(url)} is already listed as ${dup.name}`, 'error'); return; }
   const now = Date.now();
@@ -237,9 +239,13 @@ async function saveBulk(){
   });
   if(!add.length){ toast(skipped.length ? 'No new clients found (already listed or not "Name, URL")' : 'Nothing to add', 'error'); return; }
   try {
-    const batch = db.batch(); const now = Date.now(); const ids = [];
-    add.forEach(a => { const r = ref().doc(); ids.push({ id: r.id, ...a }); batch.set(r, { ...a, notes: '', pinnedVersion: '', createdAt: now, updatedAt: now }); });
-    await batch.commit();
+    // Firestore takes at most 500 writes per batch
+    const now = Date.now(); const ids = [];
+    for(let i = 0; i < add.length; i += 400){
+      const batch = db.batch();
+      add.slice(i, i + 400).forEach(a => { const r = ref().doc(); ids.push({ id: r.id, ...a }); batch.set(r, { ...a, notes: '', pinnedVersion: '', createdAt: now, updatedAt: now }); });
+      await batch.commit();
+    }
     $('sitesBulkText').value = '';
     closeSiteForm();
     toast(`Added ${add.length} client(s)${skipped.length ? ` · ${skipped.length} line(s) skipped` : ''}`);
@@ -280,14 +286,20 @@ function sorted(list){
   return list.slice().sort(by);
 }
 
+// many checks finish close together (hundreds of sites): draw at most once per frame
+let renderQueued = 0;
 function render(){
+  if(renderQueued) return;
+  renderQueued = (window.requestAnimationFrame || ((f) => setTimeout(f, 16)))(() => { renderQueued = 0; renderNow(); });
+}
+function renderNow(){
   const el = $('sitesBody');
   if(!el || !isVisible()) return;
   if(!S.loaded){ el.innerHTML = '<div class="kb-state"><div class="spinner-sm"></div><p>Loading…</p></div>'; return; }
   if(!S.sites.length){
     el.innerHTML = `<div class="kb-welcome">
       <h2>List your clients' Zahir ERP sites</h2>
-      <p>Add each client with the address of their Zahir ERP (for example <b>apt.zahirerp.com</b>). The version is read automatically from the login page, so you only type the name and the address.</p>
+      <p>Add each client with the address of their Zahir ERP (for example <b>apt.zahirerp.com</b> or the client's own domain such as <b>erp.client.com</b>). The version is read automatically from the login page, so you only type the name and the address.</p>
       <div class="kb-welcome-actions">
         <button type="button" class="btn btn-primary" onclick="openSiteForm()">Add client</button>
         <button type="button" class="btn btn-secondary" onclick="openSitesBulk()">Paste a list</button>

@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.56.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.57.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -103,7 +103,6 @@ Files in `api/_lib/` are not routes (Vercel ignores paths starting with `_`).
 | `CLOUDINARY_API_KEY` | for KB images | Cloudinary → Settings → API Keys |
 | `CLOUDINARY_API_SECRET` | for KB images | same page; keep secret |
 | `CLOUDINARY_FOLDER` | – | default `erp-update-list/kb` |
-| `ERP_VERSION_HOSTS` | – | extra hosts for Client Versions besides `*.zahirerp.com`, comma-separated |
 | `FIREBASE_SERVICE_ACCOUNT` | ✅ | cron (+ token verification) | Service account JSON, on one line |
 
 \* at least one of `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`.
@@ -184,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.57.0**: Client Versions accepts any public https address, not only `*.zahirerp.com` (`ERP_VERSION_HOSTS` is gone). Guard rails in `api/erp-version.js`: default https port only, no IP literals or local names, every host incl. redirects must resolve (DNS) to public addresses only (private, loopback, link-local/metadata, CGNAT, multicast blocked), and only files on the page's own host are read. Long lists: 6 checks in parallel, at most 100 stale sites auto-checked per visit (oldest first), rendering throttled to one per frame, paste-a-list writes in batches of 400.
 - **v4.56.3**: webpack chunk map parser accepts quoted keys — named chunks (`"npm.react":"14a4599…"`) use their name as id, which made the whole Zahir ERP map unreadable before. Debug output always reports `webpack chunks: N known`.
 - **v4.56.2**: `api/erp-version.js` orders webpack chunks by how many `Promise.all` groups in the app code load them (the package.json chunk is a shared one, e.g. 98513 on Zahir ERP), so it is found within the first reads even when the runtime lists ~2000 chunks; per-file cap 12 MB, total 48 MB. Debug from the app's console: `fetch('/api/erp-version?debug=1&url=…', {headers:{Authorization:'Bearer '+await firebase.auth().currentUser.getIdToken()}})`.
 - **v4.56.1**: Client Versions reads Zahir ERP's version format `V2.26.10.081600` (capital V, 4 parts, build stamp). Zahir ERP (Create React App / webpack 5) keeps it in its bundled `package.json` inside a lazy numeric chunk (`JSON.parse('{"UU":"zahironline","rE":"2.26.10.081600"}')`); `api/erp-version.js` now reads the webpack runtime's chunk map and scans app chunks (never `npm.*`), following `n.e(id)` references, up to 150 chunks / 10 in parallel. The chunk id found is returned as `chunkHint`, stored per site and sent back as `&hint=` so later checks open that chunk first. The Firestore listener now resubscribes after a permission error.

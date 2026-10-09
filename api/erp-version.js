@@ -11,11 +11,14 @@
  *   3. version-like text in the HTML
  * and returns the best match plus the other candidates (for checking/tuning).
  *
- * Only https URLs on allowed hosts are fetched (default *.zahirerp.com;
- * add more with ERP_VERSION_HOSTS="example.co.id,erp.client.com").
+ * Any public https site can be checked (clients often run Zahir ERP on their
+ * own domain). Guard rails: https on the default port only, no IP literals or
+ * local names, every host (incl. redirects) must resolve to public addresses,
+ * and only files on the page's own host are read. GET only, no credentials.
  * Same sign-in guard as the Redmine endpoints.
  */
 import { requireUser } from './_lib/auth.js';
+import { lookup } from 'node:dns/promises';
 
 const BUDGET_MS = 8500;
 const MAX_FILE = 12 * 1024 * 1024;
@@ -29,15 +32,46 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const VER = String.raw`[vV]?(\d{1,4}\.\d{1,3}(?:\.\d{1,8}){0,3}(?:[-+][0-9A-Za-z.\-]{1,24})?)`;
 const LIB_NEAR = /\b(vue|react|angular|axios|core-js|lodash|moment|dayjs|chart|bootstrap|jquery|element|antd|ant-design|quasar|vuetify|sentry|firebase|webpack|babel|tslib|zone\.js|rxjs|swiper|sweetalert|popper|tinymce|quill|pdf|xlsx|socket|echarts|apexcharts|highcharts|leaflet|i18n|pinia|vuex|router|primevue|naive|tailwind|fontawesome|crypto|uuid|nprogress|workbox|hammer)\b/i;
 
-function allowedSuffixes() {
-  const extra = String(process.env.ERP_VERSION_HOSTS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  return ['zahirerp.com', ...extra];
-}
+/* Syntactic check: a real-looking public DNS name on the default https port. */
 function hostAllowed(host) {
-  const h = String(host || '').toLowerCase();
-  if (!h || /^\d{1,3}(\.\d{1,3}){3}$/.test(h) || h.includes(':') || h === 'localhost') return false;
-  return allowedSuffixes().some(s => h === s || h.endsWith('.' + s));
+  const h = String(host || '').toLowerCase().replace(/\.$/, '');
+  if (!h || h.length > 253 || h.includes(':') || h.includes('[')) return false;     // IPv6 literal
+  if (/^\d+(\.\d+){0,3}$/.test(h) || /^0x/i.test(h)) return false;                  // IPv4 literal / numeric forms
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) || !/\.[a-z][a-z0-9-]{1,62}$/.test(h)) return false;
+  if (/(^|\.)(localhost|local|localdomain|internal|intranet|lan|home|corp|private|test|invalid|example)$/.test(h)) return false;
+  return true;
 }
+
+/* Every address the name resolves to must be public (no private, loopback,
+   link-local/metadata, CGNAT, multicast or reserved ranges). */
+function ipPrivate(ip) {
+  const v = String(ip).toLowerCase();
+  if (v.includes(':')) {
+    if (v === '::' || v === '::1') return true;
+    const mapped = v.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+    if (mapped) return ipPrivate(mapped[1]);
+    return /^(fc|fd|fe8|fe9|fea|feb|ff|2001:db8|64:ff9b|100:)/.test(v);
+  }
+  const [a, b] = v.split('.').map(Number);
+  return a === 0 || a === 10 || a === 127 || a >= 224
+    || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)
+    || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19));
+}
+const dnsCache = new Map();
+async function assertPublicHost(host) {
+  if (!dnsCache.has(host)) {
+    dnsCache.set(host, lookup(host, { all: true, verbatim: true }).then(list => {
+      if (!list.length) throw new Error('host does not resolve');
+      if (list.some(x => ipPrivate(x.address))) throw new Error('host resolves to a private address');
+      return true;
+    }));
+    setTimeout(() => dnsCache.delete(host), 5 * 60 * 1000).unref?.();
+  }
+  try { await dnsCache.get(host); }
+  catch (err) { dnsCache.delete(host); throw new Error(`${host}: ${err.code === 'ENOTFOUND' ? 'address not found' : err.message}`); }
+}
+function portOk(u) { return !u.port || u.port === '443'; }
 
 function normalizeUrl(raw) {
   let s = String(raw || '').trim();
@@ -47,14 +81,15 @@ function normalizeUrl(raw) {
   try { u = new URL(s); } catch (_) { return null; }
   u.protocol = 'https:';
   u.hash = '';
-  if (!hostAllowed(u.hostname)) return { blocked: u.hostname };
+  if (!hostAllowed(u.hostname) || !portOk(u)) return { blocked: u.host };
   return u;
 }
 
 async function fetchText(url, deadline, { maxBytes = MAX_FILE } = {}) {
   let current = new URL(url);
   for (let hop = 0; hop < 4; hop++) {
-    if (!hostAllowed(current.hostname) || current.protocol !== 'https:') throw new Error('redirect to a host that is not allowed');
+    if (!hostAllowed(current.hostname) || !portOk(current) || current.protocol !== 'https:') throw new Error(`not allowed: ${current.host}`);
+    await assertPublicHost(current.hostname);
     const left = deadline - Date.now();
     if (left < 300) throw new Error('time budget used up');
     const ctrl = new AbortController();
@@ -180,8 +215,9 @@ function scanJson(text, source) {
 
 function sameSiteUrl(ref, base) {
   try {
-    const u = new URL(ref, base);
-    return hostAllowed(u.hostname) && u.protocol === 'https:' ? u.toString() : null;
+    const b = new URL(base);
+    const u = new URL(ref, b);
+    return u.protocol === 'https:' && u.hostname === b.hostname && portOk(u) ? u.toString() : null;   // the page's own host only
   } catch (_) { return null; }
 }
 
@@ -190,7 +226,7 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
   const deadline = started + BUDGET_MS;
   const target = normalizeUrl(rawUrl);
   if (!target) return { error: 'Invalid URL' };
-  if (target.blocked) return { error: `Host not allowed: ${target.blocked}`, hint: 'Only *.zahirerp.com by default. Add other hosts with the ERP_VERSION_HOSTS environment variable.' };
+  if (target.blocked) return { error: `Address not allowed: ${target.blocked}`, hint: 'Use the public https address of the Zahir ERP site (no IP address, local name or custom port).' };
 
   const candidates = [];
   const fetched = [];
@@ -335,7 +371,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Use GET' });
   try {
     const out = await detectVersion(req.query.url, { hint: String(req.query.hint || '').slice(0, 60) });
-    if (out.error) return res.status(out.error.startsWith('Host not allowed') || out.error === 'Invalid URL' ? 400 : 502).json(out);
+    if (out.error) return res.status(out.error.startsWith('Address not allowed') || out.error === 'Invalid URL' ? 400 : 502).json(out);
     if (!req.query.debug) delete out.files;
     return res.status(200).json(out);
   } catch (err) {
