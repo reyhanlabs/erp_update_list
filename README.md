@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.61.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.61.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -198,6 +198,7 @@ The answer tells how many sites were checked / left and what was sent.
 
 ## 📝 Changelog (short)
 
+- **v4.61.3**: client name keeps the full cell width (wraps instead of "S…"); "N open issues" (only when > 0) and "⚠ Nd apart" moved to a small badge row under the address.
 - **v4.61.2**: no "from … · ago" line under the front-end version; the last change is in the badge tooltip (history unchanged).
 - **v4.61.1**: site ↔ Redmine client matching: name set in Edit = exact; else site name exact, then the single Redmine client whose normalized name contains it (or vice versa, ≥5 chars); test servers only via Edit. By Client shows a dashed hint when the open client has no linked site.
 - **v4.61.0**: Server-side Client Versions check `api/cron-sites.js` (Vercel Cron daily + optional external scheduler): all workspaces via `collectionGroup('sites')`, failing sites first then stale ones, same fields as the app (`buildPatch`), `failCount` / `downSince` / `downNotifiedAt`, `checkedBy: 'server'`; Telegram message with not-reachable (after 2 failures, once), back-up and version changes; self-continues in rounds. App: "● down since …" status, **Down** filter, "(server)" marker. Client Versions ↔ By Client: each site links to a Redmine client (Edit → "Redmine client name", default = same name ignoring PT/CV/case); rows show "N open issues" (opens By Client), details show the link, CSV has the columns; By Client shows the client's FE / V2 / V3 above its issues.
