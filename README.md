@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.57.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.58.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -183,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.58.0**: Client Versions reads backend versions too: `api/erp-version.js` fetches `<origin>/api/v2/versions/dev` and `<origin>/api/v3/version` in parallel with the front-end scan (also when the login page fails) and returns `backend: { v2: {version, raw, error}, v3: … }`. The body may be JSON (version-like key, nested, or `{major,minor,patch}`) or plain text; an HTML answer counts as "not available". Stored per site as `v2/v3`, `v2Raw/v3Raw`, `v2Error/v3Error`, `v2Prev/v3Prev` (last known value kept when a check fails). Table gets API V2 / API V3 columns (highest green, older amber), details show the raw answer, search and CSV include them.
 - **v4.57.2**: Client Versions filter bar no longer has one chip per version: fixed chips All / Latest (with the version) / Behind latest / Couldn't read, and a "Specific version…" dropdown (newest first, with client counts).
 - **v4.57.1**: `api/erp-version.js` explains network failures instead of Node's bare "fetch failed" (DNS, refused, reset, timeout / probably geo-blocked, TLS handshake, certificate code). Hosts whose certificate chain can't be verified (missing intermediate, self-signed, expired — common on self-hosted servers; browsers repair missing intermediates themselves) are re-read with `node:https` without chain verification, still GET-only and pinned to an address that passed the public-address check; the result carries `tlsNote`, shown in the site details.
 - **v4.57.0**: Client Versions accepts any public https address, not only `*.zahirerp.com` (`ERP_VERSION_HOSTS` is gone). Guard rails in `api/erp-version.js`: default https port only, no IP literals or local names, every host incl. redirects must resolve (DNS) to public addresses only (private, loopback, link-local/metadata, CGNAT, multicast blocked), and only files on the page's own host are read. Long lists: 6 checks in parallel, at most 100 stale sites auto-checked per visit (oldest first), rendering throttled to one per frame, paste-a-list writes in batches of 400.

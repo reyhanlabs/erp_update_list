@@ -107,6 +107,23 @@ function updateNavCount(){
 }
 
 /* ---------------- version checks ---------------- */
+const API_KEYS = ['v2', 'v3'];                // backend versions: /api/v2/versions/dev and /api/v3/version
+function backendPatch(site, backend, now){
+  const patch = {};
+  if(!backend) return patch;
+  API_KEYS.forEach(k => {
+    const b = backend[k];
+    if(!b) return;
+    patch[k + 'Raw'] = b.raw || '';
+    patch[k + 'Error'] = b.version ? '' : (b.error || 'not found');
+    if(b.version){                              // keep the last known value when a check fails
+      patch[k] = b.version;
+      if(site[k] && site[k] !== b.version){ patch[k + 'Prev'] = site[k]; patch[k + 'ChangedAt'] = now; }
+    }
+  });
+  return patch;
+}
+
 async function checkSite(site, { quiet = false } = {}){
   if(S.checking.has(site.id)) return;
   S.checking.add(site.id);
@@ -118,14 +135,15 @@ async function checkSite(site, { quiet = false } = {}){
     const d = await r.json().catch(() => ({}));
     const now = Date.now();
     if(!r.ok || d.error){
-      await ref().doc(site.id).set({ checkedAt: now, checkError: d.error || `HTTP ${r.status}`, checkHint: d.hint || '' }, { merge: true });
+      await ref().doc(site.id).set({ checkedAt: now, checkError: d.error || `HTTP ${r.status}`, checkHint: d.hint || '', ...backendPatch(site, d.backend, now) }, { merge: true });
       if(!quiet) toast(`${site.name}: ${d.error || 'check failed'}`, 'error');
       return;
     }
     const patch = {
       checkedAt: now, checkError: d.version ? '' : 'Version not found on the login page', checkHint: '',
       confidence: d.confidence || '', versionSource: d.source || '', tlsNote: d.tlsNote || '',
-      candidates: (d.candidates || []).slice(0, 6)
+      candidates: (d.candidates || []).slice(0, 6),
+      ...backendPatch(site, d.backend, now)
     };
     if(d.chunkHint) patch.chunkHint = String(d.chunkHint);
     if(d.version){
@@ -134,7 +152,8 @@ async function checkSite(site, { quiet = false } = {}){
       if(!site.version) patch.versionChangedAt = now;
     }
     await ref().doc(site.id).set(patch, { merge: true });
-    if(!quiet) toast(d.version ? `${site.name}: ${d.version}` : `${site.name}: version not found`, d.version ? undefined : 'error');
+    const api = API_KEYS.map(k => d.backend?.[k]?.version ? ` · ${k.toUpperCase()} ${d.backend[k].version}` : '').join('');
+    if(!quiet) toast(d.version ? `${site.name}: ${d.version}${api}` : `${site.name}: front-end version not found${api}`, d.version ? undefined : 'error');
   } catch(err){
     if(!quiet) toast(`${site.name}: ${err.message || err}`, 'error');
   } finally {
@@ -255,8 +274,8 @@ async function saveBulk(){
 
 /* ---------------- export ---------------- */
 function exportSites(){
-  const rows = [['Client', 'URL', 'Version', 'Pinned version', 'Detected version', 'Last checked', 'Previous version', 'Changed', 'Notes']];
-  sorted(filtered()).forEach(s => rows.push([s.name, s.url, shownVersion(s), s.pinnedVersion || '', s.version || '',
+  const rows = [['Client', 'URL', 'Front-end version', 'API V2', 'API V3', 'Pinned version', 'Detected version', 'Last checked', 'Previous version', 'Changed', 'Notes']];
+  sorted(filtered()).forEach(s => rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', s.pinnedVersion || '', s.version || '',
     s.checkedAt ? new Date(s.checkedAt).toLocaleString() : '', s.prevVersion || '', s.versionChangedAt ? new Date(s.versionChangedAt).toLocaleDateString() : '', s.notes || '']));
   const cell = (v) => { const t = String(v ?? ''); return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const blob = new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -270,7 +289,7 @@ function exportSites(){
 /* ---------------- render ---------------- */
 function filtered(){
   const q = S.query.trim().toLowerCase();
-  return S.sites.filter(s => !q || `${s.name} ${s.url} ${s.notes || ''} ${shownVersion(s)}`.toLowerCase().includes(q))
+  return S.sites.filter(s => !q || `${s.name} ${s.url} ${s.notes || ''} ${shownVersion(s)} ${s.v2 || ''} ${s.v3 || ''}`.toLowerCase().includes(q))
     .filter(s => S.versionFilter === 'all' ? true
       : S.versionFilter === '__error' ? !!s.checkError && !s.pinnedVersion
       : S.versionFilter === '__latest' ? (latestVersion() && shownVersion(s) && cmpVersion(shownVersion(s), latestVersion()) === 0)
@@ -318,6 +337,13 @@ function renderNow(){
   const errors = S.sites.filter(s => s.checkError && !s.pinnedVersion).length;
   const chip = (val, label, n, cls = '') => `<button type="button" class="sv-chip ${cls}${S.versionFilter === val ? ' is-active' : ''}" onclick="setSitesFilter(${escapeHtml(JSON.stringify(val))})">${label}<b>${n}</b></button>`;
 
+  const apiLatest = Object.fromEntries(API_KEYS.map(k => [k, S.sites.map(x => x[k]).filter(Boolean).sort(cmpVersion).pop() || '']));
+  const apiCell = (s, k) => {
+    const v = s[k], top = apiLatest[k];
+    const cls = !v ? ' is-none' : top && cmpVersion(v, top) === 0 ? ' is-latest' : ' is-behind';
+    const title = s[k + 'Error'] ? `Last check: ${s[k + 'Error']}` : (s[k + 'Prev'] ? `Previously ${s[k + 'Prev']}` : '');
+    return `<div class="sv-api"><span class="sv-api-label">API ${k.toUpperCase()}</span><span class="sv-badge sv-badge-sm${cls}"${title ? ` title="${escapeHtml(title)}"` : ''}>${v ? escapeHtml(v) : '—'}</span></div>`;
+  };
   const list = sorted(filtered());
   const rows = list.map(s => {
     const v = shownVersion(s);
@@ -336,6 +362,7 @@ function renderNow(){
         ${s.tlsNote ? `<p class="sv-err"><b>Certificate:</b> ${escapeHtml(s.tlsNote)}</p>` : ''}
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
         ${(s.candidates || []).length ? `<p><b>Other values seen:</b> ${(s.candidates || []).slice(1).map(c => `<code title="${escapeHtml(c.context || '')}">${escapeHtml(c.value)}</code>`).join(' ') || '—'}</p>` : ''}
+        ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k + 'Prev'] ? ` (was ${escapeHtml(s[k + 'Prev'])})` : ''}${s[k + 'Error'] ? ` <span class="sv-err">· ${escapeHtml(s[k + 'Error'])}</span>` : ''}${s[k + 'Raw'] ? ` <code title="Answer of ${k === 'v2' ? '/api/v2/versions/dev' : '/api/v3/version'}">${escapeHtml(s[k + 'Raw'].slice(0, 120))}</code>` : ''}</p>`).join('')}
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}
       </div>` : '';
     return `<div class="sv-row${open ? ' is-open' : ''}">
@@ -348,6 +375,8 @@ function renderNow(){
         ${v ? `<span class="sv-badge${isLatest ? ' is-latest' : isBehind ? ' is-behind' : ''}">${escapeHtml(v)}${s.pinnedVersion ? '<small>manual</small>' : ''}</span>` : '<span class="sv-badge is-none">unknown</span>'}
         ${changed}
       </div>
+      ${apiCell(s, 'v2')}
+      ${apiCell(s, 'v3')}
       <div class="sv-checked">${status}</div>
       <div class="sv-acts">
         <button type="button" class="sv-icon" onclick="checkOneSite('${s.id}')" title="Check version now" aria-label="Check version of ${escapeHtml(s.name)}"${busy ? ' disabled' : ''}>
@@ -375,7 +404,9 @@ function renderNow(){
     <div class="sv-table">
       <div class="sv-head" aria-hidden="true">
         <button type="button" class="sv-th" onclick="setSitesSort('name')">Client${S.sort === 'name' ? ' ↓' : ''}</button>
-        <button type="button" class="sv-th" onclick="setSitesSort(${S.sort === 'versionDesc' ? "'version'" : "'versionDesc'"})">Version${S.sort === 'version' ? ' ↑' : S.sort === 'versionDesc' ? ' ↓' : ''}</button>
+        <button type="button" class="sv-th" onclick="setSitesSort(${S.sort === 'versionDesc' ? "'version'" : "'versionDesc'"})">Front-end${S.sort === 'version' ? ' ↑' : S.sort === 'versionDesc' ? ' ↓' : ''}</button>
+        <span class="sv-th">API V2</span>
+        <span class="sv-th">API V3</span>
         <button type="button" class="sv-th" onclick="setSitesSort('changed')">Checked${S.sort === 'changed' ? ' · recently changed' : ''}</button>
         <span></span>
       </div>

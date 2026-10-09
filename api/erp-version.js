@@ -1,5 +1,5 @@
 /**
- * Zahir ERP version detector (v4.56.0)
+ * Zahir ERP version detector (v4.56.0; backend V2/V3 API versions since v4.58.0)
  *
  * GET /api/erp-version?url=https://apt.zahirerp.com/auth[&debug=1]
  *
@@ -293,6 +293,66 @@ function sameSiteUrl(ref, base) {
   } catch (_) { return null; }
 }
 
+/* Backend (API) versions. Zahir ERP answers these without signing in:
+     <origin>/api/v2/versions/dev   → V2 API
+     <origin>/api/v3/version        → V3 API
+   The body may be JSON or plain text; the version is taken from a version-like
+   key (version, ver, app_version, build, tag, release…) or the first
+   version-looking value. An HTML answer means the path does not exist there. */
+const BACKEND_PATHS = { v2: '/api/v2/versions/dev', v3: '/api/v3/version' };
+const LOOSE_VER = /\bv?(\d+(?:\.\d+){1,4}(?:[-+][0-9A-Za-z.\-]{1,30})?)\b/i;
+
+function versionFromBody(body, type) {
+  const text = String(body || '').trim();
+  if (!text) return null;
+  if (/^\s*</.test(text) || /text\/html/i.test(type)) return null;
+  let data;
+  try { data = JSON.parse(text); } catch (_) { data = undefined; }
+  if (data === undefined) {                       // plain text
+    const m = text.slice(0, 2000).match(LOOSE_VER);
+    return m ? m[1] : null;
+  }
+  if (typeof data === 'string' || typeof data === 'number') {
+    const m = String(data).match(LOOSE_VER);
+    return m ? m[1] : null;
+  }
+  const keyed = [], any = [];
+  const walk = (o, depth) => {
+    if (!o || typeof o !== 'object' || depth > 5) return;
+    if (Number.isInteger(o.major) && Number.isInteger(o.minor)) {      // {major, minor, patch}
+      keyed.push([o.major, o.minor, o.patch, o.build].filter(Number.isInteger).join('.'));
+      return;
+    }
+    for (const [k, v] of Object.entries(o)) {
+      if (typeof v === 'string' || typeof v === 'number') {
+        const m = String(v).match(LOOSE_VER);
+        if (!m) continue;
+        if (/^(app_?|api_?|build_?|current_?)?(version|ver|versi)$|^(build|tag|release)(_?(version|name|no))?$/i.test(k)) keyed.push(m[1]);
+        else if (/version|ver|build|release|tag/i.test(k)) keyed.push(m[1]);
+        else any.push(m[1]);
+      } else walk(v, depth + 1);
+    }
+  };
+  walk(data, 0);
+  return keyed[0] || any[0] || null;
+}
+
+async function backendVersions(origin, deadline) {
+  const out = {};
+  await Promise.all(Object.entries(BACKEND_PATHS).map(async ([key, path]) => {
+    try {
+      const r = await fetchText(origin + path, Math.min(deadline, Date.now() + 6000), { maxBytes: 64 * 1024 });
+      const raw = String(r.text || '').trim().replace(/\s+/g, ' ').slice(0, 200);
+      if (r.status >= 400) { out[key] = { version: null, error: `HTTP ${r.status}`, raw }; return; }
+      const v = versionFromBody(r.text, r.type);
+      out[key] = v ? { version: v, raw } : { version: null, error: /^\s*</.test(r.text || '') ? 'not available on this site' : 'no version in the answer', raw };
+    } catch (err) {
+      out[key] = { version: null, error: err.message };
+    }
+  }));
+  return out;
+}
+
 export async function detectVersion(rawUrl, { hint = '' } = {}) {
   const started = Date.now();
   const deadline = started + BUDGET_MS;
@@ -305,11 +365,14 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
   let totalBytes = 0;
   const log = (url, note) => fetched.push(note ? `${url} (${note})` : url);
 
+  // 0) backend versions, in parallel with everything below
+  const backendP = backendVersions(target.origin, deadline);
+
   // 1) the login page itself
   let page;
   try { page = await fetchText(target.toString(), deadline); }
-  catch (err) { return { error: `Could not open the page: ${err.message}`, url: target.toString() }; }
-  if (page.status >= 400) return { error: `The page answered HTTP ${page.status}`, url: target.toString() };
+  catch (err) { return { error: `Could not open the page: ${err.message}`, url: target.toString(), backend: await backendP }; }
+  if (page.status >= 400) return { error: `The page answered HTTP ${page.status}`, url: target.toString(), backend: await backendP };
   log(page.finalUrl, `HTTP ${page.status}`);
   const html = page.text;
   totalBytes += html.length;
@@ -430,6 +493,7 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
     confidence: !best ? 'none' : best.score >= 90 ? 'high' : best.score >= 70 ? 'medium' : 'low',
     source: best ? best.source : null,
     candidates: ranked.slice(0, 10).map(c => ({ value: c.value, score: c.score, hits: c.hits, source: c.source, context: c.context })),
+    backend: await backendP,
     chunkHint: chunkHit || undefined,
     tlsNote: looseTls.has(new URL(page.finalUrl).hostname) ? 'Certificate chain could not be verified (incomplete or self-signed certificate on the client server); version read anyway.' : undefined,
     files: fetched,
