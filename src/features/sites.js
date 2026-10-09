@@ -273,6 +273,7 @@ function filtered(){
   return S.sites.filter(s => !q || `${s.name} ${s.url} ${s.notes || ''} ${shownVersion(s)}`.toLowerCase().includes(q))
     .filter(s => S.versionFilter === 'all' ? true
       : S.versionFilter === '__error' ? !!s.checkError && !s.pinnedVersion
+      : S.versionFilter === '__latest' ? (latestVersion() && shownVersion(s) && cmpVersion(shownVersion(s), latestVersion()) === 0)
       : S.versionFilter === '__behind' ? (latestVersion() && shownVersion(s) && cmpVersion(shownVersion(s), latestVersion()) < 0)
       : shownVersion(s) === S.versionFilter);
 }
@@ -290,7 +291,8 @@ function sorted(list){
 let renderQueued = 0;
 function render(){
   if(renderQueued) return;
-  renderQueued = (window.requestAnimationFrame || ((f) => setTimeout(f, 16)))(() => { renderQueued = 0; renderNow(); });
+  const run = () => { renderQueued = 0; renderNow(); };
+  renderQueued = typeof window.requestAnimationFrame === 'function' ? window.requestAnimationFrame(run) : setTimeout(run, 16);
 }
 function renderNow(){
   const el = $('sitesBody');
@@ -311,6 +313,7 @@ function renderNow(){
   const groups = new Map();
   S.sites.forEach(s => { const v = shownVersion(s) || '—'; groups.set(v, (groups.get(v) || 0) + 1); });
   const versions = [...groups.keys()].filter(v => v !== '—').sort(cmpVersion).reverse();
+  const onLatest = latest ? S.sites.filter(s => shownVersion(s) && cmpVersion(shownVersion(s), latest) === 0).length : 0;
   const behind = latest ? S.sites.filter(s => shownVersion(s) && cmpVersion(shownVersion(s), latest) < 0).length : 0;
   const errors = S.sites.filter(s => s.checkError && !s.pinnedVersion).length;
   const chip = (val, label, n, cls = '') => `<button type="button" class="sv-chip ${cls}${S.versionFilter === val ? ' is-active' : ''}" onclick="setSitesFilter(${escapeHtml(JSON.stringify(val))})">${label}<b>${n}</b></button>`;
@@ -361,9 +364,13 @@ function renderNow(){
   el.innerHTML = `
     <div class="sv-chips" role="group" aria-label="Filter by version">
       ${chip('all', 'All', S.sites.length)}
-      ${versions.map(v => chip(v, escapeHtml(v) + (v === latest ? ' <i>latest</i>' : ''), groups.get(v), v === latest ? 'is-latest' : 'is-behind')).join('')}
-      ${behind ? chip('__behind', 'Behind latest', behind, 'is-warn') : ''}
+      ${latest ? chip('__latest', `Latest <i>${escapeHtml(latest)}</i>`, onLatest, 'is-latest') : ''}
+      ${chip('__behind', 'Behind latest', behind, 'is-warn')}
       ${errors ? chip('__error', "Couldn't read", errors, 'is-error') : ''}
+      ${versions.length > 1 ? `<select class="sv-verselect${versions.includes(S.versionFilter) ? ' is-active' : ''}" aria-label="Show one version" onchange="setSitesFilter(this.value)">
+        <option value="all">Specific version…</option>
+        ${versions.map(v => `<option value="${escapeHtml(v)}"${S.versionFilter === v ? ' selected' : ''}>${escapeHtml(v)} · ${groups.get(v)} client${groups.get(v) === 1 ? '' : 's'}${v === latest ? ' (latest)' : ''}</option>`).join('')}
+      </select>` : ''}
     </div>
     <div class="sv-table">
       <div class="sv-head" aria-hidden="true">

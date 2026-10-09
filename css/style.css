@@ -3432,6 +3432,10 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .sv-chip.is-warn b{color:#b45309}
 .sv-chip.is-error b{color:#dc2626}
 .sv-chip:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.sv-verselect{height:30px;width:auto;max-width:250px;padding:0 28px 0 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font:inherit;font-size:12.5px;font-weight:600;color:var(--text-secondary);max-width:100%;cursor:pointer}
+.sv-verselect:hover{border-color:var(--line-strong);color:var(--text)}
+.sv-verselect.is-active{border-color:var(--brand);background-color:var(--brand-soft);color:var(--brand)}
+.sv-verselect:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 
 .sv-table{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:0 4px}
 .sv-head,.sv-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(150px,1fr) 170px 112px;align-items:center;gap:12px;padding:0 14px}

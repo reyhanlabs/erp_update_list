@@ -1478,6 +1478,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.57.2</span>
+                <span class="cl-note">Client Versions: filters stay short however many versions exist: All, Latest, Behind latest, Couldn't read, plus a "Specific version" list</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.57.1</span>
                 <span class="cl-note">Client Versions: clear reason when a site can't be opened, and sites with an incomplete SSL certificate are read anyway (marked in the details)</span>
               </div>
@@ -2385,8 +2389,8 @@
               <p>A list you keep yourself: each client's name and the address of their Zahir ERP (for example <b>apt.zahirerp.com</b>, or the client's own domain such as <b>erp.client.com</b>; any public https address works). The <b>version</b> is read automatically from the client's public login page, the same number shown bottom-left before signing in, so you never type it.</p>
               <ul>
                 <li><b>Add client</b> one by one, or <b>Paste a list</b> (name and address per line, straight from Excel).</li>
-                <li>Versions are checked when you add a client, when you open the menu (if the last check is older than 6 hours), and with <b>Check all versions</b>.</li>
-                <li>Chips on top group clients by version; the highest is marked <i>latest</i>, the others <i>behind</i>. The sidebar number counts sites behind the latest version.</li>
+                <li>Versions are checked when you add a client, when you open the menu (up to 100 sites whose last check is older than 6 hours), and with <b>Check all versions</b>.</li>
+                <li>Filters on top: <b>Latest</b> (clients on the highest version), <b>Behind latest</b>, <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts sites behind the latest version.</li>
                 <li>When a version changes, the row shows the previous version and when it changed. Click a client's name to see where the version was found.</li>
                 <li>If a site's version can't be read, enter it by hand in <b>Edit</b>; it is marked <i>manual</i>.</li>
               </ul>
