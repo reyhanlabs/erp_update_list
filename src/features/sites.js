@@ -99,9 +99,20 @@ function subscribe(){
 }
 function isVisible(){ return !!document.getElementById('view-sites')?.classList.contains('active'); }
 
+/* front-end, API V2 and API V3: value per site, highest value across sites */
+const PARTS = [
+  { key: 'fe', label: 'Front-end', get: (s) => shownVersion(s) },
+  { key: 'v2', label: 'API V2', get: (s) => s.v2 || '' },
+  { key: 'v3', label: 'API V3', get: (s) => s.v3 || '' }
+];
+function latestOf(part){ return S.sites.map(part.get).filter(Boolean).sort(cmpVersion).pop() || ''; }
+function latestAll(){ return Object.fromEntries(PARTS.map(p => [p.key, latestOf(p)])); }
+function onLatest(s, part, top){ const v = part.get(s); return !!(v && top && cmpVersion(v, top) === 0); }
+function behindParts(s, tops){ return PARTS.filter(p => { const v = p.get(s); return v && tops[p.key] && cmpVersion(v, tops[p.key]) < 0; }); }
+
 function updateNavCount(){
-  const latest = latestVersion();
-  const behind = latest ? S.sites.filter(s => shownVersion(s) && cmpVersion(shownVersion(s), latest) < 0).length : 0;
+  const tops = latestAll();
+  const behind = S.sites.filter(s => behindParts(s, tops).length).length;
   const el = $('countSites');
   if(el) setNavCount(el, behind);
 }
@@ -289,11 +300,13 @@ function exportSites(){
 /* ---------------- render ---------------- */
 function filtered(){
   const q = S.query.trim().toLowerCase();
+  const tops = latestAll();
+  if(S.versionFilter === '__latest') S.versionFilter = '__latest_fe';
   return S.sites.filter(s => !q || `${s.name} ${s.url} ${s.notes || ''} ${shownVersion(s)} ${s.v2 || ''} ${s.v3 || ''}`.toLowerCase().includes(q))
     .filter(s => S.versionFilter === 'all' ? true
       : S.versionFilter === '__error' ? !!s.checkError && !s.pinnedVersion
-      : S.versionFilter === '__latest' ? (latestVersion() && shownVersion(s) && cmpVersion(shownVersion(s), latestVersion()) === 0)
-      : S.versionFilter === '__behind' ? (latestVersion() && shownVersion(s) && cmpVersion(shownVersion(s), latestVersion()) < 0)
+      : S.versionFilter.startsWith('__latest_') ? onLatest(s, PARTS.find(p => '__latest_' + p.key === S.versionFilter), tops[S.versionFilter.slice(9)])
+      : S.versionFilter === '__behind' ? behindParts(s, tops).length > 0
       : shownVersion(s) === S.versionFilter);
 }
 function sorted(list){
@@ -332,10 +345,10 @@ function renderNow(){
   const groups = new Map();
   S.sites.forEach(s => { const v = shownVersion(s) || '—'; groups.set(v, (groups.get(v) || 0) + 1); });
   const versions = [...groups.keys()].filter(v => v !== '—').sort(cmpVersion).reverse();
-  const onLatest = latest ? S.sites.filter(s => shownVersion(s) && cmpVersion(shownVersion(s), latest) === 0).length : 0;
-  const behind = latest ? S.sites.filter(s => shownVersion(s) && cmpVersion(shownVersion(s), latest) < 0).length : 0;
   const errors = S.sites.filter(s => s.checkError && !s.pinnedVersion).length;
-  const chip = (val, label, n, cls = '') => `<button type="button" class="sv-chip ${cls}${S.versionFilter === val ? ' is-active' : ''}" onclick="setSitesFilter(${escapeHtml(JSON.stringify(val))})">${label}<b>${n}</b></button>`;
+  const tops = latestAll();
+  const behindAny = S.sites.filter(x => behindParts(x, tops).length).length;
+  const chip = (val, label, n, cls = '', title = '') => `<button type="button" class="sv-chip ${cls}${S.versionFilter === val ? ' is-active' : ''}"${title ? ` title="${escapeHtml(title)}"` : ''} onclick="setSitesFilter(${escapeHtml(JSON.stringify(val))})">${label}<b>${n}</b></button>`;
 
   const apiLatest = Object.fromEntries(API_KEYS.map(k => [k, S.sites.map(x => x[k]).filter(Boolean).sort(cmpVersion).pop() || '']));
   const apiCell = (s, k) => {
@@ -393,8 +406,8 @@ function renderNow(){
   el.innerHTML = `
     <div class="sv-chips" role="group" aria-label="Filter by version">
       ${chip('all', 'All', S.sites.length)}
-      ${latest ? chip('__latest', `Latest <i>${escapeHtml(latest)}</i>`, onLatest, 'is-latest') : ''}
-      ${chip('__behind', 'Behind latest', behind, 'is-warn')}
+      ${PARTS.map(p => tops[p.key] ? chip('__latest_' + p.key, `Latest ${p.key.toUpperCase()} <i>${escapeHtml(tops[p.key])}</i>`, S.sites.filter(x => onLatest(x, p, tops[p.key])).length, 'is-latest', `Clients on the highest ${p.label} version`) : '').join('')}
+      ${chip('__behind', 'Behind latest', behindAny, 'is-warn', 'Clients behind the highest version on front-end, API V2 or API V3')}
       ${errors ? chip('__error', "Couldn't read", errors, 'is-error') : ''}
       ${versions.length > 1 ? `<select class="sv-verselect${versions.includes(S.versionFilter) ? ' is-active' : ''}" aria-label="Show one version" onchange="setSitesFilter(this.value)">
         <option value="all">Specific version…</option>

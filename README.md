@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.58.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.58.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -183,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.58.2**: Client Versions filter bar: Latest FE / Latest V2 / Latest V3 chips (highest value of each part + client count, filterable); Behind latest and the sidebar count now mean behind on any of front-end, API V2 or API V3.
 - **v4.58.1**: Client Versions table: Front-end, API V2 and API V3 get equal widths, version badges never truncate, the table scrolls sideways below ~860px of width instead of squeezing.
 - **v4.58.0**: Client Versions reads backend versions too: `api/erp-version.js` fetches `<origin>/api/v2/versions/dev` and `<origin>/api/v3/version` in parallel with the front-end scan (also when the login page fails) and returns `backend: { v2: {version, raw, error}, v3: … }`. The body may be JSON (version-like key, nested, or `{major,minor,patch}`) or plain text; an HTML answer counts as "not available". Stored per site as `v2/v3`, `v2Raw/v3Raw`, `v2Error/v3Error`, `v2Prev/v3Prev` (last known value kept when a check fails). Table gets API V2 / API V3 columns (highest green, older amber), details show the raw answer, search and CSV include them.
 - **v4.57.2**: Client Versions filter bar no longer has one chip per version: fixed chips All / Latest (with the version) / Behind latest / Couldn't read, and a "Specific version…" dropdown (newest first, with client counts).
