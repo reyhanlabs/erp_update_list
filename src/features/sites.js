@@ -420,12 +420,20 @@ function sorted(list){
 // While checks run, the table is redrawn after every result. A redraw between
 // mouse-down and mouse-up swaps the button under the pointer and the click is
 // lost, so redraws wait while a button is pressed inside the list.
-let renderQueued = 0, pointerHeld = false, renderPending = false;
+// Background updates use render() (batched); anything the user does calls
+// renderNow() directly so the screen answers at once. requestAnimationFrame
+// can be paused by the browser (window covered, screen sharing, background
+// tab), so a timer backs it up.
+let renderQueued = false, pointerHeld = false, renderPending = false, heldSince = 0;
 function render(){
-  if(pointerHeld){ renderPending = true; return; }
+  if(pointerHeld && Date.now() - heldSince < 1500){ renderPending = true; return; }
+  pointerHeld = false;
   if(renderQueued) return;
-  const run = () => { renderQueued = 0; renderNow(); };
-  renderQueued = typeof window.requestAnimationFrame === 'function' ? window.requestAnimationFrame(run) : setTimeout(run, 16);
+  renderQueued = true;
+  let done = false;
+  const run = () => { if(done) return; done = true; renderQueued = false; renderNow(); };
+  try { window.requestAnimationFrame(run); } catch(_){}
+  setTimeout(run, 120);
 }
 function renderNow(){
   const el = $('sitesBody');
@@ -586,18 +594,18 @@ function recentChangesHtml(){
   </details>`;
 }
 function setSitesRecentOpen(open){ S.recentOpen = !!open; }
-function showAllSiteChanges(){ S.showAllChanges = true; S.recentOpen = true; render(); }
+function showAllSiteChanges(){ S.showAllChanges = true; S.recentOpen = true; renderNow(); }
 
-function setSitesFilter(v){ S.versionFilter = v; render(); }
-function setSitesSort(v){ S.sort = v; render(); }
-function toggleSiteDetails(id){ S.open = S.open === id ? null : id; render(); }
+function setSitesFilter(v){ S.versionFilter = v; renderNow(); }
+function setSitesSort(v){ S.sort = v; renderNow(); }
+function toggleSiteDetails(id){ S.open = S.open === id ? null : id; renderNow(); }
 
 /* ---------------- view ---------------- */
 let wired = false;
 function wire(){
   if(wired) return;
   wired = true;
-  $('sitesSearch')?.addEventListener('input', (e) => { S.query = e.target.value; render(); });
+  $('sitesSearch')?.addEventListener('input', (e) => { S.query = e.target.value; renderNow(); });
   const body = $('sitesBody');
   if(body){
     const release = () => {
@@ -606,7 +614,7 @@ function wire(){
       // let the click handler run first, then draw what was held back
       setTimeout(() => { if(renderPending){ renderPending = false; render(); } }, 0);
     };
-    body.addEventListener('pointerdown', () => { pointerHeld = true; }, true);
+    body.addEventListener('pointerdown', () => { pointerHeld = true; heldSince = Date.now(); }, true);
     window.addEventListener('pointerup', release, true);
     window.addEventListener('pointercancel', release, true);
     window.addEventListener('blur', release);
