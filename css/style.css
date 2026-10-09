@@ -3473,6 +3473,20 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .sv-status{font-size:12px;color:var(--text-tertiary)}
 .sv-status.is-error{color:#dc2626}
 .sv-status.is-busy{color:var(--brand)}
+.sv-issues{flex:none;font-size:11px;font-weight:650;color:var(--brand);background:var(--brand-soft);border:1px solid var(--brand-ring);border-radius:5px;padding:0 6px;line-height:17px;white-space:nowrap}
+.sv-issues:hover{text-decoration:underline}
+.sv-issues.is-zero{color:var(--text-tertiary);background:transparent;border-color:var(--line)}
+.sv-muted{color:var(--text-tertiary)}
+.cl-versions{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0 4px 12px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg-subtle);font-size:12.5px}
+.cl-versions-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-tertiary)}
+.cl-ver-chip{font-variant-numeric:tabular-nums;font-weight:650;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+.cl-ver-chip b{color:var(--text-tertiary);font-weight:700;margin-right:3px}
+.cl-versions-host{color:var(--brand);text-decoration:none}
+.cl-versions-host:hover{text-decoration:underline}
+.cl-versions-down{color:#dc2626;font-weight:650}
+.cl-versions-when{color:var(--text-tertiary);margin-left:auto}
+.sv-status.is-down{display:flex;flex-direction:column;font-weight:650}
+.sv-status small{font-weight:500;font-size:11px;color:var(--text-tertiary)}
 .sv-acts{display:flex;justify-content:flex-end;gap:2px}
 .sv-icon{width:32px;height:32px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary)}
 .sv-icon svg{width:15px;height:15px}

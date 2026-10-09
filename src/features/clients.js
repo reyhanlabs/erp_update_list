@@ -13,6 +13,7 @@ import { fetchRedmineAllIssues, genericLoadingSkeleton, priorityBadge } from './
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { issueDescriptionCell, resolveNewIssueProjectIds } from './new-issues.js';
 import { renderClientReport, resetClientReport } from './client-report.js';
+import { siteForClient, ensureSitesLoaded } from './sites.js';
 
 /* ============================================================
    BY CLIENT — Redmine custom field "Client Name"
@@ -72,7 +73,17 @@ function searchClientFromGlobal(name){
   if(q) loadClientIssues(q, true);
 }
 /* Called by switchView('clients') too, so reload / direct link shows the list */
+let sitesListening = false;
+function listenSites(){
+  try { ensureSitesLoaded(); } catch(_){}
+  if(sitesListening) return;
+  sitesListening = true;
+  window.addEventListener('sites:updated', () => {
+    if(window.__clientQuery && document.getElementById('view-clients')?.classList.contains('active')) renderClientIssues();
+  });
+}
 function onClientsShown(){
+  listenSites();
   if(window.__clientQuery) renderClientIssues();
   else { renderClientIssues(); loadClientOverview(false); }
 }
@@ -245,6 +256,7 @@ async function loadClientOverview(force){
     try { localStorage.setItem(OVERVIEW_KEY, JSON.stringify(ov)); } catch(_){}
     window.__clientOverview = ov;
     window.__clientOverviewError = null;
+    try { window.dispatchEvent(new CustomEvent('clients:overview')); } catch(_){}
     // sidebar: number of clients that currently have open issues
     const nb = $('countClients');
     if(nb){ const n = ov.clients.filter(c => sumProducts(c).open > 0).length; nb.textContent = String(n); nb.dataset.zero = n ? '0' : '1'; }
@@ -287,6 +299,33 @@ function isZahirProduct(projectName){
     if(targets.some(t => t.projectName && t.projectName.toLowerCase() === n.toLowerCase())) return true;
   } catch(_){}
   return ZAHIR_PRODUCT_RES.some(re => re.test(n));
+}
+
+/* for Client Versions: every Redmine client with its open / total issues (Zahir products) */
+function getClientIndex(){
+  const ov = window.__clientOverview || readOverviewCache();
+  if(!ov) return [];
+  return ov.clients.map(c => { const n = sumProducts(c); return { name: c.name, open: n.open, total: n.total }; });
+}
+function ensureClientOverview(){
+  if(!window.__clientOverview){ const c = readOverviewCache(); if(c) window.__clientOverview = c; }
+  if(!window.__clientOverview || Date.now() - (window.__clientOverview.at || 0) > OVERVIEW_TTL) loadClientOverview(false);
+}
+
+/* the client's Zahir ERP versions (Client Versions), shown above its issues */
+function clientVersionsLine(name){
+  const s = siteForClient(name);
+  if(!s) return '';
+  const parts = [['FE', s.pinnedVersion || s.version], ['V2', s.v2], ['V3', s.v3]].filter(x => x[1]);
+  if(!parts.length) return '';
+  const when = s.checkedAt ? new Date(s.checkedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return `<div class="cl-versions" title="From Client Versions">
+      <span class="cl-versions-lbl">Zahir ERP versions</span>
+      ${parts.map(([k, v]) => `<span class="cl-ver-chip"><b>${k}</b> ${escapeHtml(v)}</span>`).join('')}
+      <a href="${escapeHtml(s.url)}" target="_blank" rel="noopener" class="cl-versions-host">${escapeHtml((() => { try { return new URL(s.url).host; } catch(_){ return s.url; } })())}</a>
+      ${(s.failCount || 0) >= 2 ? '<span class="cl-versions-down">● not reachable</span>' : ''}
+      ${when ? `<span class="cl-versions-when">checked ${escapeHtml(when)}</span>` : ''}
+    </div>`;
 }
 
 function sumProducts(c){
@@ -448,6 +487,7 @@ function setClientTab(tab){
 }
 
 function openClientIssues(name){
+  listenSites();
   if(name !== window.__clientQuery) resetClientReport();
   const input = $('clientSearchInput');
   if(input) input.value = name;
@@ -523,7 +563,7 @@ function renderClientIssues(){
       <span>Client <b>${escapeHtml(q)}</b>${prod !== 'all' ? ` · ${escapeHtml(PRODUCT_LABEL(prod))}` : ''} · <b>${list.length}</b> issue(s)</span>
       ${prod !== 'all' ? `<button type="button" class="cl-ov-back" onclick="setClientOv('product','all')">Show all products</button>` : ''}
       ${tabs}
-    </div>`;
+    </div>${clientVersionsLine(q)}`;
   if(window.__clientTab === 'report'){
     // report covers every issue of the client (quick-filter chips don't apply)
     const all = (window.__clientIssues || []).filter(i => prod === 'all' || (i.project && i.project.name) === prod);
@@ -606,5 +646,7 @@ export {
   openClientsView,
   renderClientIssues,
   resolveClientNameFieldId,
-  searchClientFromGlobal
+  searchClientFromGlobal,
+  getClientIndex,
+  ensureClientOverview
 };

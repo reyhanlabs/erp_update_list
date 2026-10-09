@@ -65,6 +65,15 @@
     {
       "path": "/api/cron-rft-telegram",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron-sites",
+      "schedule": "0 20 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/cron-sites.js": {
+      "maxDuration": 60
+    }
+  }
 }

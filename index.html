@@ -929,6 +929,7 @@
             <label class="field"><span>Client name <span class="req">*</span></span><input class="input" id="siteName" maxlength="120" placeholder="Aptekindo" required></label>
             <label class="field"><span>Zahir ERP address <span class="req">*</span></span><input class="input" id="siteUrl" maxlength="200" placeholder="apt.zahirerp.com" required></label>
             <label class="field"><span>Notes</span><input class="input" id="siteNotes" maxlength="500" placeholder="PIC, server, contract…"></label>
+            <label class="field"><span>Redmine client name (By Client)</span><input class="input" id="siteRedmine" maxlength="120" list="siteRedmineList" placeholder="empty: matched by client name" autocomplete="off"><datalist id="siteRedmineList"></datalist></label>
             <label class="field"><span>Version (only if it can't be read)</span><input class="input" id="sitePinned" maxlength="40" placeholder="leave empty: read automatically"></label>
           </div>
           <label class="sv-check"><input type="checkbox" id="siteIsTest"> Test / internal server (e.g. a dev server): not used for Latest, rollout or Behind latest</label>
@@ -1487,6 +1488,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.61.0</span>
+                <span class="cl-note">Client Versions: nightly server check with Telegram alerts (version changes, sites down / back up), Down filter, and a link to By Client (open issues per site, versions shown on the client page)</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.60.3</span>
                 <span class="cl-note">Client Versions details: version and release date separated by "|"</span>
@@ -2449,6 +2454,8 @@
                 <li><b>Recent changes</b> lists every version change seen in the last 30 days (who, which part, from → to). Each client keeps its own <b>version history</b> (last 50 changes) in its details. Optionally, Settings → Telegram can post each batch of changes to your Telegram chat.</li>
                 <li><b>⚠ Parts out of step</b> marks a site whose front-end, API V2 and API V3 were built more than 14 days apart (read from the build stamp in the version, e.g. 2.26.10.081600 = 8 Oct 2026 16:00), which often means a deploy that was not finished.</li>
                 <li><b>Compare</b> (top right, or <i>Compare this site…</i> in a client's details) puts 2–4 sites side by side, e.g. DEV, production and one client. The first column is the reference; every other column shows, per part, how many hours/days older or newer its build is, plus a one-line summary. <b>Copy</b> gives the comparison as text for chat; your choice of sites is remembered.</li>
+                <li>A <b>server check</b> runs every night (and more often if a scheduler calls it): it re-checks every site, records version changes and posts to Telegram which sites changed version, which are <b>not reachable</b> (2 failed checks in a row) and which are back up. Such sites show <i>● down since …</i> and are listed under the <b>Down</b> filter; "(server)" marks checks done by the server.</li>
+                <li>Each site is linked to its <b>Redmine client</b> (Edit → Redmine client name; empty = same name as the site). The row then shows its open issues, which open <b>By Client</b>; there, the client's FE / V2 / V3 versions are shown above its issues.</li>
                 <li>Tick <b>Test / internal server</b> in Edit for a dev, test or reference site: it is listed in its own block at the top of the table (whatever the sort or filter), doesn't set the Latest version, isn't counted in the rollout or Behind latest, and newer builds on it show in blue.</li>
                 <li>Filters on top: <b>Latest FE</b>, <b>Latest V2</b> and <b>Latest V3</b> (each shows the highest version of that part and how many clients run it), <b>Behind latest</b> (behind on front-end, API V2 or API V3), <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts clients behind on any of the three.</li>
                 <li>When a version changes, the row shows the previous version and when it changed. Click anywhere on a client's row to open its details (where the version was found, API answers, version history).</li>

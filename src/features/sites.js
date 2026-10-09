@@ -15,6 +15,8 @@ import { $, escapeHtml, toast } from '../core/helpers.js';
 import { apiFetch } from '../api.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { setNavCount } from '../ui/list-controls.js';
+import { switchView } from '../ui/navigation.js';
+import { getClientIndex, ensureClientOverview, openClientIssues } from './clients.js';
 
 const STALE_MS = 6 * 60 * 60 * 1000;     // re-check sites older than 6 hours when the menu opens
 const PARALLEL = 6;
@@ -70,9 +72,9 @@ function cleanUrl(raw){
 }
 
 /* ---------------- data ---------------- */
-function subscribe(){
+function subscribe(background){
   const ws = CloudSync.workspaceId;
-  if(!ws){ setTimeout(() => { if(isVisible()) subscribe(); }, 400); return; }
+  if(!ws){ setTimeout(() => { if(background || isVisible()) subscribe(background); }, 400); return; }
   if(S.unsub && S.ws === ws) return;
   if(S.unsub){ try { S.unsub(); } catch(_){} }
   S.ws = ws;
@@ -81,6 +83,7 @@ function subscribe(){
     S.loaded = true;
     updateNavCount();
     render();
+    try { window.dispatchEvent(new CustomEvent('sites:updated')); } catch(_){}
     autoCheckStale();
   }, err => {
     console.error('sites', err);
@@ -250,12 +253,15 @@ async function checkSite(site, { quiet = false } = {}){
     const d = await r.json().catch(() => ({}));
     const now = Date.now();
     if(!r.ok || d.error){
-      await ref().doc(site.id).set(withHistory(site, { checkedAt: now, checkError: d.error || `HTTP ${r.status}`, checkHint: d.hint || '', ...backendPatch(site, d.backend, now) }, now), { merge: true });
+      // failCount / downSince: the server check (api/cron-sites.js) alerts after 2 failures in a row
+      await ref().doc(site.id).set(withHistory(site, { checkedAt: now, checkedBy: 'app', checkError: d.error || `HTTP ${r.status}`, checkHint: d.hint || '',
+        failCount: (site.failCount || 0) + 1, downSince: site.downSince || now, ...backendPatch(site, d.backend, now) }, now), { merge: true });
       if(!quiet) toast(`${site.name}: ${d.error || 'check failed'}`, 'error');
       return;
     }
     const patch = {
-      checkedAt: now, checkError: d.version ? '' : 'Version not found on the login page', checkHint: '',
+      checkedAt: now, checkedBy: 'app', failCount: 0, downSince: null,
+      checkError: d.version ? '' : 'Version not found on the login page', checkHint: '',
       confidence: d.confidence || '', versionSource: d.source || '', tlsNote: d.tlsNote || '',
       candidates: (d.candidates || []).slice(0, 6),
       ...backendPatch(site, d.backend, now)
@@ -312,6 +318,11 @@ function openSiteForm(id){
   $('siteNotes').value = s ? s.notes || '' : '';
   $('sitePinned').value = s ? s.pinnedVersion || '' : '';
   if($('siteIsTest')) $('siteIsTest').checked = !!(s && s.isTest);
+  if($('siteRedmine')){
+    $('siteRedmine').value = s ? s.redmineClient || (redmineOf(s)?.name || '') : '';
+    const dl = $('siteRedmineList');
+    if(dl) dl.innerHTML = getClientIndex().map(c => `<option value="${escapeHtml(c.name)}"></option>`).join('');
+  }
   $('sitesFormTitle').textContent = s ? 'Edit client' : 'Add client';
   $('sitesBulk').classList.add('hidden');
   f.classList.remove('hidden');
@@ -329,7 +340,8 @@ async function saveSite(ev){
   if(dup){ toast(`${hostOf(url)} is already listed as ${dup.name}`, 'error'); return; }
   const now = Date.now();
   const data = { name: name.slice(0, 120), url, notes: $('siteNotes').value.trim().slice(0, 500),
-    pinnedVersion: $('sitePinned').value.trim().replace(/^v/i, '').slice(0, 40), isTest: !!$('siteIsTest')?.checked, updatedAt: now };
+    pinnedVersion: $('sitePinned').value.trim().replace(/^v/i, '').slice(0, 40), isTest: !!$('siteIsTest')?.checked,
+    redmineClient: ($('siteRedmine')?.value || '').trim().slice(0, 120), updatedAt: now };
   try {
     const id = S.editing?.id;
     const before = id ? S.sites.find(x => x.id === id) : null;
@@ -390,8 +402,8 @@ async function saveBulk(){
 
 /* ---------------- export ---------------- */
 function exportSites(){
-  const rows = [['Client', 'URL', 'Front-end version', 'API V2', 'API V3', 'Parts out of step', 'Test server', 'Pinned version', 'Detected version', 'Last checked', 'Last change', 'Notes']];
-  sorted(filtered()).forEach(s => { const mm = mismatch(s), lc = lastChange(s); rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', mm ? mm.text : '', s.isTest ? 'yes' : '', s.pinnedVersion || '', s.version || '',
+  const rows = [['Client', 'URL', 'Front-end version', 'API V2', 'API V3', 'Parts out of step', 'Test server', 'Redmine client', 'Open issues', 'Pinned version', 'Detected version', 'Last checked', 'Last change', 'Notes']];
+  sorted(filtered()).forEach(s => { const mm = mismatch(s), lc = lastChange(s); rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', mm ? mm.text : '', s.isTest ? 'yes' : '', redmineOf(s)?.name || '', redmineOf(s) ? redmineOf(s).open : '', s.pinnedVersion || '', s.version || '',
     s.checkedAt ? new Date(s.checkedAt).toLocaleString() : '', lc ? new Date(lc).toLocaleString() : '', s.notes || '']); });
   const cell = (v) => { const t = String(v ?? ''); return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const blob = new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -413,6 +425,7 @@ function filtered(){
       : S.versionFilter.startsWith('__latest_') ? onLatest(s, PARTS.find(p => '__latest_' + p.key === S.versionFilter), tops[S.versionFilter.slice(9)])
       : S.versionFilter === '__behind' ? behindParts(s, tops).length > 0
       : S.versionFilter === '__mismatch' ? !!mismatch(s)
+      : S.versionFilter === '__down' ? (s.failCount || 0) >= 2
       : shownVersion(s) === S.versionFilter);
 }
 const lastChange = (s) => Math.max(s.versionChangedAt || 0, ...(s.history || []).map(c => c.at || 0));
@@ -469,6 +482,7 @@ function renderNow(){
   const errors = S.sites.filter(s => s.checkError && !s.pinnedVersion).length;
   const behindAny = S.sites.filter(x => behindParts(x, tops).length).length;
   const mismatches = S.sites.filter(x => mismatch(x)).length;
+  const downCount = S.sites.filter(x => (x.failCount || 0) >= 2).length;
   const chip = (val, label, n, cls = '', title = '') => `<button type="button" class="sv-chip ${cls}${S.versionFilter === val ? ' is-active' : ''}"${title ? ` title="${escapeHtml(title)}"` : ''} onclick="setSitesFilter(${escapeHtml(JSON.stringify(val))})">${label}<b>${n}</b></button>`;
 
   // green = latest, amber = behind, blue = newer than any client (test server)
@@ -491,9 +505,12 @@ function renderNow(){
     const mm = mismatch(s);
     const changed = s.prevVersion && s.versionChangedAt && Date.now() - s.versionChangedAt < 30 * 86400000
       ? `<span class="sv-changed" title="Changed ${new Date(s.versionChangedAt).toLocaleDateString()}">from ${escapeHtml(s.prevVersion)} · ${escapeHtml(ago(s.versionChangedAt))}</span>` : '';
+    const by = s.checkedBy === 'server' ? ' (server)' : '';
+    const isDown = (s.failCount || 0) >= 2 && s.downSince;
     const status = busy ? '<span class="sv-status is-busy">checking…</span>'
-      : s.checkError && !s.pinnedVersion ? `<span class="sv-status is-error" title="${escapeHtml(s.checkError + (s.checkHint ? ' — ' + s.checkHint : ''))}">couldn't read · ${escapeHtml(ago(s.checkedAt))}</span>`
-      : `<span class="sv-status">${escapeHtml(ago(s.checkedAt))}</span>`;
+      : isDown ? `<span class="sv-status is-error is-down" title="${escapeHtml(s.checkError || '')}">● down since ${escapeHtml(new Date(s.downSince).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}<small>${s.failCount} failed checks · last ${escapeHtml(ago(s.checkedAt))}${by}</small></span>`
+      : s.checkError && !s.pinnedVersion ? `<span class="sv-status is-error" title="${escapeHtml(s.checkError + (s.checkHint ? ' — ' + s.checkHint : ''))}">couldn't read · ${escapeHtml(ago(s.checkedAt))}${by}</span>`
+      : `<span class="sv-status" title="${s.checkedBy === 'server' ? 'Checked by the scheduled server check' : 'Checked from the app'}">${escapeHtml(ago(s.checkedAt))}${by}</span>`;
     const open = S.open === s.id;
     const details = open ? `<div class="sv-details">
         ${s.isTest ? '<p><b>Test / internal server:</b> not used for Latest, rollout or Behind latest.</p>' : ''}
@@ -503,6 +520,9 @@ function renderNow(){
         ${s.tlsNote ? `<p class="sv-err"><b>Certificate:</b> ${escapeHtml(s.tlsNote)}</p>` : ''}
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
         ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k] && apiRelease(s, k) ? ` | Released ${escapeHtml(fmtDay(apiRelease(s, k)))}` : ''}${s[k + 'Error'] ? ` <span class="sv-err">| ${escapeHtml(s[k + 'Error'])}</span>` : ''}</p>`).join('')}
+        ${(() => { const c = redmineOf(s); return c
+          ? `<p><b>Redmine client:</b> ${escapeHtml(c.name)} | ${c.open} open of ${c.total} issue${c.total === 1 ? '' : 's'} <button type="button" class="btn btn-secondary btn-xs" onclick="openSiteClientIssues('${s.id}')">Open in By Client</button></p>`
+          : `<p><b>Redmine client:</b> <span class="sv-muted">not linked — pick the Redmine client name in Edit</span></p>`; })()}
         ${historyHtml(s)}
         <p><button type="button" class="btn btn-secondary btn-xs" onclick="openSitesCompare('${s.id}')">Compare this site…</button></p>
         ${s.notes ? `<p><b>Notes:</b> ${escapeHtml(s.notes)}</p>` : ''}
@@ -512,6 +532,7 @@ function renderNow(){
         <div class="sv-name-line">
           <button type="button" class="sv-name" aria-expanded="${open}" title="Show details">${escapeHtml(s.name)}</button>
           ${s.isTest ? '<span class="sv-tag" title="Test / internal server: not used for Latest, rollout or Behind latest">test</span>' : ''}
+          ${(() => { const c = redmineOf(s); return c ? `<button type="button" class="sv-issues${c.open ? '' : ' is-zero'}" onclick="openSiteClientIssues('${s.id}')" title="Redmine client “${escapeHtml(c.name)}” — open in By Client">${c.open} open issue${c.open === 1 ? '' : 's'}</button>` : ''; })()}
           ${mm ? `<span class="sv-mismatch" title="${escapeHtml('Parts out of step: ' + mm.text)}" aria-label="Parts out of step">⚠ ${mm.days}d apart</span>` : ''}
         </div>
         <a class="sv-url" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(hostOf(s.url))}</a>
@@ -557,6 +578,7 @@ function renderNow(){
       ${PARTS.map(p => tops[p.key] ? chip('__latest_' + p.key, `Latest ${p.key.toUpperCase()} <i>${escapeHtml(tops[p.key])}</i>`, S.sites.filter(x => onLatest(x, p, tops[p.key])).length, 'is-latest', `Clients on the highest ${p.label} version`) : '').join('')}
       ${chip('__behind', 'Behind latest', behindAny, 'is-warn', 'Clients behind the highest version on front-end, API V2 or API V3')}
       ${mismatches ? chip('__mismatch', 'Parts out of step', mismatches, 'is-warn', `Front-end, API V2 and API V3 built more than ${MISMATCH_DAYS} days apart on the same site`) : ''}
+      ${downCount ? chip('__down', 'Down', downCount, 'is-error', 'Not reachable for 2 or more checks in a row') : ''}
       ${errors ? chip('__error', "Couldn't read", errors, 'is-error') : ''}
       ${versions.length > 1 ? `<select class="sv-verselect${versions.includes(S.versionFilter) ? ' is-active' : ''}" aria-label="Show one version" onchange="setSitesFilter(this.value)">
         <option value="all">Specific version…</option>
@@ -625,11 +647,36 @@ function setSitesSort(v){ S.sort = v; renderNow(); }
 /* the whole row opens / closes the details, except links, action buttons and the details box itself */
 function siteRowClick(ev, id){
   const t = ev && ev.target;
-  if(t && t.closest && t.closest('a, .sv-acts, .sv-details, input, select, textarea')) return;
+  if(t && t.closest && t.closest('a, .sv-acts, .sv-details, .sv-issues, input, select, textarea')) return;
   if(window.getSelection && String(window.getSelection()).length > 2) return;   // selecting text, not clicking
   toggleSiteDetails(id);
 }
 function toggleSiteDetails(id){ S.open = S.open === id ? null : id; renderNow(); }
+
+/* ---------------- link to By Client (Redmine "Client Name") ---------------- */
+// A site is linked to the Redmine client set in Edit, or else to the Redmine
+// client whose name matches the site name (ignoring PT/CV/Tbk, case, spaces).
+const normName = (n) => String(n || '').toLowerCase().replace(/\b(pt|cv|ud|tbk|persero)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
+function redmineOf(site){
+  const idx = getClientIndex();
+  if(!idx.length) return null;
+  const want = normName(site.redmineClient || site.name);
+  if(!want) return null;
+  return idx.find(c => normName(c.name) === want) || null;
+}
+function siteForClient(name){
+  const n = normName(name);
+  if(!n) return null;
+  return S.sites.find(s => s.redmineClient && normName(s.redmineClient) === n) || S.sites.find(s => normName(s.name) === n) || null;
+}
+function ensureSitesLoaded(){ if(!S.unsub) subscribe(true); }
+function openSiteClientIssues(id){
+  const s = S.sites.find(x => x.id === id);
+  const c = s && redmineOf(s);
+  if(!c){ toast('This site is not linked to a Redmine client yet — set it in Edit', 'error'); return; }
+  switchView('clients');
+  openClientIssues(c.name);
+}
 
 /* ---------------- compare 2–4 sites side by side ---------------- */
 // Columns are site ids; the first column is the reference (e.g. DEV) and every
@@ -800,7 +847,10 @@ function wire(){
   $('sitesForm')?.addEventListener('submit', saveSite);
   $('sitesForm')?.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSiteForm(); });
 }
+let clientsListening = false;
 function onSitesShown(){
+  if(!clientsListening){ clientsListening = true; window.addEventListener('clients:overview', () => render()); }
+  try { ensureClientOverview(); } catch(_){}
   wire();
   subscribe();
   render();
@@ -813,5 +863,6 @@ export {
   checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
   setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings,
+  siteForClient, ensureSitesLoaded, openSiteClientIssues,
   openSitesCompare, closeSitesCompare, setCompareSite, addCompareColumn, removeCompareColumn, moveCompareFirst, checkComparedSites, copyCompare
 };

@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.60.3-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.61.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -79,6 +79,7 @@ Files in `api/_lib/` are not routes (Vercel ignores paths starting with `_`).
 | `/api/redmine*`, `/api/telegram` | Require `Authorization: Bearer <Firebase ID token>` from a **Google** account (not guest) with a verified email listed in `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`. If both are empty, everything is refused (fail-closed). |
 | `/api/telegram` | The bot can only send to chats in `TELEGRAM_CHAT_ID` / `TELEGRAM_ALLOWED_CHAT_IDS`. |
 | `/api/cron-rft-telegram` | `CRON_SECRET` (Bearer header; `?secret=` still works but ends up in logs). State is stored via firebase-admin. |
+| `/api/cron-sites` | `CRON_SECRET`. Checks Client Versions sites with firebase-admin and posts to Telegram. |
 | Firestore | `system/*` is closed to clients; `shares` and `workspaces` can't be listed; KB screenshots must be images under 1 MB. |
 | CORS | No `Access-Control-Allow-Origin: *`: the API is only called same-origin. |
 
@@ -99,6 +100,10 @@ Files in `api/_lib/` are not routes (Vercel ignores paths starting with `_`).
 | `TELEGRAM_CHAT_ID` | ✅ | telegram + cron | Default chat/group |
 | `TELEGRAM_ALLOWED_CHAT_IDS` | – | telegram | Extra chats that may be used from the app's Settings |
 | `CRON_SECRET` | ✅ | cron | Long random string (`openssl rand -hex 32`) |
+| `SITES_TELEGRAM_CHAT_ID` | – | cron-sites | Chat for version / down alerts (default `TELEGRAM_CHAT_ID`) |
+| `SITES_TELEGRAM` | – | cron-sites | `off` to stop those alerts |
+| `SITES_CRON_STALE_HOURS` | – | cron-sites | Re-check sites older than this (default 12) |
+| `SITES_CRON_BUDGET_MS` | – | cron-sites | Time per round (default 50000; the function may run 60 s) |
 | `CLOUDINARY_CLOUD_NAME` | for KB images | Cloudinary → Dashboard → Cloud name |
 | `CLOUDINARY_API_KEY` | for KB images | Cloudinary → Settings → API Keys |
 | `CLOUDINARY_API_SECRET` | for KB images | same page; keep secret |
@@ -162,6 +167,16 @@ curl -H "Authorization: Bearer $CRON_SECRET" https://erp-update-list.vercel.app/
 
 The first run only **seeds** a baseline (no spam); later runs only send new RFT IDs. If the Firestore state can't be read, the cron stops with an error instead of re-seeding or spamming.
 
+## ⏰ Cron: Client Versions check → Telegram
+
+`vercel.json` runs `/api/cron-sites` once a day at 20:00 UTC / 03:00 WIB. Each round checks the sites that are failing first, then those not checked for `SITES_CRON_STALE_HOURS`, for up to `SITES_CRON_BUDGET_MS`; when sites are left it starts the next round itself (max 20 rounds). One Telegram message per round lists **not reachable** sites (2 failed checks in a row, sent once), sites **back up**, and **version changes**. For down alerts during the day, call it from cron-job.org every 30–60 min with the same `Authorization: Bearer <CRON_SECRET>` header:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://erp-update-list.vercel.app/api/cron-sites
+```
+
+The answer tells how many sites were checked / left and what was sent.
+
 ---
 
 ## 🐛 Troubleshooting
@@ -183,6 +198,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.61.0**: Server-side Client Versions check `api/cron-sites.js` (Vercel Cron daily + optional external scheduler): all workspaces via `collectionGroup('sites')`, failing sites first then stale ones, same fields as the app (`buildPatch`), `failCount` / `downSince` / `downNotifiedAt`, `checkedBy: 'server'`; Telegram message with not-reachable (after 2 failures, once), back-up and version changes; self-continues in rounds. App: "● down since …" status, **Down** filter, "(server)" marker. Client Versions ↔ By Client: each site links to a Redmine client (Edit → "Redmine client name", default = same name ignoring PT/CV/case); rows show "N open issues" (opens By Client), details show the link, CSV has the columns; By Client shows the client's FE / V2 / V3 above its issues.
 - **v4.60.3**: details read "API V2: 2.26.10.061632 | Released 6 Oct 2026".
 - **v4.60.2**: API V2 / V3 answers: `release_date` is returned as `backend.vN.releaseDate` and stored as `v2Release` / `v3Release` (read from the stored raw answer for older checks); details show "version · released 6 Oct 2026" instead of the raw JSON, Compare and the badge tooltip show the release date too.
 - **v4.60.1**: Client Versions lists `isTest` sites in their own block on top ("Test servers · reference for the tester version", by name), independent of sort and version filters (search still applies); clients follow under "Clients".
