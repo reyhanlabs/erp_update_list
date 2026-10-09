@@ -13,7 +13,7 @@ import { fetchRedmineAllIssues, genericLoadingSkeleton, priorityBadge } from './
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { issueDescriptionCell, resolveNewIssueProjectIds } from './new-issues.js';
 import { renderClientReport, resetClientReport } from './client-report.js';
-import { siteForClient, ensureSitesLoaded } from './sites.js';
+import { siteForClient, ensureSitesLoaded, sitesLoaded } from './sites.js';
 
 /* ============================================================
    BY CLIENT — Redmine custom field "Client Name"
@@ -315,7 +315,11 @@ function ensureClientOverview(){
 /* the client's Zahir ERP versions (Client Versions), shown above its issues */
 function clientVersionsLine(name){
   const s = siteForClient(name);
-  if(!s) return '';
+  if(!s){
+    // only say so once Client Versions is loaded and has sites
+    return sitesLoaded() > 0 ? `<div class="cl-versions is-empty"><span class="cl-versions-lbl">Zahir ERP versions</span>
+      <span>Not linked to a site in Client Versions — open Client Versions, Edit the client's site and pick “${escapeHtml(name)}” as Redmine client name.</span></div>` : '';
+  }
   const parts = [['FE', s.pinnedVersion || s.version], ['V2', s.v2], ['V3', s.v3]].filter(x => x[1]);
   if(!parts.length) return '';
   const when = s.checkedAt ? new Date(s.checkedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';

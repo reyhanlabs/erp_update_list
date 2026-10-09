@@ -3485,6 +3485,7 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .cl-versions-host:hover{text-decoration:underline}
 .cl-versions-down{color:#dc2626;font-weight:650}
 .cl-versions-when{color:var(--text-tertiary);margin-left:auto}
+.cl-versions.is-empty{color:var(--text-tertiary);background:transparent;border-style:dashed}
 .sv-status.is-down{display:flex;flex-direction:column;font-weight:650}
 .sv-status small{font-weight:500;font-size:11px;color:var(--text-tertiary)}
 .sv-acts{display:flex;justify-content:flex-end;gap:2px}

@@ -657,18 +657,32 @@ function toggleSiteDetails(id){ S.open = S.open === id ? null : id; renderNow();
 // A site is linked to the Redmine client set in Edit, or else to the Redmine
 // client whose name matches the site name (ignoring PT/CV/Tbk, case, spaces).
 const normName = (n) => String(n || '').toLowerCase().replace(/\b(pt|cv|ud|tbk|persero)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
+// Name set in Edit → exact match only. Otherwise the site name: exact match first,
+// then the single Redmine client whose name contains it (or is contained in it),
+// e.g. "Aptekindo" ↔ "PT Aptekindo Nusantara". Test servers only link when set in Edit.
 function redmineOf(site){
   const idx = getClientIndex();
-  if(!idx.length) return null;
-  const want = normName(site.redmineClient || site.name);
-  if(!want) return null;
-  return idx.find(c => normName(c.name) === want) || null;
+  if(!idx.length || !site) return null;
+  if(site.redmineClient){
+    const want = normName(site.redmineClient);
+    return idx.find(c => normName(c.name) === want) || null;
+  }
+  if(site.isTest) return null;
+  const want = normName(site.name);
+  if(want.length < 3) return null;
+  const exact = idx.find(c => normName(c.name) === want);
+  if(exact) return exact;
+  if(want.length < 5) return null;
+  const near = idx.filter(c => { const n = normName(c.name); return n.length >= 5 && (n.includes(want) || want.includes(n)); });
+  return near.length === 1 ? near[0] : null;
 }
 function siteForClient(name){
   const n = normName(name);
   if(!n) return null;
-  return S.sites.find(s => s.redmineClient && normName(s.redmineClient) === n) || S.sites.find(s => normName(s.name) === n) || null;
+  return S.sites.find(s => { const c = redmineOf(s); return c && normName(c.name) === n; })
+    || S.sites.find(s => !s.isTest && normName(s.redmineClient || s.name) === n) || null;
 }
+function sitesLoaded(){ return S.loaded ? S.sites.length : -1; }
 function ensureSitesLoaded(){ if(!S.unsub) subscribe(true); }
 function openSiteClientIssues(id){
   const s = S.sites.find(x => x.id === id);
@@ -863,6 +877,6 @@ export {
   checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
   setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings,
-  siteForClient, ensureSitesLoaded, openSiteClientIssues,
+  siteForClient, ensureSitesLoaded, openSiteClientIssues, sitesLoaded,
   openSitesCompare, closeSitesCompare, setCompareSite, addCompareColumn, removeCompareColumn, moveCompareFirst, checkComparedSites, copyCompare
 };
