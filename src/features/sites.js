@@ -417,8 +417,12 @@ function sorted(list){
 }
 
 // many checks finish close together (hundreds of sites): draw at most once per frame
-let renderQueued = 0;
+// While checks run, the table is redrawn after every result. A redraw between
+// mouse-down and mouse-up swaps the button under the pointer and the click is
+// lost, so redraws wait while a button is pressed inside the list.
+let renderQueued = 0, pointerHeld = false, renderPending = false;
 function render(){
+  if(pointerHeld){ renderPending = true; return; }
   if(renderQueued) return;
   const run = () => { renderQueued = 0; renderNow(); };
   renderQueued = typeof window.requestAnimationFrame === 'function' ? window.requestAnimationFrame(run) : setTimeout(run, 16);
@@ -594,6 +598,19 @@ function wire(){
   if(wired) return;
   wired = true;
   $('sitesSearch')?.addEventListener('input', (e) => { S.query = e.target.value; render(); });
+  const body = $('sitesBody');
+  if(body){
+    const release = () => {
+      if(!pointerHeld) return;
+      pointerHeld = false;
+      // let the click handler run first, then draw what was held back
+      setTimeout(() => { if(renderPending){ renderPending = false; render(); } }, 0);
+    };
+    body.addEventListener('pointerdown', () => { pointerHeld = true; }, true);
+    window.addEventListener('pointerup', release, true);
+    window.addEventListener('pointercancel', release, true);
+    window.addEventListener('blur', release);
+  }
   $('sitesForm')?.addEventListener('submit', saveSite);
   $('sitesForm')?.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSiteForm(); });
 }

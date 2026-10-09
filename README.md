@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.59.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.59.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -183,6 +183,7 @@ The first run only **seeds** a baseline (no spam); later runs only send new RFT 
 
 ## 📝 Changelog (short)
 
+- **v4.59.1**: Client Versions holds table redraws while a pointer button is pressed inside the list (released on pointerup, after the click handler), so clicks on names / ↻ / edit are no longer lost while checks keep redrawing the rows.
 - **v4.59.0**: Client Versions — (1) every real change of FE / V2 / V3 found by a check is appended to the site's `history` (`{at, part, from, to}`, last 50); "Recent changes" panel (30 days) and per-client history in the details; (2) changes are collected for 4 s and announced once: toast, plus Telegram via `/api/telegram` when *Settings → Notify Telegram when a client's Zahir ERP version changes* is on (per browser, uses the saved Chat ID); (3) rollout cards: latest version per part and % of clients on it; (4) "Parts out of step" when the build stamps (`major.yy.mm.ddhhmm`, V3 `yy.mm.ddhhmm`) of a site's parts are more than 14 days apart; (5) `isTest` flag (Edit → Test / internal server) keeps dev sites out of Latest / rollout / Behind latest, newer builds there show blue. CSV gains "Parts out of step", "Test server", "Last change".
 - **v4.58.2**: Client Versions filter bar: Latest FE / Latest V2 / Latest V3 chips (highest value of each part + client count, filterable); Behind latest and the sidebar count now mean behind on any of front-end, API V2 or API V3.
 - **v4.58.1**: Client Versions table: Front-end, API V2 and API V3 get equal widths, version badges never truncate, the table scrolls sideways below ~860px of width instead of squeezing.
