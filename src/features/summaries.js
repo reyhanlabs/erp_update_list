@@ -297,8 +297,8 @@ function renderSummaries(){
         </div>
         <div class="summary-card-foot">
           <button type="button" class="btn btn-success btn-sm" onclick="copySummary('${d.id}')">${ICON.clipboard}Copy for WhatsApp</button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="editSummary('${d.id}')">${ICON.edit}Edit</button>
-          <button type="button" class="btn btn-danger btn-sm" onclick="deleteSummary('${d.id}')">${ICON.trash}Delete</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="editSummary('${d.id}')">${ICON.edit}Edit</button>
+          <button type="button" class="btn btn-danger btn-sm" data-perm="edit" onclick="deleteSummary('${d.id}')">${ICON.trash}Delete</button>
         </div>
       </div>
     `;

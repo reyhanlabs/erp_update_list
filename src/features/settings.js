@@ -1,11 +1,9 @@
 /**
- * Version display + workspace controls
+ * Version display (workspace controls moved to src/core/team.js in v4.64.0)
  * (split from the former monolithic src/app.js — v4.40.0)
  */
 import { APP_VERSION, APP_VERSION_DATE, APP_VERSION_NOTE } from '../config.js';
-import { $, toast } from '../core/helpers.js';
-import { CloudSync } from '../core/cloud-sync.js';
-import { writeClipboard } from '../core/clipboard.js';
+import { $ } from '../core/helpers.js';
 
 /* ============================================================
    VERSION DISPLAY
@@ -28,25 +26,6 @@ function applyAppVersion(){
 }
 
 
-/** Expose functions used by HTML onclick/onchange (ES modules are not global) */
-
-function joinWorkspace(){
-  const input = $('workspaceCodeInput');
-  const code = input ? input.value.trim() : '';
-  return CloudSync.joinWorkspace(code);
-}
-function usePersonalWorkspace(){
-  return CloudSync.usePersonalWorkspace();
-}
-function copyWorkspaceId(){
-  const id = CloudSync.workspaceId || '';
-  if(!id){ toast('No workspace yet', 'error'); return; }
-  writeClipboard(id).then(()=>toast('Workspace code copied')).catch(()=>toast(id));
-}
-
 export {
-  applyAppVersion,
-  copyWorkspaceId,
-  joinWorkspace,
-  usePersonalWorkspace
+  applyAppVersion
 };

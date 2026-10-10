@@ -1,48 +1,93 @@
 rules_version = '2';
+// v4.64.0 — Team & access
+// Access comes from workspaces/{ws}/members/{email}, written ONLY by the
+// server (/api/team, firebase-admin). Roles: owner > admin > editor > viewer.
+//   viewer  — read everything
+//   editor  — + create, edit, delete plans, summaries, guides, client sites
+//   admin   — + invite / remove members (in the app, via /api/team)
+//   owner   — + manage admins, hand ownership over, Delete All Data
+// Guests (anonymous sign-in) and Google accounts that are not members get nothing.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true;
+    }
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+    function memberPath(ws) {
+      return /databases/$(database)/documents/workspaces/$(ws)/members/$(myEmail());
+    }
+    function isMember(ws) {
+      return signedIn() && exists(memberPath(ws));
+    }
+    function myRole(ws) {
+      return get(memberPath(ws)).data.role;
+    }
+    function canEdit(ws) {
+      return isMember(ws) && myRole(ws) in ['owner', 'admin', 'editor'];
+    }
 
     // Cron / system state — server only (firebase-admin bypasses rules).
     match /system/{document} {
       allow read, write: if false;
     }
 
+    // Who belongs where — lets the server find a user's workspace. Server writes only.
+    match /directory/{email} {
+      allow get: if signedIn() && myEmail() == email;
+      allow list, write: if false;
+    }
+
     // Public plan shares — short links for SDET (read-only for anyone)
     match /shares/{shareId} {
       allow get: if true;
       allow list: if false;
-      allow create: if request.auth != null
+      allow create: if signedIn()
         && request.resource.data.keys().hasAll(['v', 'title', 'issues', 'createdAt'])
         && request.resource.data.issues is list
         && request.resource.data.issues.size() <= 500;
       allow update, delete: if false;
     }
 
-    // Team workspaces — the workspace code is the shared secret, so it must
-    // never be listable/enumerable. Only direct get by id is allowed.
-    match /workspaces/{workspaceId} {
-      allow get, write: if request.auth != null;
-      allow list: if false;
+    match /workspaces/{ws} {
+      allow get: if isMember(ws);
+      allow list, write: if false;
+
+      // Members: everyone in the team may see the list; changes go through /api/team.
+      match /members/{email} {
+        allow read: if isMember(ws);
+        allow write: if false;
+      }
 
       match /plans/{planId} {
-        allow read, write: if request.auth != null;
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
       }
       match /summaries/{summaryId} {
-        allow read, write: if request.auth != null;
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
       }
-      // Client Versions: clients' Zahir ERP sites (v4.56.0)
+      // Client Versions: clients' Zahir ERP sites
       match /sites/{siteId} {
-        allow read, delete: if request.auth != null;
-        allow create, update: if request.auth != null
+        allow read: if isMember(ws);
+        allow delete: if canEdit(ws);
+        allow create, update: if canEdit(ws)
           && request.resource.data.name is string && request.resource.data.name.size() <= 120
           && request.resource.data.url is string && request.resource.data.url.size() <= 300;
       }
-      // Knowledge Base guides + their screenshots (v4.42.0)
+      // Knowledge Base guides + their screenshots
       match /kb/{articleId} {
-        allow read, write: if request.auth != null;
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
         match /images/{imageId} {
-          allow read, delete: if request.auth != null;
-          allow create, update: if request.auth != null
+          allow read: if isMember(ws);
+          allow delete: if canEdit(ws);
+          allow create, update: if canEdit(ws)
             && request.resource.data.data is string
             && request.resource.data.data.size() < 1000000
             && request.resource.data.data.matches('^data:image/(png|jpeg|webp|gif);base64,.*');
@@ -50,6 +95,7 @@ service cloud.firestore {
       }
     }
 
+    // Own profile + legacy personal data (read once to move it into the team workspace)
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       match /plans/{planId} {

@@ -6,6 +6,7 @@
 import { State } from '../core/state.js';
 import { escapeHtml, toast, todayISO } from '../core/helpers.js';
 import { CloudSync } from '../core/cloud-sync.js';
+import { canAdmin, isOwner } from '../core/team.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { db } from '../firebase.js';
 import { getAllIssueNotes, importIssueNotes } from './issue-notes.js';
@@ -89,6 +90,7 @@ async function restoreKb(kb){
 function importAll(ev){
   const file = ev.target.files[0];
   if(!file) return;
+  if(!canAdmin()){ toast('Only admins can restore a backup', 'error'); ev.target.value = ''; return; }
   const reader = new FileReader();
   reader.onload = async e => {
     try {
@@ -138,6 +140,7 @@ function importAll(ev){
 }
 
 async function wipeAll(){
+  if(!isOwner()){ toast('Only the owner can delete all data', 'error'); return; }
   const plansCount = State.plans.all().length;
   const sumsCount = State.summaries.all().length;
 

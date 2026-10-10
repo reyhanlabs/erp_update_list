@@ -11,6 +11,7 @@
  */
 import { db } from '../firebase.js';
 import { CloudSync } from '../core/cloud-sync.js';
+import { canEdit } from '../core/team.js';
 import { $, escapeHtml, toast } from '../core/helpers.js';
 import { apiFetch } from '../api.js';
 import { confirmDialog } from '../ui/confirm.js';
@@ -243,7 +244,7 @@ function withHistory(site, patch, now){
 }
 
 async function checkSite(site, { quiet = false } = {}){
-  if(S.checking.has(site.id)) return;
+  if(S.checking.has(site.id) || !canEdit()) return;
   S.checking.add(site.id);
   render();
   try {
@@ -291,7 +292,7 @@ async function checkMany(list, opts){
 
 let autoRan = false;
 function autoCheckStale(){
-  if(autoRan || !isVisible()) return;
+  if(autoRan || !isVisible() || !canEdit()) return;   // viewers only read (v4.64.0)
   autoRan = true;
   const stale = S.sites.filter(s => s.url && Date.now() - (s.checkedAt || 0) > STALE_MS)
     .sort((a, b) => (a.checkedAt || 0) - (b.checkedAt || 0)).slice(0, AUTO_MAX);
@@ -468,8 +469,8 @@ function renderNow(){
       <h2>List your clients' Zahir ERP sites</h2>
       <p>Add each client with the address of their Zahir ERP (for example <b>apt.zahirerp.com</b> or the client's own domain such as <b>erp.client.com</b>). The version is read automatically from the login page, so you only type the name and the address.</p>
       <div class="kb-welcome-actions">
-        <button type="button" class="btn btn-primary" onclick="openSiteForm()">Add client</button>
-        <button type="button" class="btn btn-secondary" onclick="openSitesBulk()">Paste a list</button>
+        <button type="button" class="btn btn-primary" data-perm="edit" onclick="openSiteForm()">Add client</button>
+        <button type="button" class="btn btn-secondary" data-perm="edit" onclick="openSitesBulk()">Paste a list</button>
       </div>
     </div>`;
     return;
@@ -544,11 +545,11 @@ function renderNow(){
       ${apiCell(s, 'v3')}
       <div class="sv-checked">${status}</div>
       <div class="sv-acts">
-        <button type="button" class="sv-icon" onclick="checkOneSite('${s.id}')" title="Check version now" aria-label="Check version of ${escapeHtml(s.name)}"${busy ? ' disabled' : ''}>
+        <button type="button" class="sv-icon" data-perm="edit" onclick="checkOneSite('${s.id}')" title="Check version now" aria-label="Check version of ${escapeHtml(s.name)}"${busy ? ' disabled' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg></button>
-        <button type="button" class="sv-icon" onclick="openSiteForm('${s.id}')" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">
+        <button type="button" class="sv-icon" data-perm="edit" onclick="openSiteForm('${s.id}')" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        <button type="button" class="sv-icon is-danger" onclick="deleteSite('${s.id}')" title="Remove" aria-label="Remove ${escapeHtml(s.name)}">
+        <button type="button" class="sv-icon is-danger" data-perm="edit" onclick="deleteSite('${s.id}')" title="Remove" aria-label="Remove ${escapeHtml(s.name)}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
       </div>
       ${details}
@@ -825,7 +826,7 @@ function renderCompare(){
       <h4>Compare versions</h4>
       <div class="svc-actions">
         ${cols.length < CMP_MAX ? '<button type="button" class="btn btn-secondary btn-sm" onclick="addCompareColumn()">+ Add site</button>' : ''}
-        <button type="button" class="btn btn-secondary btn-sm" onclick="checkComparedSites()">Check these now</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="checkComparedSites()">Check these now</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="copyCompare()">Copy</button>
         <button type="button" class="btn btn-ghost btn-sm" onclick="closeSitesCompare()" aria-label="Close compare">Close</button>
       </div>

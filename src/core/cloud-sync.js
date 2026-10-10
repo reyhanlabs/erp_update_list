@@ -2,7 +2,7 @@
  * Firestore workspace sync (CloudSync)
  * (split from the former monolithic src/app.js — v4.40.0)
  */
-import { auth, db } from '../firebase.js';
+import { db } from '../firebase.js';
 import { State } from './state.js';
 import { $, toast, uid } from './helpers.js';
 import { setSyncStatus, updateLastSync } from '../ui/sync-status.js';
@@ -23,13 +23,15 @@ const CloudSync = {
 
   workspaceId: null,
 
-  async init(uid){
+  async init(uid, workspaceId){
     this.uid = uid;
     const uidEl = $('userUID');
     if(uidEl) uidEl.textContent = uid;
 
-    // Resolve shared workspace (team) or personal default
-    this.workspaceId = await this.resolveWorkspaceId(uid);
+    // v4.64.0: the workspace comes from the team membership (/api/team), not a typed code
+    if(this.unsubPlans) this.unsubPlans();
+    if(this.unsubSummaries) this.unsubSummaries();
+    this.workspaceId = workspaceId;
     this.plansRef = db.collection('workspaces').doc(this.workspaceId).collection('plans');
     this.summariesRef = db.collection('workspaces').doc(this.workspaceId).collection('summaries');
 
@@ -44,28 +46,6 @@ const CloudSync = {
     this.subscribe();
     setSyncStatus('online', 'Synced');
     updateLastSync();
-  },
-
-  async resolveWorkspaceId(uid){
-    try {
-      const userRef = db.collection('users').doc(uid);
-      const snap = await userRef.get();
-      let ws = snap.exists ? (snap.data().workspaceId || null) : null;
-      if(!ws){
-        try { ws = localStorage.getItem('erp_workspace_id') || null; } catch(_){}
-      }
-      if(!ws) ws = uid; // personal workspace = uid
-      await userRef.set({
-        workspaceId: ws,
-        email: (auth.currentUser && auth.currentUser.email) || null,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      try { localStorage.setItem('erp_workspace_id', ws); } catch(_){}
-      return ws;
-    } catch(err){
-      console.warn('resolveWorkspaceId', err);
-      return uid;
-    }
   },
 
   async maybeMigrateLegacyUserData(uid){
@@ -89,37 +69,6 @@ const CloudSync = {
     } catch(err){
       console.warn('legacy migrate skipped', err);
     }
-  },
-
-  async joinWorkspace(code){
-    const id = String(code || '').trim();
-    if(!id){
-      toast('Enter a workspace code', 'error');
-      return;
-    }
-    if(!this.uid){
-      toast('Sign in first', 'error');
-      return;
-    }
-    setSyncStatus('syncing', 'Switching workspace');
-    try {
-      await db.collection('users').doc(this.uid).set({ workspaceId: id }, { merge: true });
-      try { localStorage.setItem('erp_workspace_id', id); } catch(_){}
-      // Re-bind listeners
-      if(this.unsubPlans) this.unsubPlans();
-      if(this.unsubSummaries) this.unsubSummaries();
-      await this.init(this.uid);
-      toast('Joined workspace: ' + id);
-    } catch(err){
-      console.error(err);
-      setSyncStatus('error', 'Workspace error');
-      toast(err.message || 'Could not join workspace', 'error');
-    }
-  },
-
-  async usePersonalWorkspace(){
-    if(!this.uid) return;
-    await this.joinWorkspace(this.uid);
   },
 
   async pullAll(){

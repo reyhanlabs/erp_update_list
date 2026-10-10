@@ -215,7 +215,7 @@ function renderNav(){
       prod.count, `kb-nav-product${active ? ' is-active' : ''}${prod.count || prod.modules.length ? '' : ' is-empty'}`);
     if(!open) continue;
     if(!prod.modules.length){
-      html += `<div class="kb-nav-mods"><button type="button" class="kb-nav-hint" data-kb-act="manage" data-kb-manage-product="${p}">+ Add modules</button></div>`;
+      html += `<div class="kb-nav-mods"><button type="button" class="kb-nav-hint" data-perm="edit" data-kb-act="manage" data-kb-manage-product="${p}">+ Add modules</button></div>`;
       continue;
     }
     html += '<div class="kb-nav-mods">' + prod.modules.map(m => {
@@ -274,8 +274,8 @@ function renderPane(){
         <li>Save. The guide is visible to everyone in the workspace right away.</li>
       </ol>
       <div class="kb-welcome-actions">
-        <button type="button" class="btn btn-primary" data-kb-act="new">Write guide</button>
-        <button type="button" class="btn btn-secondary" data-kb-act="manage">Set up menus first</button>
+        <button type="button" class="btn btn-primary" data-perm="edit" data-kb-act="new">Write guide</button>
+        <button type="button" class="btn btn-secondary" data-perm="edit" data-kb-act="manage">Set up menus first</button>
       </div>
     </div>`;
     return;
@@ -332,7 +332,7 @@ function renderList(el){
       ? `<div class="kb-state kb-state-sm"><p>No guides match “${escapeHtml(S.query.trim())}”.</p>
           <button type="button" class="btn btn-secondary btn-sm" data-kb-act="clear-search">Clear search</button></div>`
       : `<div class="kb-state kb-state-sm"><p>No guides here yet.</p>
-          <button type="button" class="btn btn-primary btn-sm" data-kb-act="new">Write the first one</button></div>`;
+          <button type="button" class="btn btn-primary btn-sm" data-perm="edit" data-kb-act="new">Write the first one</button></div>`;
   } else if(!searching && S.module !== 'all' && S.submenu === 'all' && list.some(a => submenuOf(a))){
     // inside a module: one group per submenu, "General" last
     const groups = new Map();
@@ -382,7 +382,7 @@ function migrateBannerHtml(){
   if(S.migrating) return `<div class="kb-migrate" role="status"><span>Moving screenshots to Cloudinary… <b>${S.migrating.done} / ${S.migrating.total}</b></span></div>`;
   return `<div class="kb-migrate">
     <span><b>${n} screenshot${n === 1 ? '' : 's'}</b> are still stored inside the database, which makes it and the backups heavy.</span>
-    <button type="button" class="btn btn-primary btn-sm" data-kb-act="migrate-images">Move to Cloudinary</button>
+    <button type="button" class="btn btn-primary btn-sm" data-perm="edit" data-kb-act="migrate-images">Move to Cloudinary</button>
   </div>`;
 }
 let cloudChecked = false;
@@ -442,10 +442,10 @@ function renderArticle(el, a){
         <div class="kb-meta">${meta}</div>
         ${tags.length ? `<p class="kb-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</p>` : ''}
         <div class="kb-actions" role="toolbar" aria-label="Guide actions">
-          <button type="button" class="kb-act kb-act-primary" data-kb-act="edit">${ICONS.edit}<span>Edit</span></button>
+          <button type="button" class="kb-act kb-act-primary" data-perm="edit" data-kb-act="edit">${ICONS.edit}<span>Edit</span></button>
           <button type="button" class="kb-act" data-kb-act="copy-text" aria-label="Copy text" title="Copy text">${ICONS.copy}<span>Copy text</span></button>
           <button type="button" class="kb-act" data-kb-act="copy-link" aria-label="Copy link" title="Copy link">${ICONS.link}<span>Copy link</span></button>
-          <button type="button" class="kb-act kb-act-danger" data-kb-act="delete" aria-label="Delete guide" title="Delete guide">${ICONS.trash}<span>Delete</span></button>
+          <button type="button" class="kb-act kb-act-danger" data-perm="edit" data-kb-act="delete" aria-label="Delete guide" title="Delete guide">${ICONS.trash}<span>Delete</span></button>
         </div>
         <nav class="kb-jump" id="kbJump" aria-label="Jump to section"></nav>
         <div class="md-body kb-md" id="kbArticleBody">${renderMarkdown(a.content || '')}</div>
@@ -708,7 +708,7 @@ function fillModuleSelect(current){
   sel.disabled = false;
   if(hint){
     hint.innerHTML = defined.length ? '' :
-      `No modules defined for ${escapeHtml(PRODUCTS[product]?.label || 'this product')}. <button type="button" class="kb-link-btn" data-kb-act="manage" data-kb-manage-product="${product}">Set up menus</button>`;
+      `No modules defined for ${escapeHtml(PRODUCTS[product]?.label || 'this product')}. <button type="button" class="kb-link-btn" data-perm="edit" data-kb-act="manage" data-kb-manage-product="${product}">Set up menus</button>`;
   }
   fillSubmenuSelect();
 }
@@ -1168,7 +1168,7 @@ function renderManager(focusSel){
   const guidesHere = S.articles.filter(a => a.product === p).length;
   const note = S.manage.prefilled.has(p)
     ? `<p class="kb-mg-note">Filled in from the modules your guides already use. Rename, reorder, or add to it, then save.</p>`
-    : (!list.length && guidesHere ? `<p class="kb-mg-note">${guidesHere} guide${guidesHere === 1 ? '' : 's'} already exist for this product. <button type="button" class="kb-link-btn" data-kb-act="manage-prefill">Start from their modules</button></p>` : '');
+    : (!list.length && guidesHere ? `<p class="kb-mg-note">${guidesHere} guide${guidesHere === 1 ? '' : 's'} already exist for this product. <button type="button" class="kb-link-btn" data-perm="edit" data-kb-act="manage-prefill">Start from their modules</button></p>` : '');
 
   el.innerHTML = `<div class="kb-mg">
     <header class="kb-list-head">

@@ -90,11 +90,8 @@ import {
 } from './features/redmine-sync.js';
 import { exportAll, importAll, wipeAll } from './features/backup.js';
 import {
-  continueAsGuest,
-  hideAuthGate,
   isAnonymousUser,
   isGoogleUser,
-  maybeMigrateGuestDataToCurrentUser,
   renderAll,
   showAuthGate,
   signInWithGoogle,
@@ -102,12 +99,8 @@ import {
   startAppForUser,
   updateAccountUI
 } from './features/account.js';
-import {
-  applyAppVersion,
-  copyWorkspaceId,
-  joinWorkspace,
-  usePersonalWorkspace
-} from './features/settings.js';
+import { applyAppVersion } from './features/settings.js';
+import { addMember, setMemberRole, removeMember, makeTeamOwner, retryAccess, renderTeam, installPermissionToast } from './core/team.js';
 import {
   applyIssueStatusBadgesFromCache,
   openIssueStatusView,
@@ -197,8 +190,8 @@ function exposeAppGlobals(){
     previewRedmineSync, syncFromRedmine, testRedmineConnection, onRedmineProjectChange,
     onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate, removeIssueRow,
     exportAll, importAll, wipeAll, copyUID,
-    signInWithGoogle, signOutAccount, continueAsGuest,
-    joinWorkspace, usePersonalWorkspace, copyWorkspaceId,
+    signInWithGoogle, signOutAccount,
+    addMember, setMemberRole, removeMember, makeTeamOwner, retryAccess, renderTeam,
     toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel, positionNotifPanel, markAllRftSeen,
     // Plan cards
     togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, installPwaApp, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,
@@ -223,6 +216,7 @@ function exposeAppGlobals(){
 
 export async function startApp(){
   exposeAppGlobals();
+  installPermissionToast();
   try { initSidebarCollapse(); } catch(_){}
   try { startBackgroundAutoRefresh(); } catch(_){}
   try { loadTelegramChatId(); } catch(_){}
@@ -351,14 +345,12 @@ export async function startApp(){
     const redirectResult = await auth.getRedirectResult();
     if(redirectResult && redirectResult.user){
       sessionStorage.removeItem('erp_auth_redirect');
-      sessionStorage.removeItem('erp_guest_ok');
       console.log('✅ Google redirect sign-in:', redirectResult.user.email || redirectResult.user.uid);
       const back = sessionStorage.getItem('erp_post_auth_path');
       sessionStorage.removeItem('erp_post_auth_path');
       if(back && back !== (location.pathname + location.search + location.hash)){
         try { history.replaceState(null, '', back); } catch(_){}
       }
-      hideAuthGate();
       updateAccountUI(redirectResult.user);
       toast('Signed in with Google', 'success');
     } else if(wasRedirect){
@@ -383,11 +375,17 @@ export async function startApp(){
   }
 
   let __authBootstrapped = false;
-  let __authSigningIn = false;
   auth.onAuthStateChanged(async (user) => {
     try {
       if(!user){
-        // No Firebase session → show login (don't auto-anonymous unless guest chosen)
+        // No Firebase session → show login
+        showAuthGate();
+        return;
+      }
+
+      // Guest mode was removed in v4.64.0: an old anonymous session is signed out
+      if(isAnonymousUser(user) || !isGoogleUser(user)){
+        try { await auth.signOut(); } catch(_){}
         showAuthGate();
         return;
       }
@@ -395,34 +393,12 @@ export async function startApp(){
       // Already loaded same user
       if(__authBootstrapped && CloudSync.uid === user.uid){
         updateAccountUI(user);
-        if(isGoogleUser(user) || sessionStorage.getItem('erp_guest_ok') === '1'){
-          hideAuthGate();
-        }
         return;
       }
 
-      console.log('✅ Auth session:', user.isAnonymous ? 'anonymous' : (user.email || user.uid));
-
-      // Google user → never keep the login wall up
-      if(isGoogleUser(user)){
-        try { sessionStorage.removeItem('erp_guest_ok'); } catch(_){}
-        hideAuthGate();
-      }
-
-      // Require Google unless user chose guest this session
-      if(isAnonymousUser(user) && sessionStorage.getItem('erp_guest_ok') !== '1'){
-        showAuthGate();
-        updateAccountUI(user);
-        return;
-      }
-
+      console.log('✅ Auth session:', user.email || user.uid);
       __authBootstrapped = true;
-      hideAuthGate();
       await startAppForUser(user);
-      // If we just returned from Google redirect with a snapshot, import it
-      if(!isAnonymousUser(user)){
-        await maybeMigrateGuestDataToCurrentUser();
-      }
     } catch(err) {
       console.error('❌ Auth failed:', err);
       setSyncStatus('error', 'Auth failed');

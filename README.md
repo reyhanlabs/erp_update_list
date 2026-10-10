@@ -16,7 +16,7 @@ Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 - **Issue Status, Active Work, What Next, By Client**: track issues across the Zahir projects.
 - **Create Issue**: create Redmine issues from the app.
 - **Knowledge Base**: team how-to guides for Zahir ERP, ERP One, and MRP, with screenshots.
-- **Team workspace**: shared data via a workspace code (Firestore realtime).
+- **Team & access**: invite people by e-mail with a role (Owner / Admin / Editor / Viewer); one shared workspace, Firestore realtime.
 - **Public share links**: `/share/:id`, read-only for SDET.
 - **PWA**: installable, with offline fallback.
 
@@ -76,14 +76,27 @@ Files in `api/_lib/` are not routes (Vercel ignores paths starting with `_`).
 
 | Layer | Rule |
 | --- | --- |
-| `/api/redmine*`, `/api/telegram` | Require `Authorization: Bearer <Firebase ID token>` from a **Google** account (not guest) with a verified email listed in `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`. If both are empty, everything is refused (fail-closed). |
+| Sign-in | Google only (guest mode removed in v4.64.0). A Google account gets in only when its e-mail is a **team member** (Settings → Team & access) or listed in `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS` (app owners). Everyone else sees "No access yet". |
+| Roles | **Owner** (one): everything, adds admins, hands ownership over, Delete All Data. **Admin**: adds/removes editors and viewers, restores backups. **Editor**: creates, edits and deletes plans, summaries, guides, client sites. **Viewer**: read only. |
+| `/api/team` | Members are written only here (firebase-admin) into `workspaces/{ws}/members/{email}` and `directory/{email}`; clients can't write them. |
+| `/api/redmine*`, `/api/telegram`, `/api/erp-version`, `/api/cloudinary` | Require `Authorization: Bearer <Firebase ID token>` from a Google account with a verified e-mail that is a team member or in `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS`. |
 | `/api/telegram` | The bot can only send to chats in `TELEGRAM_CHAT_ID` / `TELEGRAM_ALLOWED_CHAT_IDS`. |
 | `/api/cron-rft-telegram` | `CRON_SECRET` (Bearer header; `?secret=` still works but ends up in logs). State is stored via firebase-admin. |
 | `/api/cron-sites` | `CRON_SECRET`. Checks Client Versions sites with firebase-admin and posts to Telegram. |
-| Firestore | `system/*` is closed to clients; `shares` and `workspaces` can't be listed; KB screenshots must be images under 1 MB. |
+| Firestore | Only members read a workspace; owner/admin/editor write; viewers read only. `system/*` and `directory/*` are closed to clients; `shares` and `workspaces` can't be listed; KB screenshots must be images under 1 MB. |
 | CORS | No `Access-Control-Allow-Origin: *`: the API is only called same-origin. |
 
-**Guest** mode can still use Plans/Summaries/Knowledge Base (Firestore), but Redmine and Telegram features need an allowed Google sign-in.
+Everyone uses the same Redmine connection, as before.
+
+### Sharing the app with other people (v4.64.0)
+
+1. Deploy this version.
+2. **Before** publishing the new rules, open the app once with an e-mail from `ALLOWED_EMAILS`. The app claims the workspace you already use and makes you its **Owner** (other `ALLOWED_EMAILS` accounts join it as Editor when they open the app).
+3. Firestore → Rules → paste `firestore.rules` → **Publish**.
+4. Settings → **Team & access** → type the person's e-mail (Gmail or a company address on Google Workspace), choose a role → **Add**. They open the app, press *Sign in with Google* and are in.
+5. Remove someone with **Remove**: access stops at once (the app also drops their open session).
+
+`ALLOWED_EMAILS` can stay short (just you). Everyone else is managed in the app.
 
 `REDMINE_API_KEY` belongs to a single Redmine account, so every action (including Create Issue) is recorded under that account. Consider a dedicated bot account with minimal permissions.
 
@@ -120,9 +133,9 @@ After changing an env var → **Redeploy**.
 
 ## 🚀 Firebase setup (once)
 
-1. Authentication → Sign-in method → enable **Google** (and **Anonymous** if guest mode is still used).
+1. Authentication → Sign-in method → enable **Google**. **Anonymous** is no longer used and can be disabled.
 2. Authentication → Settings → Authorized domains → add the Vercel domain + `localhost`.
-3. Firestore → Rules → paste the contents of `firestore.rules` → **Publish**. Do this again whenever `firestore.rules` changes (most recently for the Knowledge Base in v4.42.0).
+3. Firestore → Rules → paste the contents of `firestore.rules` → **Publish**. Do this again whenever `firestore.rules` changes (most recently for Team & access in v4.64.0 — see the order above).
 
 ---
 
@@ -183,8 +196,10 @@ The answer tells how many sites were checked / left and what was sent.
 
 | Symptom | Cause / fix |
 | --- | --- |
-| "Sign-in required" / "Not available in guest mode" | Sign in with Google in Settings. |
-| "Account … is not allowed" | Add the email to `ALLOWED_EMAILS` → redeploy. |
+| "Sign-in required" | Sign in with Google. |
+| "No access yet" / "Account … has no access" | An owner or admin adds the e-mail in Settings → Team & access, then press **Try again**. |
+| Everything shows "Missing or insufficient permissions" after publishing the rules | The workspace wasn't claimed first: temporarily put back the old rules, open the app as an `ALLOWED_EMAILS` account (it claims the workspace), then publish the new rules again. |
+| Viewer can't find Add / Edit buttons | By design — give them the Editor role. |
 | "Server access list not configured" | `ALLOWED_EMAILS` / `ALLOWED_EMAIL_DOMAINS` not set. |
 | "Chat ID not allowed" | Match the Chat ID in the app's Settings with `TELEGRAM_CHAT_ID`, or add it to `TELEGRAM_ALLOWED_CHAT_IDS`. |
 | Knowledge Base: permission error | Publish the latest `firestore.rules`. |

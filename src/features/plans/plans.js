@@ -395,8 +395,8 @@ function renderPlanCard(d){
           </div>
         </div>
         <button type="button" class="btn btn-primary btn-sm" onclick="quickSummary('${d.id}')">${ICON.plus}Create Summary</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
-        <button type="button" class="btn btn-danger btn-sm" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="editPlan('${d.id}')">${ICON.edit}Edit</button>
+        <button type="button" class="btn btn-danger btn-sm" data-perm="edit" onclick="deletePlan('${d.id}')">${ICON.trash}Delete</button>
       </div>
     </div>
   `;

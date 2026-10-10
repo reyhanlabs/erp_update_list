@@ -2,11 +2,10 @@
  * Auth gate, Google sign-in, guest migration, app start per user
  * (split from the former monolithic src/app.js — v4.40.0)
  */
-import { MIGRATE_SNAP_KEY } from '../config.js';
 import { auth } from '../firebase.js';
-import { State } from '../core/state.js';
 import { $, toast } from '../core/helpers.js';
 import { CloudSync } from '../core/cloud-sync.js';
+import { resolveAccess, showNoAccess, hideNoAccess, watchMembers, stopTeam } from '../core/team.js';
 import { setSyncStatus } from '../ui/sync-status.js';
 import { renderPlans } from './plans/plans.js';
 import { populatePlanDropdown, renderSummaries } from './summaries.js';
@@ -26,10 +25,9 @@ function renderAll(){
 
 
 /* ============================================================
-   ACCOUNT — Google Sign-In (cross-device sync)
-   - Guest (anonymous): random UID per device
-   - Google: same UID on PC & phone after sign-in
-   - Linking anonymous → Google keeps existing data on same UID
+   ACCOUNT — Google Sign-In
+   - Google only (guest mode removed in v4.64.0)
+   - Access comes from the team membership (src/core/team.js)
    ============================================================ */
 function isAnonymousUser(user){
   return !!(user && user.isAnonymous);
@@ -58,27 +56,6 @@ function hideAuthGate(){
   document.body.classList.remove('auth-locked');
 }
 
-async function continueAsGuest(){
-  try {
-    const err = $('authError');
-    if(err) err.textContent = '';
-    let user = auth.currentUser;
-    if(!user){
-      const cred = await auth.signInAnonymously();
-      user = cred.user;
-    }
-    // Mark this session as intentionally guest so we don't re-show gate
-    sessionStorage.setItem('erp_guest_ok', '1');
-    hideAuthGate();
-    await startAppForUser(user);
-    toast('Continuing as guest — data stays on this device');
-  } catch(e){
-    console.error(e);
-    const err = $('authError');
-    if(err) err.textContent = e.message || 'Could not continue as guest';
-  }
-}
-
 function updateAccountUI(user){
   const identity = $('accountIdentity');
   const statusText = $('accountStatusText');
@@ -98,8 +75,8 @@ function updateAccountUI(user){
   }
 
   if(isAnonymousUser(user)){
-    if(identity) identity.textContent = 'Guest (anonymous) — data stays on this device only';
-    if(statusText) statusText.textContent = 'Guest';
+    if(identity) identity.textContent = 'Not signed in';
+    if(statusText) statusText.textContent = 'Signed out';
     if(pill) pill.classList.remove('ok');
     if(btnIn) btnIn.classList.remove('hidden');
     if(btnOut) btnOut.classList.add('hidden');
@@ -113,84 +90,6 @@ function updateAccountUI(user){
   }
 }
 
-
-/* ============================================================
-   GUEST → GOOGLE DATA MIGRATION
-   Snapshot local in-memory data before auth change; import if
-   the destination account is empty.
-   ============================================================ */
-function snapshotLocalWorkspace(){
-  try {
-    const plans = (State.plans && State.plans.all) ? State.plans.all() : [];
-    const summaries = (State.summaries && State.summaries.all) ? State.summaries.all() : [];
-    if(!plans.length && !summaries.length) return null;
-    const payload = {
-      at: Date.now(),
-      fromUid: CloudSync.uid || (auth.currentUser && auth.currentUser.uid) || null,
-      plans: plans.map(p => {
-        const { id, ...rest } = p;
-        // Strip server timestamps that can't be re-written as-is
-        const clean = { ...rest };
-        delete clean.createdAt;
-        delete clean.updatedAt;
-        return { id, ...clean };
-      }),
-      summaries: summaries.map(s => {
-        const { id, ...rest } = s;
-        const clean = { ...rest };
-        delete clean.createdAt;
-        delete clean.updatedAt;
-        return { id, ...clean };
-      })
-    };
-    sessionStorage.setItem(MIGRATE_SNAP_KEY, JSON.stringify(payload));
-    return payload;
-  } catch(e){
-    console.warn('snapshotLocalWorkspace failed', e);
-    return null;
-  }
-}
-
-function readMigrateSnapshot(){
-  try {
-    const raw = sessionStorage.getItem(MIGRATE_SNAP_KEY);
-    if(!raw) return null;
-    return JSON.parse(raw);
-  } catch(_){ return null; }
-}
-
-function clearMigrateSnapshot(){
-  try { sessionStorage.removeItem(MIGRATE_SNAP_KEY); } catch(_){}
-}
-
-async function maybeMigrateGuestDataToCurrentUser(){
-  const snap = readMigrateSnapshot();
-  if(!snap || (!snap.plans?.length && !snap.summaries?.length)) return false;
-  if(!CloudSync.uid) return false;
-
-  // Only migrate if destination is empty (avoid overwriting existing Google data)
-  try {
-    const [plansSnap, sumsSnap] = await Promise.all([
-      CloudSync.plansRef.limit(1).get(),
-      CloudSync.summariesRef.limit(1).get()
-    ]);
-    const destHasData = !plansSnap.empty || !sumsSnap.empty;
-    if(destHasData){
-      console.log('Skip migration — destination account already has data');
-      clearMigrateSnapshot();
-      return false;
-    }
-
-    await CloudSync.bulkImport(snap.plans || [], snap.summaries || []);
-    clearMigrateSnapshot();
-    toast(`Migrated ${snap.plans.length} plan(s) & ${snap.summaries.length} summary(ies) to this account`);
-    return true;
-  } catch(err){
-    console.error('Migration failed:', err);
-    toast('Could not migrate guest data — use Export/Import in Settings', 'error');
-    return false;
-  }
-}
 
 async function signInWithGoogle(){
   const btn = $('btnGoogleSignIn');
@@ -238,7 +137,6 @@ async function signInWithGoogle(){
 
   try {
     setBusy(true, preferRedirect ? 'Redirecting to Google…' : 'Opening Google…');
-    try { snapshotLocalWorkspace(); } catch(_){}
 
     if(preferRedirect){
       try {
@@ -248,7 +146,6 @@ async function signInWithGoogle(){
       // Same Google account as laptop: clear anonymous/guest session first so
       // Firebase does a clean sign-in (avoids link/credential conflicts on mobile).
       try {
-        sessionStorage.removeItem('erp_guest_ok');
         if(auth.currentUser && auth.currentUser.isAnonymous){
           await auth.signOut();
         }
@@ -264,50 +161,23 @@ async function signInWithGoogle(){
 
     // Desktop: popup, fallback redirect
     let cred;
-    const current = auth.currentUser;
-    if(current && current.isAnonymous){
-      try {
-        cred = await current.linkWithPopup(provider);
-        toast('Google linked — data kept on this account');
-      } catch(linkErr){
-        if(linkErr.code === 'auth/credential-already-in-use' ||
-           linkErr.code === 'auth/email-already-in-use'){
-          cred = await auth.signInWithPopup(provider);
-          toast('Signed in with Google');
-        } else if(linkErr.code === 'auth/popup-blocked' || linkErr.code === 'auth/popup-closed-by-user'){
-          sessionStorage.setItem('erp_auth_redirect', '1');
-          sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
-          setBusy(true, 'Redirecting to Google…');
-          await auth.signInWithRedirect(provider);
-          return;
-        } else {
-          throw linkErr;
-        }
+    try {
+      if(auth.currentUser && auth.currentUser.isAnonymous) await auth.signOut();   // old guest session
+      cred = await auth.signInWithPopup(provider);
+    } catch(popErr){
+      if(popErr.code === 'auth/popup-blocked' || popErr.code === 'auth/popup-closed-by-user'){
+        sessionStorage.setItem('erp_auth_redirect', '1');
+        sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
+        setBusy(true, 'Redirecting to Google…');
+        await auth.signInWithRedirect(provider);
+        return;
       }
-    } else {
-      try {
-        cred = await auth.signInWithPopup(provider);
-        toast('Signed in with Google');
-      } catch(popErr){
-        if(popErr.code === 'auth/popup-blocked' || popErr.code === 'auth/popup-closed-by-user'){
-          sessionStorage.setItem('erp_auth_redirect', '1');
-          sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
-          setBusy(true, 'Redirecting to Google…');
-          await auth.signInWithRedirect(provider);
-          return;
-        }
-        throw popErr;
-      }
+      throw popErr;
     }
 
-    sessionStorage.removeItem('erp_guest_ok');
     const user = (cred && cred.user) || auth.currentUser;
-    hideAuthGate();
     updateAccountUI(user);
-    if(user){
-      await startAppForUser(user);
-      await maybeMigrateGuestDataToCurrentUser();
-    }
+    if(user) await startAppForUser(user);
   } catch(err){
     console.error('Google sign-in failed:', err);
     const map = {
@@ -330,46 +200,70 @@ async function signInWithGoogle(){
 
 async function signOutAccount(){
   try {
-    sessionStorage.removeItem('erp_guest_ok');
+    stopTeam();
     await auth.signOut();
     toast('Signed out');
-    showAuthGate();
+    location.reload();   // drop everything the previous account had loaded
   } catch(err){
     console.error(err);
     toast(err.message || 'Sign out failed', 'error');
   }
 }
 
-async function startAppForUser(user){
+/* Check access (team membership) first, then load the workspace. Runs once per account. */
+let startedUid = null;
+let starting = null;
+function startAppForUser(user){
   if(!user || !user.uid){
     console.error('startAppForUser: missing user');
-    return;
+    return Promise.resolve();
   }
-  try {
-    updateAccountUI(user);
+  if(startedUid === user.uid && starting) return starting;
+  startedUid = user.uid;
+  starting = (async () => {
+    const overlay = $('loadingOverlay');
     const loadingText = $('loadingText');
-    if(loadingText) loadingText.textContent = 'Loading your data...';
-    await CloudSync.init(user.uid);
-    try { loadIssueNotes(); } catch(e){ console.warn('loadIssueNotes', e); }
-    const overlay = $('loadingOverlay');
-    if(overlay) overlay.classList.add('hidden');
-    // Non-blocking prefetch
-    try { prefetchTesterCount(); } catch(e){ console.warn('prefetchTesterCount', e); }
-  } catch(err){
-    console.error('startAppForUser failed:', err);
-    setSyncStatus('error', 'Load failed');
-    const overlay = $('loadingOverlay');
-    if(overlay) overlay.classList.add('hidden');
-    toast(err.message || 'Failed to load data', 'error');
-  }
+    try {
+      updateAccountUI(user);
+      if(overlay) overlay.classList.remove('hidden');
+      if(loadingText) loadingText.textContent = 'Checking access...';
+      let access;
+      try {
+        access = await resolveAccess(user);
+      } catch(err){
+        console.error('access check failed', err);
+        startedUid = null;
+        showNoAccess({ email: user.email, error: err.message || String(err), hint: err.hint });
+        return;
+      }
+      if(access.denied){
+        startedUid = null;
+        showNoAccess({ email: access.email });
+        return;
+      }
+      hideNoAccess();
+      hideAuthGate();
+      if(loadingText) loadingText.textContent = 'Loading your data...';
+      await CloudSync.init(user.uid, access.workspaceId);
+      watchMembers();
+      try { loadIssueNotes(); } catch(e){ console.warn('loadIssueNotes', e); }
+      if(overlay) overlay.classList.add('hidden');
+      // Non-blocking prefetch
+      try { prefetchTesterCount(); } catch(e){ console.warn('prefetchTesterCount', e); }
+    } catch(err){
+      console.error('startAppForUser failed:', err);
+      setSyncStatus('error', 'Load failed');
+      if(overlay) overlay.classList.add('hidden');
+      toast(err.message || 'Failed to load data', 'error');
+    }
+  })();
+  return starting;
 }
 
 export {
-  continueAsGuest,
   hideAuthGate,
   isAnonymousUser,
   isGoogleUser,
-  maybeMigrateGuestDataToCurrentUser,
   renderAll,
   showAuthGate,
   signInWithGoogle,
