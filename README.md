@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.62.1-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.62.2-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -198,6 +198,7 @@ The answer tells how many sites were checked / left and what was sent.
 
 ## 📝 Changelog (short)
 
+- **v4.62.2**: removed the old v4.40.3 "sidebar counts always white !important" rule that still made non-zero counts white-on-white on the open item; sidebar count colours now live only in the theme block (sidebar-scoped, !important), including the collapsed-rail dots.
 - **v4.62.1**: active sidebar item with a zero count: teal number on the white pill (the zero-count rule made it white on white).
 - **v4.62.0**: Teal → cyan theme. Tokens: `--brand` #0d9488 (dark #14b8a6), new `--brand-2`, `--brand-grad`, `--brand-shadow`; background tinted teal without the pink mesh; maroon sidebar replaced (light: teal→cyan gradient, dark: deep teal). Sidebar counts white/neutral, active count white; red stays for Rework / errors / down / delete; status colours unchanged; dashboard project bars stay blue / cyan / violet. Hard-coded blue→violet→pink accents (primary buttons, chips, modal bars, marks, empty/confirm icons) are overridden in one "THEME — Teal → Cyan" block at the end of `css/style.css`.
 - **v4.61.4**: removed the badge row under the address (open issues, out-of-step); both remain in the details, out-of-step also as a filter.
