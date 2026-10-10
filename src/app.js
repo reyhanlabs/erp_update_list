@@ -100,7 +100,7 @@ import {
   updateAccountUI
 } from './features/account.js';
 import { applyAppVersion } from './features/settings.js';
-import { addMember, setMemberRole, removeMember, makeTeamOwner, retryAccess, renderTeam, installPermissionToast } from './core/team.js';
+import { addMember, setMemberRole, removeMember, makeTeamOwner, retryAccess, renderTeam, installPermissionToast, toggleRolePicker, pickRole } from './core/team.js';
 import {
   applyIssueStatusBadgesFromCache,
   openIssueStatusView,
@@ -191,7 +191,7 @@ function exposeAppGlobals(){
     onDatePresetChange, onPlanRefChange, addIssueRow, autoGenerate, removeIssueRow,
     exportAll, importAll, wipeAll, copyUID,
     signInWithGoogle, signOutAccount,
-    addMember, setMemberRole, removeMember, makeTeamOwner, retryAccess, renderTeam,
+    addMember, setMemberRole, removeMember, makeTeamOwner, retryAccess, renderTeam, toggleRolePicker, pickRole,
     toggleTesterNotifications, pushNotifRecent, markNotifSeen, renderNotifRecent, toggleNotifPanel, closeNotifPanel, positionNotifPanel, markAllRftSeen,
     // Plan cards
     togglePlanCard, toggleCopyMenu, closeAllCopyMenus, copyPlan, copyPlanShareLink, makeShareId, bootShareMode, installPwaApp, loadSharedPlanFromUrl, copySharedIssueLinks, copySharedTelegram, editPlan, deletePlan, savePlan,

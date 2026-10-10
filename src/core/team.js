@@ -159,8 +159,8 @@ function fmtSeen(ms){
 /* which roles the current user may give to a member (empty = can't change) */
 function assignable(target){
   if(target.role === 'owner' || target.email === Team.email) return [];
-  if(isOwner()) return ['admin', 'editor', 'viewer'];
-  if(Team.role === 'admin' && target.role !== 'admin') return ['editor', 'viewer'];
+  if(isOwner()) return ['viewer', 'editor', 'admin'];
+  if(Team.role === 'admin' && target.role !== 'admin') return ['viewer', 'editor'];
   return [];
 }
 
@@ -170,11 +170,11 @@ function renderTeam(){
   const count = $('teamCount');
   if(count) count.textContent = Team.members.length ? String(Team.members.length) : '';
   const addRole = $('teamAddRole');
-  if(addRole){
-    const keep = addRole.value;
-    addRole.innerHTML = (isOwner() ? ['viewer', 'editor', 'admin'] : ['viewer', 'editor'])
-      .map(r => `<option value="${r}">${r[0].toUpperCase() + r.slice(1)}</option>`).join('');
-    if([...addRole.options].some(o => o.value === keep)) addRole.value = keep;
+  const addPicker = $('teamAddRolePicker');
+  if(addRole && addPicker){
+    const roles = isOwner() ? ['viewer', 'editor', 'admin'] : ['viewer', 'editor'];
+    if(!roles.includes(addRole.value)) addRole.value = 'viewer';
+    addPicker.innerHTML = rolePickerInner(addRole.value, roles);
   }
   if(!Team.members.length){
     list.innerHTML = `<p class="team-empty${Team.listError ? ' is-error' : ''}">${escapeHtml(Team.listError || 'No members loaded yet.')}</p>`;
@@ -186,7 +186,7 @@ function renderTeam(){
     const roles = assignable(m);
     const e = escapeHtml(JSON.stringify(m.email));
     const roleCell = roles.length
-      ? `<select class="select team-role-select" aria-label="Role of ${escapeHtml(m.email)}" onchange="setMemberRole(${e}, this.value)">${roles.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${r[0].toUpperCase() + r.slice(1)}</option>`).join('')}</select>`
+      ? `<div class="rp rp-sm" data-email="${escapeHtml(m.email)}">${rolePickerInner(m.role, roles, m.email)}</div>`
       : `<span class="team-role is-${escapeHtml(m.role)}">${escapeHtml(m.role)}</span>`;
     const actions = [];
     if(isOwner() && m.role === 'admin') actions.push(`<button type="button" class="btn btn-ghost btn-xs" onclick="makeTeamOwner(${e})" title="Hand ownership to this admin">Make owner</button>`);
@@ -202,6 +202,48 @@ function renderTeam(){
     </div>`;
   }).join('');
 }
+
+/* role picker: a small custom menu (native <select> lists ignore the app font) */
+const cap = (r) => r[0].toUpperCase() + r.slice(1);
+const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+function rolePickerInner(value, roles, email){
+  return `<button type="button" class="rp-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHtml(email ? 'Role of ' + email : 'Role')}" onclick="toggleRolePicker(event, this)"><span>${cap(value)}</span>${CHEVRON}</button>
+    <div class="rp-menu" role="listbox">${roles.map(r => `<button type="button" role="option" class="rp-opt${r === value ? ' is-sel' : ''}" aria-selected="${r === value}" onclick="pickRole(event, this, '${r}')"><b>${cap(r)}</b><small>${escapeHtml(ROLE_INFO[r])}</small></button>`).join('')}</div>`;
+}
+function closeRolePickers(except){
+  document.querySelectorAll('.rp.is-open').forEach(rp => {
+    if(rp === except) return;
+    rp.classList.remove('is-open');
+    rp.querySelector('.rp-btn')?.setAttribute('aria-expanded', 'false');
+  });
+}
+function toggleRolePicker(ev, btn){
+  ev.stopPropagation();
+  const rp = btn.closest('.rp');
+  closeRolePickers(rp);
+  const open = rp.classList.toggle('is-open');
+  btn.setAttribute('aria-expanded', String(open));
+  if(open){
+    // open upwards when there's no room below
+    const r = btn.getBoundingClientRect();
+    rp.classList.toggle('is-up', window.innerHeight - r.bottom < 230 && r.top > 230);
+  }
+}
+function pickRole(ev, el, role){
+  ev.stopPropagation();
+  const rp = el.closest('.rp');
+  closeRolePickers();
+  if(rp.dataset.email){
+    const m = Team.members.find(x => x.email === rp.dataset.email);
+    if(m && m.role !== role) setMemberRole(rp.dataset.email, role);
+    return;
+  }
+  const input = $('teamAddRole');
+  if(input) input.value = role;
+  renderTeam();
+}
+document.addEventListener('click', () => closeRolePickers());
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeRolePickers(); });
 
 async function teamPost(body){
   if(Team.busy) return null;
@@ -287,5 +329,5 @@ function currentEmail(){ return Team.email || (auth.currentUser && auth.currentU
 export {
   Team, ROLE_INFO, canEdit, canAdmin, isOwner, resolveAccess, showNoAccess, hideNoAccess,
   retryAccess, watchMembers, stopTeam, renderTeam, addMember, setMemberRole, removeMember,
-  makeTeamOwner, installPermissionToast, isPermissionError, currentEmail
+  makeTeamOwner, installPermissionToast, toggleRolePicker, pickRole, isPermissionError, currentEmail
 };
