@@ -120,6 +120,7 @@ function watchMembers(){
   Team.unsub = db.collection('workspaces').doc(Team.workspaceId).collection('members')
     .onSnapshot(snap => {
       Team.members = snap.docs.map(d => ({ email: d.id, ...d.data() }));
+      Team.listError = '';
       const mine = Team.members.find(m => m.email === Team.email);
       if(mine && mine.role !== Team.role){
         applyRole(mine.role);
@@ -134,6 +135,9 @@ function watchMembers(){
     }, err => {
       console.warn('members snapshot', err);
       Team.members = [];
+      Team.listError = err && err.code === 'permission-denied'
+        ? 'Members can’t be read yet: publish the new firestore.rules in Firebase Console.'
+        : 'Could not load members: ' + ((err && err.message) || err);
       renderTeam();
     });
 }
@@ -173,7 +177,7 @@ function renderTeam(){
     if([...addRole.options].some(o => o.value === keep)) addRole.value = keep;
   }
   if(!Team.members.length){
-    list.innerHTML = '<p class="team-empty">No members loaded yet.</p>';
+    list.innerHTML = `<p class="team-empty${Team.listError ? ' is-error' : ''}">${escapeHtml(Team.listError || 'No members loaded yet.')}</p>`;
     return;
   }
   const rows = Team.members.slice().sort((a, b) => rank(b.role) - rank(a.role) || a.email.localeCompare(b.email));
@@ -182,7 +186,7 @@ function renderTeam(){
     const roles = assignable(m);
     const e = escapeHtml(JSON.stringify(m.email));
     const roleCell = roles.length
-      ? `<select class="team-role-select" aria-label="Role of ${escapeHtml(m.email)}" onchange="setMemberRole(${e}, this.value)">${roles.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${r[0].toUpperCase() + r.slice(1)}</option>`).join('')}</select>`
+      ? `<select class="select team-role-select" aria-label="Role of ${escapeHtml(m.email)}" onchange="setMemberRole(${e}, this.value)">${roles.map(r => `<option value="${r}"${r === m.role ? ' selected' : ''}>${r[0].toUpperCase() + r.slice(1)}</option>`).join('')}</select>`
       : `<span class="team-role is-${escapeHtml(m.role)}">${escapeHtml(m.role)}</span>`;
     const actions = [];
     if(isOwner() && m.role === 'admin') actions.push(`<button type="button" class="btn btn-ghost btn-xs" onclick="makeTeamOwner(${e})" title="Hand ownership to this admin">Make owner</button>`);
