@@ -3651,3 +3651,71 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 /* dashboard project bars keep three distinct colours */
 .dash-proj-bar i{background:#3b82f6}
 [data-theme="dark"] .dash-proj-bar i{background:#60a5fa}
+
+
+/* ============================================================
+   NEW ISSUE — compact one-screen layout (v4.63.0)
+   One spacing scale: 12px between columns, 10px between rows,
+   4px label → field, 34px controls.
+   ============================================================ */
+.ci-panel{max-width:1320px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow-sm)}
+.ci-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line)}
+.ci-head h2{margin:0;font-size:15px;font-weight:650;color:var(--text)}
+.ci-head p{margin:0;font-size:12.5px;color:var(--text-tertiary)}
+.ci-form{display:flex;flex-direction:column;gap:10px;padding:12px 18px 14px}
+.ci-form .field{margin:0;min-width:0}
+.ci-form .field > label,.ci-col-head label{display:block;margin:0 0 4px;font-size:12.5px;font-weight:600;color:var(--text-secondary)}
+.ci-form .input{height:34px;padding:6px 10px;font-size:13px;border-radius:8px}
+.ci-form .select{padding-right:28px}
+.ci-details{border:0;padding:0;background:none}
+.ci-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.ci-grid .field.hidden{display:none}
+.ci-more{margin-top:8px}
+.ci-more .ci-custom-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;margin-top:8px}
+
+/* notes | description side by side, same height */
+.ci-main{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,8fr);gap:12px;align-items:stretch;--ci-edit-h:clamp(170px, calc(100vh - 560px), 560px)}
+.ci-notes-col,.ci-desc-col{display:flex;flex-direction:column;min-height:0}
+.ci-col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:26px;margin-bottom:4px}
+.ci-col-head label{margin:0 !important}
+.ci-desc-head{margin-bottom:4px;flex-wrap:nowrap}
+.ci-desc-head-right{gap:8px;flex-wrap:nowrap}
+.ci-format{font-size:11.5px;gap:4px}
+.ci-format select{height:26px;font-size:12px;padding:0 6px;border-radius:6px}
+.ci-form textarea.ci-notes{height:calc(var(--ci-edit-h) + 42px);min-height:120px;resize:vertical;line-height:1.55;padding:8px 10px;font-family:inherit}
+.ci-tips{margin-top:6px;font-size:12px}
+.ci-tips summary{cursor:pointer;color:var(--text-tertiary);font-weight:550;list-style:none}
+.ci-tips summary::-webkit-details-marker{display:none}
+.ci-tips summary::before{content:'ⓘ ';}
+.ci-tips .field-hint{margin-top:4px;line-height:1.5}
+.ci-notes-tools{display:flex;gap:6px;align-items:center}
+.ci-generate{font-weight:650;color:var(--brand);border-color:var(--brand-ring)}
+.ci-gpt{margin:0 0 6px}
+.ci-compose{display:flex;flex-direction:column;border-radius:10px}
+.ci-compose .kb-compose-bar{padding:4px 8px}
+.ci-compose .kb-textarea{height:var(--ci-edit-h);min-height:120px;padding:10px 12px}
+.ci-compose .ci-preview{height:var(--ci-edit-h);min-height:120px;max-height:none}
+.ci-compose .kb-compose-foot{padding:6px 12px;font-size:11.5px}
+
+/* attachments + actions on one line */
+.ci-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+.ci-drop{padding:0 12px;height:38px;border-radius:8px;font-size:12.5px}
+.ci-drop svg{width:16px;height:16px}
+.ci-files{margin-top:6px}
+.ci-actions{display:flex;gap:8px}
+.ci-actions .btn{height:38px}
+
+@media(max-width:1100px){
+  .ci-grid,.ci-more .ci-custom-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .ci-main{grid-template-columns:1fr;--ci-edit-h:220px}
+  .ci-desc-head{flex-wrap:wrap}
+}
+@media(max-width:560px){
+  .ci-grid,.ci-more .ci-custom-grid{grid-template-columns:1fr}
+  .ci-bottom{grid-template-columns:1fr}
+  .ci-actions .btn{flex:1}
+  .ci-head{padding:10px 14px}.ci-form{padding:10px 14px 12px}
+  .ci-notes-col .ci-col-head .ci-optional{display:none}
+}
