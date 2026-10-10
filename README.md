@@ -2,7 +2,7 @@
 
 Web app for managing the Zahir ERP update history (synced from Redmine `pjm.zahironline.com`), the Ready for Testing queue, team how-to guides, and release summaries for WhatsApp/Telegram.
 
-![Version](https://img.shields.io/badge/version-4.61.4-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
+![Version](https://img.shields.io/badge/version-4.62.0-blue) ![Firebase](https://img.shields.io/badge/Firebase-v10-orange) ![Vercel](https://img.shields.io/badge/Deploy-Vercel-black)
 
 Live: [erp-update-list.vercel.app](https://erp-update-list.vercel.app)
 
@@ -198,6 +198,7 @@ The answer tells how many sites were checked / left and what was sent.
 
 ## 📝 Changelog (short)
 
+- **v4.62.0**: Teal → cyan theme. Tokens: `--brand` #0d9488 (dark #14b8a6), new `--brand-2`, `--brand-grad`, `--brand-shadow`; background tinted teal without the pink mesh; maroon sidebar replaced (light: teal→cyan gradient, dark: deep teal). Sidebar counts white/neutral, active count white; red stays for Rework / errors / down / delete; status colours unchanged; dashboard project bars stay blue / cyan / violet. Hard-coded blue→violet→pink accents (primary buttons, chips, modal bars, marks, empty/confirm icons) are overridden in one "THEME — Teal → Cyan" block at the end of `css/style.css`.
 - **v4.61.4**: removed the badge row under the address (open issues, out-of-step); both remain in the details, out-of-step also as a filter.
 - **v4.61.3**: client name keeps the full cell width (wraps instead of "S…"); "N open issues" (only when > 0) and "⚠ Nd apart" moved to a small badge row under the address.
 - **v4.61.2**: no "from … · ago" line under the front-end version; the last change is in the badge tooltip (history unchanged).
