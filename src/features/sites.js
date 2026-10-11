@@ -106,10 +106,11 @@ const PARTS = [
   { key: 'v2', label: 'API V2', get: (s) => s.v2 || '' },
   { key: 'v3', label: 'API V3', get: (s) => s.v3 || '' }
 ];
-// Test / internal servers (e.g. a dev server) run builds no client has yet, so
-// they don't set "latest" and aren't counted as behind or in the rollout.
-const counted = () => { const live = S.sites.filter(s => !s.isTest); return live.length ? live : S.sites; };
-function latestOf(part){ return counted().map(part.get).filter(Boolean).sort(cmpVersion).pop() || ''; }
+// v4.64.3: "latest" is the highest version on ANY site, test servers included
+// (ERP DEV carries the tester version clients should move to). Test servers
+// themselves are still not counted as behind or in the rollout.
+const counted = () => { const live = S.sites.filter(s => !s.isTest); return live.length ? live : S.sites; };   // rollout: clients only
+function latestOf(part){ return S.sites.map(part.get).filter(Boolean).sort(cmpVersion).pop() || ''; }
 function latestAll(){ return Object.fromEntries(PARTS.map(p => [p.key, latestOf(p)])); }
 function onLatest(s, part, top){ const v = part.get(s); return !!(v && top && cmpVersion(v, top) === 0); }
 function behindParts(s, tops){ if(s.isTest) return []; return PARTS.filter(p => { const v = p.get(s); return v && tops[p.key] && cmpVersion(v, tops[p.key]) < 0; }); }
@@ -486,7 +487,7 @@ function renderNow(){
   const downCount = S.sites.filter(x => (x.failCount || 0) >= 2).length;
   const chip = (val, label, n, cls = '', title = '') => `<button type="button" class="sv-chip ${cls}${S.versionFilter === val ? ' is-active' : ''}"${title ? ` title="${escapeHtml(title)}"` : ''} onclick="setSitesFilter(${escapeHtml(JSON.stringify(val))})">${label}<b>${n}</b></button>`;
 
-  // green = latest, amber = behind, blue = newer than any client (test server)
+  // green = latest, amber = behind (blue = newer, only when latest isn't set)
   const tone = (v, top) => !v ? ' is-none' : !top ? '' : cmpVersion(v, top) === 0 ? ' is-latest' : cmpVersion(v, top) > 0 ? ' is-ahead' : ' is-behind';
   const builtTitle = (v) => { const at = buildDate(v); return at ? `Built ${fmtBuild(at)}` : ''; };
   const apiCell = (s, k) => {
@@ -515,7 +516,7 @@ function renderNow(){
       : `<span class="sv-status" title="${s.checkedBy === 'server' ? 'Checked by the scheduled server check' : 'Checked from the app'}">${escapeHtml(ago(s.checkedAt))}${by}</span>`;
     const open = S.open === s.id;
     const details = open ? `<div class="sv-details">
-        ${s.isTest ? '<p><b>Test / internal server:</b> not used for Latest, rollout or Behind latest.</p>' : ''}
+        ${s.isTest ? '<p><b>Test / internal server:</b> counts for Latest; not counted in the rollout or Behind latest.</p>' : ''}
         ${mm ? `<p class="sv-warn"><b>Parts out of step:</b> ${escapeHtml(mm.text)} — possibly an unfinished deploy.</p>` : ''}
         ${s.pinnedVersion ? `<p><b>Version set by hand:</b> ${escapeHtml(s.pinnedVersion)}${s.version ? ` (detected: ${escapeHtml(s.version)})` : ''}</p>` : ''}
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
@@ -533,7 +534,7 @@ function renderNow(){
       <div class="sv-main">
         <div class="sv-name-line">
           <button type="button" class="sv-name" aria-expanded="${open}" title="Show details">${escapeHtml(s.name)}</button>
-          ${s.isTest ? '<span class="sv-tag" title="Test / internal server: not used for Latest, rollout or Behind latest">test</span>' : ''}
+          ${s.isTest ? '<span class="sv-tag" title="Test / internal server: counts for Latest; not counted in the rollout or Behind latest">test</span>' : ''}
         </div>
         <a class="sv-url" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(hostOf(s.url))}</a>
         ${s.notes ? `<span class="sv-notes" title="${escapeHtml(s.notes)}">${escapeHtml(s.notes)}</span>` : ''}
@@ -574,7 +575,7 @@ function renderNow(){
     ${recentChangesHtml()}
     <div class="sv-chips" role="group" aria-label="Filter by version">
       ${chip('all', 'All', S.sites.length)}
-      ${PARTS.map(p => tops[p.key] ? chip('__latest_' + p.key, `Latest ${p.key.toUpperCase()} <i>${escapeHtml(tops[p.key])}</i>`, S.sites.filter(x => onLatest(x, p, tops[p.key])).length, 'is-latest', `Clients on the highest ${p.label} version`) : '').join('')}
+      ${PARTS.map(p => tops[p.key] ? chip('__latest_' + p.key, `Latest ${p.key.toUpperCase()} <i>${escapeHtml(tops[p.key])}</i>`, S.sites.filter(x => onLatest(x, p, tops[p.key])).length, 'is-latest', `Sites on the highest ${p.label} version (test servers included)`) : '').join('')}
       ${chip('__behind', 'Behind latest', behindAny, 'is-warn', 'Clients behind the highest version on front-end, API V2 or API V3')}
       ${mismatches ? chip('__mismatch', 'Parts out of step', mismatches, 'is-warn', `Front-end, API V2 and API V3 built more than ${MISMATCH_DAYS} days apart on the same site`) : ''}
       ${downCount ? chip('__down', 'Down', downCount, 'is-error', 'Not reachable for 2 or more checks in a row') : ''}
