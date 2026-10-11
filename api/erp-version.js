@@ -205,6 +205,9 @@ function scanText(text, source, isVendor) {
     [new RegExp(String.raw`(?:Version|Versi|VERSION|VERSI|Ver\.)\s*:?\s*` + VER + String.raw`(?![\d.])`, 'g'), 75],
     // Zahir ERP build string, e.g. "V2.26.07.221600" (major.yy.mm.ddhhmm) in any quoted literal
     [new RegExp(String.raw`["'\x60]V(\d{1,2}\.\d{2}\.\d{2}\.\d{4,8})["'\x60]`, 'g'), 92],
+    // package.json fields inlined by Vite / Rollup, e.g. (Zahir MRP)
+    //   const name="zahir-mrp",version="2.26.10.011400",PackageJSON={version}
+    [new RegExp(String.raw`\bname["']?\s*[:=]\s*["'\x60]@?[\w.\-\/]*(?:zahir|erp|mrp)[\w.\-\/]*["'\x60]\s*[,;]\s*(?:(?:const|let|var)\s+)?["']?version["']?\s*[:=]\s*["'\x60]` + VER + `["'\x60]`, 'gi'), 97],
     // generic  version:"x.y.z"
     [new RegExp(String.raw`["']?version["']?\s*[:=]\s*["'\x60]` + VER + `["'\x60]`, 'g'), 45]
   ];
@@ -407,8 +410,9 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
       candidates.push(...scanText(r.text, url.replace(/^https:\/\/[^/]+/, ''), vendor));
       // lazily loaded chunks named in this file (Vite / Rollup / plain webpack paths)
       for (const m of r.text.matchAll(/["'\x60]((?:\.{1,2}\/[\w.\-\/]+?|(?:\/)?(?:assets|js|static\/js|_next\/static\/chunks|build|dist)\/[\w.\-\/]+?)\.js)["'\x60]/g)) {
-        const u = sameSiteUrl(m[1], url);
-        if (u && !seen.has(u) && /auth|login|signin|sign-in|app|main|index|layout|footer|version|about|setting/i.test(m[1])) { seen.add(u); queue.push(u); }
+        // "./x.js" is relative to this file; "assets/x.js" (Vite's preload list) to the site root
+        const u = sameSiteUrl(/^\.{1,2}\/|^\//.test(m[1]) ? m[1] : '/' + m[1], url);
+        if (u && !seen.has(u) && /auth|login|signin|sign-in|app|main|index|layout|footer|version|about|setting|bootstrap|boot|entry|init|package/i.test(m[1])) { seen.add(u); queue.push(u); }
       }
       // webpack 5 lazy chunks (Create React App etc.)
       webpackChunks(r.text, url).forEach(c => { if (!chunkMap.has(c.id)) chunkMap.set(c.id, c); });
