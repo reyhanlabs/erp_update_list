@@ -7,14 +7,14 @@
    DESIGN TOKENS — LIGHT
    ============================================================ */
 :root, [data-theme="light"]{
-  --bg:#f0f9f8;
-  --bg-subtle:#e4f3f1;
-  --bg-mesh-1:rgba(20,184,166,.10);
-  --bg-mesh-2:rgba(56,189,248,.09);
+  --bg:#f5f5fe;
+  --bg-subtle:#eaeafb;
+  --bg-mesh-1:rgba(99,102,241,.10);
+  --bg-mesh-2:rgba(167,139,250,.09);
   --bg-mesh-3:transparent;
   --surface:#ffffff;
   --surface-elev:#fafbff;
-  --sidebar:#0f766e;
+  --sidebar:#4338ca;
   --sidebar-soft:rgba(255,255,255,.12);
   --sidebar-line:rgba(255,255,255,.14);
   --text:#0b1220;
@@ -23,13 +23,13 @@
   --line:#d8dee8;
   --line-strong:#c5cdd9;
   --issue-border:#cbd5e1;
-  --brand:#0d9488;
-  --brand-hover:#0f766e;
-  --brand-soft:#e6f6f4;
-  --brand-ring:rgba(13,148,136,.16);
-  --brand-2:#0891b2;
-  --brand-grad:linear-gradient(135deg,#14b8a6 0%,#0d9488 55%,#0891b2 100%);
-  --brand-shadow:rgba(13,148,136,.32);
+  --brand:#4f46e5;
+  --brand-hover:#4338ca;
+  --brand-soft:#eef0ff;
+  --brand-ring:rgba(79,70,229,.16);
+  --brand-2:#7c3aed;
+  --brand-grad:linear-gradient(135deg,#6366f1 0%,#4f46e5 55%,#7c3aed 100%);
+  --brand-shadow:rgba(79,70,229,.32);
   --success:#059669;
   --success-soft:#ecfdf5;
   --warning:#d97706;
@@ -84,13 +84,13 @@
 [data-theme="dark"]{
   --bg:#080c16;
   --bg-subtle:#0d1420;
-  --bg-mesh-1:rgba(20,184,166,.12);
-  --bg-mesh-2:rgba(14,165,233,.09);
+  --bg-mesh-1:rgba(99,102,241,.12);
+  --bg-mesh-2:rgba(167,139,250,.09);
   --bg-mesh-3:transparent;
   --surface:#0f1829;
   --surface-elev:#121c30;
-  --sidebar:#06201f;
-  --sidebar-soft:rgba(45,212,191,.12);
+  --sidebar:#11112e;
+  --sidebar-soft:rgba(129,140,248,.12);
   --sidebar-line:#1a2438;
   --text:#e8edf5;
   --text-secondary:#a3b1c6;
@@ -98,13 +98,13 @@
   --line:#1c2740;
   --line-strong:#28354f;
   --issue-border:#3d4d6f;
-  --brand:#14b8a6;
-  --brand-hover:#2dd4bf;
-  --brand-soft:rgba(20,184,166,.14);
-  --brand-2:#22d3ee;
-  --brand-grad:linear-gradient(135deg,#14b8a6 0%,#0d9488 55%,#0891b2 100%);
-  --brand-shadow:rgba(20,184,166,.35);
-  --brand-ring:rgba(45,212,191,.22);
+  --brand:#6366f1;
+  --brand-hover:#818cf8;
+  --brand-soft:rgba(99,102,241,.14);
+  --brand-2:#a78bfa;
+  --brand-grad:linear-gradient(135deg,#6366f1 0%,#4f46e5 55%,#7c3aed 100%);
+  --brand-shadow:rgba(99,102,241,.35);
+  --brand-ring:rgba(129,140,248,.22);
   --success:#10b981;
   --success-soft:rgba(16,185,129,.14);
   --warning:#f59e0b;
@@ -2327,7 +2327,7 @@ body.share-mode .main{padding:16px;max-width:960px;margin:0 auto}
   border-color:rgba(255,255,255,.06) !important;
 }
 
-/* Sidebar count badge colours: see "THEME — Teal → Cyan" at the end (v4.62.2). */
+/* Sidebar count badge colours: see "THEME — Indigo → Violet" at the end. */
 
 
 /* ============================================================
@@ -3584,69 +3584,69 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 
 
 /* ============================================================
-   THEME — Teal → Cyan (v4.62.0)
-   One brand family: teal for actions/selection, cyan as its partner.
+   THEME — Indigo → Violet (v4.65.0; was Teal → Cyan in v4.62.0)
+   One brand family: indigo for actions/selection, violet as its partner.
    Red stays for problems only (Rework, errors, down, delete);
    status colours (blue / amber / violet / green) keep their meaning.
    ============================================================ */
 /* sidebar */
-.sidebar{background:linear-gradient(170deg,#0f766e 0%,#0d9488 48%,#0891b2 100%)}
+.sidebar{background:linear-gradient(170deg,#4338ca 0%,#4f46e5 48%,#7c3aed 100%)}
 .sidebar::before,.sidebar::after{display:none}
 .nav-section{color:rgba(255,255,255,.66)}
 .nav-item,.nav-icon,.nav-item:hover .nav-icon{color:rgba(255,255,255,.94)}
 .nav-item:hover{background:rgba(255,255,255,.12);color:#fff}
 .nav-item.active{background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.26)}
 .nav-item.active::before{background:#fff;box-shadow:none}
-/* counts: white on teal; the open item gets a white pill with teal text (any value, zero included) */
+/* counts: white on indigo; the open item gets a white pill with indigo text (any value, zero included) */
 .sidebar .nav-item .count{color:#fff !important;background:rgba(255,255,255,.18) !important;border-color:transparent !important;box-shadow:none !important}
 .sidebar .nav-item .count[data-zero="1"]{color:rgba(255,255,255,.55) !important;background:transparent !important}
 .sidebar .nav-item.has-queue .count:not([data-zero="1"]){color:#78350f !important;background:#fde68a !important}
 .sidebar .nav-item.active .count,
-.sidebar .nav-item.active .count[data-zero="1"]{color:#0f766e !important;background:#fff !important;border-color:#fff !important}
+.sidebar .nav-item.active .count[data-zero="1"]{color:#4338ca !important;background:#fff !important;border-color:#fff !important}
 .sidebar-footer,.sidebar [class*="foot"]{border-top-color:rgba(255,255,255,.16)}
-[data-theme="dark"] .sidebar{background:linear-gradient(180deg,#06201f 0%,#08262a 55%,#0a1c24 100%)}
-[data-theme="dark"] .nav-section{color:#5f8f8a}
-[data-theme="dark"] .nav-item:hover{background:rgba(45,212,191,.08)}
-[data-theme="dark"] .nav-item.active{background:rgba(45,212,191,.16);box-shadow:inset 0 0 0 1px rgba(94,234,212,.22)}
-[data-theme="dark"] .nav-item.active::before{background:#2dd4bf}
-[data-theme="dark"] .sidebar .nav-item .count{color:#ccfbf1 !important;background:rgba(45,212,191,.14) !important}
-[data-theme="dark"] .sidebar .nav-item .count[data-zero="1"]{color:#4b6b68 !important;background:transparent !important}
+[data-theme="dark"] .sidebar{background:linear-gradient(180deg,#11112e 0%,#161437 55%,#1a1233 100%)}
+[data-theme="dark"] .nav-section{color:#7a7fb0}
+[data-theme="dark"] .nav-item:hover{background:rgba(129,140,248,.08)}
+[data-theme="dark"] .nav-item.active{background:rgba(129,140,248,.16);box-shadow:inset 0 0 0 1px rgba(165,180,252,.22)}
+[data-theme="dark"] .nav-item.active::before{background:#818cf8}
+[data-theme="dark"] .sidebar .nav-item .count{color:#e0e7ff !important;background:rgba(129,140,248,.14) !important}
+[data-theme="dark"] .sidebar .nav-item .count[data-zero="1"]{color:#555a85 !important;background:transparent !important}
 [data-theme="dark"] .sidebar .nav-item.active .count,
-[data-theme="dark"] .sidebar .nav-item.active .count[data-zero="1"]{color:#042f2e !important;background:#5eead4 !important;border-color:#5eead4 !important}
+[data-theme="dark"] .sidebar .nav-item.active .count[data-zero="1"]{color:#1e1b4b !important;background:#a5b4fc !important;border-color:#a5b4fc !important}
 /* collapsed icon rail: counts are small dots */
 @media(min-width:861px){
   body.sidebar-collapsed .sidebar .nav-item .count,
-  body.sidebar-collapsed .sidebar .nav-item.active .count{background:#fff !important;box-shadow:0 0 0 2px #0f766e !important;color:transparent !important}
+  body.sidebar-collapsed .sidebar .nav-item.active .count{background:#fff !important;box-shadow:0 0 0 2px #4338ca !important;color:transparent !important}
   [data-theme="dark"] body.sidebar-collapsed .sidebar .nav-item .count,
-  body.sidebar-collapsed[data-theme="dark"] .sidebar .nav-item .count{background:#5eead4 !important;box-shadow:0 0 0 2px #06201f !important}
+  body.sidebar-collapsed[data-theme="dark"] .sidebar .nav-item .count{background:#a5b4fc !important;box-shadow:0 0 0 2px #11112e !important}
 }
 
 /* primary actions & selection */
 .btn-primary{background:var(--brand-grad);background-size:150% 150%;box-shadow:0 2px 8px var(--brand-shadow), inset 0 1px 0 rgba(255,255,255,.2)}
 .btn-primary:hover{box-shadow:0 6px 20px var(--brand-shadow)}
 .theme-switch button.active{box-shadow:0 1px 3px rgba(11,18,32,.12), 0 0 0 1px var(--brand-ring)}
-[data-theme="dark"] .theme-switch button.active{background:rgba(20,184,166,.2);color:#5eead4;box-shadow:0 1px 3px rgba(0,0,0,.4), 0 0 0 1px rgba(45,212,191,.3)}
+[data-theme="dark"] .theme-switch button.active{background:rgba(99,102,241,.2);color:#a5b4fc;box-shadow:0 1px 3px rgba(0,0,0,.4), 0 0 0 1px rgba(129,140,248,.3)}
 .filter-chip.active{background:var(--brand-grad);box-shadow:0 4px 12px var(--brand-shadow)}
 .quick-chip.active,.density-chip.active{background:var(--brand-soft);border-color:var(--brand-ring);color:var(--brand)}
 .issues-block-head .count-pill{background:var(--brand-grad);box-shadow:0 2px 6px var(--brand-shadow)}
 .issues-block .plan-issue-row:hover{box-shadow:0 2px 6px var(--brand-ring)}
-[data-theme="dark"] .issues-block .plan-issue-row:hover{background:rgba(20,184,166,.1)}
+[data-theme="dark"] .issues-block .plan-issue-row:hover{background:rgba(99,102,241,.1)}
 .copy-menu-item .mi-icon{background:var(--brand-soft)}
 .notif-bell-btn.is-on{border-color:var(--brand-ring)}
 .toast.info .toast-icon{background:var(--brand-grad);box-shadow:0 0 12px var(--brand-shadow)}
-:root,[data-theme="light"]{--list-hover-bg:linear-gradient(90deg, rgba(20,184,166,.07) 0%, rgba(255,255,255,.2) 100%)}
-[data-theme="dark"]{--list-hover-bg:linear-gradient(90deg, rgba(20,184,166,.08) 0%, rgba(8,145,178,.04) 100%)}
+:root,[data-theme="light"]{--list-hover-bg:linear-gradient(90deg, rgba(99,102,241,.07) 0%, rgba(255,255,255,.2) 100%)}
+[data-theme="dark"]{--list-hover-bg:linear-gradient(90deg, rgba(99,102,241,.08) 0%, rgba(124,58,237,.04) 100%)}
 
-/* decorative accents: teal → cyan instead of blue → violet → pink */
-.card-head .mark{background:linear-gradient(135deg,#14b8a6,#0891b2);box-shadow:0 0 0 3px var(--brand-ring)}
-.modal::before,.confirm-box::before{background:linear-gradient(90deg,#14b8a6,#0891b2,#38bdf8)}
+/* decorative accents: indigo → violet */
+.card-head .mark{background:linear-gradient(135deg,#6366f1,#7c3aed);box-shadow:0 0 0 3px var(--brand-ring)}
+.modal::before,.confirm-box::before{background:linear-gradient(90deg,#6366f1,#7c3aed,#a78bfa)}
 .modal-head .mark{background:var(--brand-grad);box-shadow:0 4px 12px var(--brand-shadow)}
-.confirm-icon{background:linear-gradient(135deg,#e6f6f4,#e0f2fe);box-shadow:0 8px 24px var(--brand-ring), inset 0 1px 0 rgba(255,255,255,.5)}
-[data-theme="dark"] .confirm-icon{background:linear-gradient(135deg, rgba(20,184,166,.2), rgba(8,145,178,.15));border-color:rgba(45,212,191,.3);color:#5eead4;box-shadow:0 8px 24px rgba(20,184,166,.2)}
-.empty-icon{background:linear-gradient(135deg, var(--brand-soft) 0%, #e0f2fe 100%)}
-[data-theme="dark"] .empty-icon{background:linear-gradient(135deg, rgba(20,184,166,.16), rgba(8,145,178,.12));box-shadow:0 8px 24px rgba(20,184,166,.2), inset 0 1px 0 rgba(255,255,255,.05);color:#5eead4}
+.confirm-icon{background:linear-gradient(135deg,#eef0ff,#f3eefe);box-shadow:0 8px 24px var(--brand-ring), inset 0 1px 0 rgba(255,255,255,.5)}
+[data-theme="dark"] .confirm-icon{background:linear-gradient(135deg, rgba(99,102,241,.2), rgba(124,58,237,.15));border-color:rgba(129,140,248,.3);color:#a5b4fc;box-shadow:0 8px 24px rgba(99,102,241,.2)}
+.empty-icon{background:linear-gradient(135deg, var(--brand-soft) 0%, #f3eefe 100%)}
+[data-theme="dark"] .empty-icon{background:linear-gradient(135deg, rgba(99,102,241,.16), rgba(124,58,237,.12));box-shadow:0 8px 24px rgba(99,102,241,.2), inset 0 1px 0 rgba(255,255,255,.05);color:#a5b4fc}
 .cl-ver{background:var(--brand-grad)}
-.dash-action-btn:nth-child(1){--da-c1:#14b8a6;--da-c2:#0891b2;background:linear-gradient(135deg,#e6f6f4,#fff)}
+.dash-action-btn:nth-child(1){--da-c1:#6366f1;--da-c2:#7c3aed;background:linear-gradient(135deg,#eef0ff,#fff)}
 .da-icon.blue{background:var(--brand-grad)}
 /* dashboard project bars keep three distinct colours */
 .dash-proj-bar i{background:#3b82f6}
