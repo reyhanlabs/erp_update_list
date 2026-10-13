@@ -937,7 +937,12 @@
             <label class="field"><span>Redmine client name (By Client)</span><input class="input" id="siteRedmine" maxlength="120" list="siteRedmineList" placeholder="empty: matched by client name" autocomplete="off"><datalist id="siteRedmineList"></datalist></label>
             <label class="field"><span>Version (only if it can't be read)</span><input class="input" id="sitePinned" maxlength="40" placeholder="leave empty: read automatically"></label>
           </div>
-          <label class="sv-check"><input type="checkbox" id="siteIsTest"> Test / internal server (e.g. a dev server): counts for Latest, not for the rollout or Behind latest</label>
+          <div class="sv-test-row">
+            <label class="sv-check"><input type="checkbox" id="siteIsTest" onchange="document.getElementById('siteTestEnvWrap').classList.toggle('hidden', !this.checked)"> Test / internal server: counts for Latest, not for the rollout or Behind latest</label>
+            <label class="sv-env hidden" id="siteTestEnvWrap">Server
+              <select class="select" id="siteTestEnv"><option value="dev">Dev</option><option value="prod">Prod</option></select>
+            </label>
+          </div>
           <div class="sv-form-actions">
             <button type="button" class="btn btn-secondary btn-sm" onclick="closeSiteForm()">Cancel</button>
             <button type="submit" class="btn btn-primary btn-sm">Save</button>
@@ -1492,6 +1497,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.67.0</span>
+                <span class="cl-note">Client Versions: test servers split into Dev servers and Prod servers (choose Dev or Prod in Edit)</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.66.1</span>
                 <span class="cl-note">After a deploy the app always loads matching code files (no more "does not provide an export" errors from cached files)</span>
@@ -2530,7 +2539,7 @@
                 <li><b>Compare</b> (top right, or <i>Compare this site…</i> in a client's details) puts 2–4 sites side by side, e.g. DEV, production and one client. The first column is the reference; every other column shows, per part, how many hours/days older or newer its build is, plus a one-line summary. <b>Copy</b> gives the comparison as text for chat; your choice of sites is remembered.</li>
                 <li>A <b>server check</b> runs every night (and more often if a scheduler calls it): it re-checks every site, records version changes and posts to Telegram which sites changed version, which are <b>not reachable</b> (2 failed checks in a row) and which are back up. Such sites show <i>● down since …</i> and are listed under the <b>Down</b> filter; "(server)" marks checks done by the server.</li>
                 <li>Each site is linked to its <b>Redmine client</b> (Edit → Redmine client name; empty = same name as the site). Its details show the open issues with a link to <b>By Client</b>; there, the client's FE / V2 / V3 versions are shown above its issues.</li>
-                <li>Tick <b>Test / internal server</b> in Edit for a dev, test or reference site: it is listed in its own block at the top of the table (whatever the sort or filter), its version counts for Latest (so clients behind the tester version show as Behind latest), but the server itself isn't counted in the rollout or Behind latest.</li>
+                <li>Tick <b>Test / internal server</b> in Edit for a dev, test or reference site and choose <b>Dev</b> (the tester's build) or <b>Prod</b> (production reference). They are listed on top in two blocks, <b>Dev servers</b> and <b>Prod servers</b>, whatever the sort or filter. Their versions count for Latest, but the servers themselves aren't counted in the rollout or Behind latest. Older entries without a choice are guessed from the name or address (dev, staging, uat… → Dev).</li>
                 <li>Filters on top: <b>Latest FE</b>, <b>Latest V2</b> and <b>Latest V3</b> (each shows the highest version of that part across all sites, test servers included, and how many sites run it), <b>Behind latest</b> (behind on front-end, API V2 or API V3), <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts clients behind on any of the three.</li>
                 <li>When a version changes, hovering the version shows the previous one and when it changed. Click anywhere on a client's row to open its details (where the version was found, API answers, version history).</li>
                 <li>If a site's version can't be read, enter it by hand in <b>Edit</b>; it is marked <i>manual</i>.</li>

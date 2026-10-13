@@ -109,6 +109,12 @@ const PARTS = [
 // v4.64.3: "latest" is the highest version on ANY site, test servers included
 // (ERP DEV carries the tester version clients should move to). Test servers
 // themselves are still not counted as behind or in the rollout.
+// Test servers are either DEV (the tester's build) or PROD (production reference).
+// Older entries without a choice are guessed from the name / address.
+function envOf(s){
+  if(s.testEnv === 'dev' || s.testEnv === 'prod') return s.testEnv;
+  return /\b(dev|devel|staging|stg|uat|sandbox|test|qa)\b|[.-](dev|stg|uat)[.-]/i.test(`${s.name || ''} ${s.url || ''}`) ? 'dev' : 'prod';
+}
 const counted = () => { const live = S.sites.filter(s => !s.isTest); return live.length ? live : S.sites; };   // rollout: clients only
 function latestOf(part){ return S.sites.map(part.get).filter(Boolean).sort(cmpVersion).pop() || ''; }
 function latestAll(){ return Object.fromEntries(PARTS.map(p => [p.key, latestOf(p)])); }
@@ -320,6 +326,8 @@ function openSiteForm(id){
   $('siteNotes').value = s ? s.notes || '' : '';
   $('sitePinned').value = s ? s.pinnedVersion || '' : '';
   if($('siteIsTest')) $('siteIsTest').checked = !!(s && s.isTest);
+  if($('siteTestEnv')) $('siteTestEnv').value = s && s.isTest ? envOf(s) : 'dev';
+  $('siteTestEnvWrap')?.classList.toggle('hidden', !(s && s.isTest));
   if($('siteRedmine')){
     $('siteRedmine').value = s ? s.redmineClient || (redmineOf(s)?.name || '') : '';
     const dl = $('siteRedmineList');
@@ -342,7 +350,7 @@ async function saveSite(ev){
   if(dup){ toast(`${hostOf(url)} is already listed as ${dup.name}`, 'error'); return; }
   const now = Date.now();
   const data = { name: name.slice(0, 120), url, notes: $('siteNotes').value.trim().slice(0, 500),
-    pinnedVersion: $('sitePinned').value.trim().replace(/^v/i, '').slice(0, 40), isTest: !!$('siteIsTest')?.checked,
+    pinnedVersion: $('sitePinned').value.trim().replace(/^v/i, '').slice(0, 40), isTest: !!$('siteIsTest')?.checked, testEnv: $('siteIsTest')?.checked ? ($('siteTestEnv')?.value === 'prod' ? 'prod' : 'dev') : null,
     redmineClient: ($('siteRedmine')?.value || '').trim().slice(0, 120), updatedAt: now };
   try {
     const id = S.editing?.id;
@@ -405,7 +413,7 @@ async function saveBulk(){
 /* ---------------- export ---------------- */
 function exportSites(){
   const rows = [['Client', 'URL', 'Front-end version', 'API V2', 'API V3', 'Parts out of step', 'Test server', 'Redmine client', 'Open issues', 'Pinned version', 'Detected version', 'Last checked', 'Last change', 'Notes']];
-  sorted(filtered()).forEach(s => { const mm = mismatch(s), lc = lastChange(s); rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', mm ? mm.text : '', s.isTest ? 'yes' : '', redmineOf(s)?.name || '', redmineOf(s) ? redmineOf(s).open : '', s.pinnedVersion || '', s.version || '',
+  sorted(filtered()).forEach(s => { const mm = mismatch(s), lc = lastChange(s); rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', mm ? mm.text : '', s.isTest ? envOf(s) : '', redmineOf(s)?.name || '', redmineOf(s) ? redmineOf(s).open : '', s.pinnedVersion || '', s.version || '',
     s.checkedAt ? new Date(s.checkedAt).toLocaleString() : '', lc ? new Date(lc).toLocaleString() : '', s.notes || '']); });
   const cell = (v) => { const t = String(v ?? ''); return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const blob = new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -516,7 +524,7 @@ function renderNow(){
       : `<span class="sv-status" title="${s.checkedBy === 'server' ? 'Checked by the scheduled server check' : 'Checked from the app'}">${escapeHtml(ago(s.checkedAt))}${by}</span>`;
     const open = S.open === s.id;
     const details = open ? `<div class="sv-details">
-        ${s.isTest ? '<p><b>Test / internal server:</b> counts for Latest; not counted in the rollout or Behind latest.</p>' : ''}
+        ${s.isTest ? `<p><b>${envOf(s) === 'dev' ? 'Dev' : 'Prod'} test server:</b> counts for Latest; not counted in the rollout or Behind latest.</p>` : ''}
         ${mm ? `<p class="sv-warn"><b>Parts out of step:</b> ${escapeHtml(mm.text)} — possibly an unfinished deploy.</p>` : ''}
         ${s.pinnedVersion ? `<p><b>Version set by hand:</b> ${escapeHtml(s.pinnedVersion)}${s.version ? ` (detected: ${escapeHtml(s.version)})` : ''}</p>` : ''}
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
@@ -534,7 +542,7 @@ function renderNow(){
       <div class="sv-main">
         <div class="sv-name-line">
           <button type="button" class="sv-name" aria-expanded="${open}" title="Show details">${escapeHtml(s.name)}</button>
-          ${s.isTest ? '<span class="sv-tag" title="Test / internal server: counts for Latest; not counted in the rollout or Behind latest">test</span>' : ''}
+          ${s.isTest ? `<span class="sv-tag is-${envOf(s)}" title="${envOf(s) === 'dev' ? 'Dev' : 'Prod'} test server: counts for Latest; not counted in the rollout or Behind latest">${envOf(s)}</span>` : ''}
         </div>
         <a class="sv-url" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(hostOf(s.url))}</a>
         ${s.notes ? `<span class="sv-notes" title="${escapeHtml(s.notes)}">${escapeHtml(s.notes)}</span>` : ''}
@@ -564,10 +572,10 @@ function renderNow(){
   const testSites = S.sites.filter(x => x.isTest && matchesQuery(x)).sort((a, b) => a.name.localeCompare(b.name));
   const clientSites = sorted(filtered().filter(x => !x.isTest));
   const group = (label, n, cls) => `<div class="sv-group ${cls}"><span>${label}</span><b>${n}</b></div>`;
-  const rows = (testSites.length
-      ? group('Test servers · reference for the tester version', testSites.length, 'is-test') + testSites.map(rowHtml).join('')
-        + group('Clients', clientSites.length, '')
-      : '')
+  const devSites = testSites.filter(x => envOf(x) === 'dev'), prodSites = testSites.filter(x => envOf(x) === 'prod');
+  const rows = (devSites.length ? group('Dev servers · tester version', devSites.length, 'is-test is-dev') + devSites.map(rowHtml).join('') : '')
+    + (prodSites.length ? group('Prod servers · production reference', prodSites.length, 'is-test is-prod') + prodSites.map(rowHtml).join('') : '')
+    + (testSites.length ? group('Clients', clientSites.length, '') : '')
     + (clientSites.length ? clientSites.map(rowHtml).join('') : (testSites.length ? '<div class="kb-state kb-state-sm"><p>No client matches this filter.</p></div>' : ''));
 
   el.innerHTML = `
@@ -787,7 +795,7 @@ function renderCompare(){
   const ref = cols[0];
   const options = (sel) => {
     const list = S.sites.slice().sort((a, b) => (b.isTest ? 1 : 0) - (a.isTest ? 1 : 0) || a.name.localeCompare(b.name));
-    return `<option value="">Choose a site…</option>` + list.map(x => `<option value="${x.id}"${x.id === sel ? ' selected' : ''}>${escapeHtml(x.name)}${x.isTest ? ' (test)' : ''} — ${escapeHtml(hostOf(x.url))}</option>`).join('');
+    return `<option value="">Choose a site…</option>` + list.map(x => `<option value="${x.id}"${x.id === sel ? ' selected' : ''}>${escapeHtml(x.name)}${x.isTest ? ` (${envOf(x)})` : ''} — ${escapeHtml(hostOf(x.url))}</option>`).join('');
   };
   const head = cols.map((c, i) => `<th scope="col">
       <div class="svc-pick">
