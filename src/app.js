@@ -358,7 +358,7 @@ export async function startApp(){
       sessionStorage.removeItem('erp_auth_redirect');
       console.warn('Redirect returned without user');
       const errEl = $('authError');
-      if(errEl) errEl.textContent = 'Google sign-in was cancelled or failed. Please try again.';
+      if(errEl) errEl.textContent = 'Google sign-in did not come back to the app (the browser may block cross-site sign-in). Press Sign in with Google again: it now opens in a popup.';
     }
   } catch(redirErr){
     console.warn('Redirect sign-in error:', redirErr);

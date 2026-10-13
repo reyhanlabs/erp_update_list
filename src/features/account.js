@@ -124,15 +124,16 @@ async function signInWithGoogle(){
   };
 
   // Mobile / PWA / coarse pointer → redirect (popups blocked on most phones)
+  // v4.67.2: popup everywhere (phones too). The full-page redirect comes back
+  // through erpupdate-f0b18.firebaseapp.com, a different site; browsers that
+  // block third-party storage (Safari, Chrome on many phones, Brave, Firefox
+  // strict) then lose the result and the app lands on the login page again.
+  // Redirect is kept only for the installed app (standalone), where a popup
+  // can't come back, and as the fallback when a popup is blocked.
   const preferRedirect = (() => {
     try {
-      const ua = navigator.userAgent || '';
-      const mobile = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry/i.test(ua);
-      const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-      const coarse = window.matchMedia('(pointer: coarse)').matches;
-      const touch = (navigator.maxTouchPoints || 0) > 1;
-      return mobile || standalone || coarse || touch;
-    } catch(_){ return true; }
+      return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    } catch(_){ return false; }
   })();
 
   try {
@@ -159,13 +160,13 @@ async function signInWithGoogle(){
       return;
     }
 
-    // Desktop: popup, fallback redirect
+    // Popup (desktop and phones); redirect only when the browser blocks the popup
     let cred;
     try {
       if(auth.currentUser && auth.currentUser.isAnonymous) await auth.signOut();   // old guest session
       cred = await auth.signInWithPopup(provider);
     } catch(popErr){
-      if(popErr.code === 'auth/popup-blocked' || popErr.code === 'auth/popup-closed-by-user'){
+      if(popErr.code === 'auth/popup-blocked' || popErr.code === 'auth/operation-not-supported-in-this-environment'){
         sessionStorage.setItem('erp_auth_redirect', '1');
         sessionStorage.setItem('erp_post_auth_path', location.pathname + location.search + location.hash);
         setBusy(true, 'Redirecting to Google…');
@@ -182,7 +183,8 @@ async function signInWithGoogle(){
     console.error('Google sign-in failed:', err);
     const map = {
       'auth/popup-closed-by-user': 'Sign-in cancelled',
-      'auth/popup-blocked': 'Popup blocked — try again (will use full-page Google sign-in)',
+      'auth/popup-blocked': 'Popup blocked — allow popups for this site and try again',
+      'auth/cancelled-popup-request': 'Sign-in cancelled',
       'auth/operation-not-allowed': 'Google sign-in is not enabled in Firebase Console',
       'auth/unauthorized-domain': `Domain "${location.hostname}" is not authorized. Firebase Console → Authentication → Settings → Authorized domains → add this domain.`,
       'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method',
