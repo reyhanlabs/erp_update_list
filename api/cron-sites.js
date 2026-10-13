@@ -26,6 +26,7 @@
 import { adminDb } from './_lib/firebase-admin.js';
 import { safeEqual } from './_lib/auth.js';
 import { detectVersion } from './erp-version.js';
+import { loginHosts, accountFor, checkLogin, loginPatch } from './_lib/login-check.js';
 
 const DOWN_AFTER = 2;            // consecutive failed checks before a site counts as down
 const HISTORY_MAX = 50;
@@ -115,8 +116,10 @@ const host = (url) => { try { return new URL(url).host; } catch (_) { return url
 const hhmm = (ms) => new Date(ms).toLocaleString('en-GB', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const dur = (ms) => { const h = Math.round(ms / 3600000); return h < 1 ? `${Math.max(1, Math.round(ms / 60000))} min` : h < 48 ? `${h} h` : `${Math.round(h / 24)} days`; };
 
-export function formatMessage({ changed, down, up }) {
+export function formatMessage({ changed, down, up, loginDown = [], loginUp = [] }) {
   const parts = [];
+  if (loginDown.length) parts.push(`🔐 Login / open data FAILING — ${loginDown.length}\n` + loginDown.map(x => `${x.name} (${host(x.url)})\n  since ${hhmm(x.since)} · ${x.message}`).join('\n'));
+  if (loginUp.length) parts.push(`🔓 Login / open data OK again — ${loginUp.length}\n` + loginUp.map(x => `${x.name} (${host(x.url)}) — failed for ${dur(x.downFor)}`).join('\n'));
   if (down.length) parts.push(`🔴 Not reachable — ${down.length}\n` + down.map(x => `${x.name} (${host(x.url)})\n  since ${hhmm(x.since)} · ${x.error}`).join('\n'));
   if (up.length) parts.push(`🟢 Back up — ${up.length}\n` + up.map(x => `${x.name} (${host(x.url)}) — was down ${dur(x.downFor)}`).join('\n'));
   if (changed.length) parts.push(`🔄 Version changes — ${changed.length}\n` + changed.slice(0, 40).map(x => `${x.name} (${host(x.url)})\n` + x.changes.map(c => `  ${LABEL[c.part] || c.part} ${c.from} → ${c.to}`).join('\n')).join('\n') + (changed.length > 40 ? `\n…and ${changed.length - 40} more` : ''));
@@ -151,6 +154,25 @@ export default async function handler(req, res) {
 
   const changed = [], down = [], up = [], errors = [];
   let checked = 0;
+
+  // Dev / Prod test servers with a monitoring account: login + open data on EVERY run
+  // (not only when stale), first round only.
+  const loginDown = [], loginUp = [];
+  let loginChecked = 0;
+  if (round === 1 && loginHosts().length) {
+    const targets = sites.filter(s => s.isTest && accountFor(s.url));
+    await Promise.all(targets.map(async (site) => {
+      try {
+        const r = await checkLogin(site.url);
+        const now = Date.now();
+        const { patch, event } = loginPatch(site, r, now);
+        await site.ref.set(patch, { merge: true });
+        loginChecked++;
+        if (event === 'down') loginDown.push({ name: site.name, url: site.url, since: patch.loginDownSince, message: r.message });
+        if (event === 'up') loginUp.push({ name: site.name, url: site.url, downFor: now - (site.loginDownSince || site.loginNotifiedAt || now) });
+      } catch (err) { errors.push(`${site.name} login: ${err.message}`); }
+    }));
+  }
   const worker = async () => {
     while (queue.length && Date.now() - started < budget - 9000) {
       const site = queue.shift();
@@ -171,7 +193,7 @@ export default async function handler(req, res) {
   };
   await Promise.all(Array.from({ length: Math.min(PARALLEL, queue.length || 1) }, worker));
 
-  const text = formatMessage({ changed, down, up });
+  const text = formatMessage({ changed, down, up, loginDown, loginUp });
   let telegram = { sent: false };
   if (text) { try { telegram = await sendTelegram(text); } catch (err) { telegram = { sent: false, error: err.message }; } }
 
@@ -189,6 +211,7 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     ok: true, round, sites: sites.length, checked, left: queue.length, nextRound: next,
+    loginChecked, loginDown: loginDown.map(x => x.name), loginUp: loginUp.map(x => x.name),
     changed: changed.length, down: down.map(x => x.name), up: up.map(x => x.name),
     telegram, errors: errors.slice(0, 10), ms: Date.now() - started
   });

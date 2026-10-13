@@ -18,6 +18,7 @@
  * Same sign-in guard as the Redmine endpoints.
  */
 import { requireUser } from './_lib/auth.js';
+import { loginHosts, accountFor, checkLogin } from './_lib/login-check.js';
 import { lookup } from 'node:dns/promises';
 import { request as httpsRequest } from 'node:https';
 
@@ -533,6 +534,13 @@ export default async function handler(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;
   if (req.method !== 'GET') return res.status(405).json({ error: 'Use GET' });
+  // v4.68.0 login + open-data check (accounts only in the LOGIN_CHECKS env var, bound to their host)
+  if (req.query.login === 'hosts') return res.status(200).json({ hosts: loginHosts() });
+  if (req.query.login) {
+    const url = String(req.query.url || '');
+    if (!accountFor(url)) return res.status(404).json({ error: 'No monitoring account for this server', hint: 'Add it to LOGIN_CHECKS in Vercel → Environment Variables.' });
+    return res.status(200).json(await checkLogin(url));
+  }
   try {
     const out = await detectVersion(req.query.url, { hint: String(req.query.hint || '').slice(0, 60) });
     if (out.error) return res.status(out.error.startsWith('Address not allowed') || out.error === 'Invalid URL' ? 400 : 502).json(out);

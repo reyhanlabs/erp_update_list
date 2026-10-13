@@ -525,6 +525,7 @@ function renderNow(){
     const open = S.open === s.id;
     const details = open ? `<div class="sv-details">
         ${s.isTest ? `<p><b>${envOf(s) === 'dev' ? 'Dev' : 'Prod'} test server:</b> counts for Latest; not counted in the rollout or Behind latest.</p>` : ''}
+        ${s.isTest ? loginDetails(s) : ''}
         ${mm ? `<p class="sv-warn"><b>Parts out of step:</b> ${escapeHtml(mm.text)} — possibly an unfinished deploy.</p>` : ''}
         ${s.pinnedVersion ? `<p><b>Version set by hand:</b> ${escapeHtml(s.pinnedVersion)}${s.version ? ` (detected: ${escapeHtml(s.version)})` : ''}</p>` : ''}
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
@@ -545,6 +546,7 @@ function renderNow(){
           ${s.isTest ? `<span class="sv-tag is-${envOf(s)}" title="${envOf(s) === 'dev' ? 'Dev' : 'Prod'} test server: counts for Latest; not counted in the rollout or Behind latest">${envOf(s)}</span>` : ''}
         </div>
         <a class="sv-url" href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(hostOf(s.url))}</a>
+        ${loginBadge(s)}
         ${s.notes ? `<span class="sv-notes" title="${escapeHtml(s.notes)}">${escapeHtml(s.notes)}</span>` : ''}
       </div>
       <div class="sv-ver">
@@ -554,6 +556,8 @@ function renderNow(){
       ${apiCell(s, 'v3')}
       <div class="sv-checked">${status}</div>
       <div class="sv-acts">
+        ${hasLogin(s) ? `<button type="button" class="sv-icon" data-perm="edit" onclick="checkLoginSite('${s.id}')" title="Check login + open data now" aria-label="Check login of ${escapeHtml(s.name)}"${S.loginBusy.has(s.id) ? ' disabled' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></button>` : ''}
         <button type="button" class="sv-icon" data-perm="edit" onclick="checkOneSite('${s.id}')" title="Check version now" aria-label="Check version of ${escapeHtml(s.name)}"${busy ? ' disabled' : ''}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg></button>
         <button type="button" class="sv-icon" data-perm="edit" onclick="openSiteForm('${s.id}')" title="Edit" aria-label="Edit ${escapeHtml(s.name)}">
@@ -870,6 +874,64 @@ function wire(){
   $('sitesForm')?.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSiteForm(); });
 }
 let clientsListening = false;
+/* ---------------- login + open-data check (Dev / Prod test servers, v4.68.0) ---------------- */
+const LOGIN_STALE = 30 * 60 * 1000;
+const STEP_LABEL = { config: 'Setup', login: 'Login', open: 'Open data', read: 'Read data' };
+S.loginHosts = null; S.loginBusy = new Set();
+async function loadLoginHosts(){
+  if(S.loginHosts) return S.loginHosts;
+  try {
+    const r = await apiFetch('/api/erp-version?login=hosts');
+    const d = await r.json().catch(() => ({}));
+    S.loginHosts = (d.hosts || []).map(h => String(h).toLowerCase());
+  } catch(_){ S.loginHosts = []; }
+  return S.loginHosts;
+}
+const hasLogin = (s) => !!(s.isTest && S.loginHosts && S.loginHosts.includes(hostOf(s.url).toLowerCase()));
+function loginBadge(s){
+  if(!s.isTest || (!s.login && !hasLogin(s))) return '';
+  if(S.loginBusy.has(s.id)) return '<span class="sv-login is-busy">checking login…</span>';
+  const L = s.login;
+  if(!L) return '<span class="sv-login">login not checked yet</span>';
+  const when = ago(L.at);
+  if(L.ok) return `<span class="sv-login is-ok" title="${escapeHtml(L.message || '')}">✓ Login · open data OK · ${(L.ms / 1000).toFixed(1)} s · ${escapeHtml(when)}</span>`;
+  const since = (s.loginFailCount || 0) >= 2 && s.loginDownSince ? ` · failing since ${new Date(s.loginDownSince).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : '';
+  return `<span class="sv-login is-bad" title="${escapeHtml(L.message || '')}">✕ ${escapeHtml(STEP_LABEL[L.step] || 'Check')} failed: ${escapeHtml(String(L.message || '').replace(/^(opening the data failed|data opened but could not be read) — /, '').slice(0, 90))}${since} · ${escapeHtml(when)}</span>`;
+}
+function loginDetails(s){
+  const L = s.login;
+  if(!L) return hasLogin(s) ? '<p><b>Login check:</b> not run yet.</p>' : '';
+  const steps = (L.steps || []).map(x => `${STEP_LABEL[x.step] || x.step} ${x.ok ? '✓' : '✕'} ${x.status || 'no answer'} · ${x.ms} ms`).join(' → ');
+  const db = L.db && L.db.current != null ? ` · database version ${L.db.current}${L.db.last != null ? ` (latest ${L.db.last})` : ''}` : '';
+  return `<div class="sv-login-box ${L.ok ? 'is-ok' : 'is-bad'}"><b>Login check</b> (${escapeHtml(L.email || '')}${L.slug ? ` → ${escapeHtml(L.slug)}` : ''}) · ${escapeHtml(new Date(L.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}
+    <p>${escapeHtml(L.message || '')}</p>${steps ? `<p class="sv-muted">${escapeHtml(steps)}${escapeHtml(db)}</p>` : ''}
+    ${(s.loginFailCount || 0) > 0 ? `<p class="sv-muted">${s.loginFailCount} failed check(s) in a row${s.loginNotifiedAt ? ' · Telegram alert sent' : ''}</p>` : ''}</div>`;
+}
+async function checkLoginSite(id, { quiet = false } = {}){
+  const site = S.sites.find(x => x.id === id);
+  if(!site || S.loginBusy.has(id) || !canEdit()) return;
+  S.loginBusy.add(id); renderNow();
+  try {
+    const r = await apiFetch(`/api/erp-version?login=1&url=${encodeURIComponent(site.url)}`);
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok){ if(!quiet) toast(d.error || `HTTP ${r.status}`, 'error'); return; }
+    const now = Date.now();
+    const patch = { login: { ok: !!d.ok, step: d.step || '', message: String(d.message || '').slice(0, 500), status: d.status || 0, ms: d.ms || 0, at: now,
+      email: d.email || '', slug: d.slug || '', db: d.db || null, steps: d.steps || [] } };
+    if(d.ok){ patch.loginFailCount = 0; patch.loginDownSince = null; }
+    else { patch.loginFailCount = (site.loginFailCount || 0) + 1; patch.loginDownSince = site.loginDownSince || now; }
+    await ref().doc(id).set(patch, { merge: true });
+    if(!quiet) toast(d.ok ? `${site.name}: ${d.message}` : `${site.name}: ${STEP_LABEL[d.step] || 'check'} failed — ${d.message}`, d.ok ? undefined : 'error');
+  } catch(err){ if(!quiet) toast(err.message || String(err), 'error'); }
+  finally { S.loginBusy.delete(id); renderNow(); }
+}
+async function autoCheckLogins(){
+  if(!canEdit()) return;
+  await loadLoginHosts();
+  render();
+  S.sites.filter(s => hasLogin(s) && Date.now() - (s.login?.at || 0) > LOGIN_STALE).forEach(s => checkLoginSite(s.id, { quiet: true }));
+}
+
 function onSitesShown(){
   if(!clientsListening){ clientsListening = true; window.addEventListener('clients:overview', () => render()); }
   try { ensureClientOverview(); } catch(_){}
@@ -877,11 +939,13 @@ function onSitesShown(){
   subscribe();
   render();
   autoCheckStale();
+  if(!loginAutoRan){ loginAutoRan = true; setTimeout(() => autoCheckLogins(), 1500); } else loadLoginHosts().then(() => render());
 }
+let loginAutoRan = false;
 function getAllSites(){ return S.sites.map(({ id, ...rest }) => ({ id, ...rest })); }
 
 export {
-  onSitesShown, openSiteForm, closeSiteForm, openBulk as openSitesBulk, saveBulk as saveSitesBulk,
+  onSitesShown, checkLoginSite, openSiteForm, closeSiteForm, openBulk as openSitesBulk, saveBulk as saveSitesBulk,
   checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
   setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings,

@@ -3901,3 +3901,13 @@ body:not([data-role]) [data-perm]{display:none !important}
 .rs-done-list li.rs-more::before{content:''}
 .rs-done-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--text-tertiary);text-decoration:none;margin-right:4px}
 .rs-done-id:hover{color:var(--brand)}
+
+/* Client Versions: login + open-data check (v4.68.0) */
+.sv-login{display:block;margin-top:3px;font-size:11.5px;font-weight:600;color:var(--text-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.sv-login.is-ok{color:var(--success)}
+.sv-login.is-bad{color:var(--danger)}
+.sv-login.is-busy{color:var(--brand)}
+.sv-login-box{margin:6px 0 8px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);border-left:4px solid var(--text-tertiary);background:var(--surface)}
+.sv-login-box.is-ok{border-left-color:var(--success)}
+.sv-login-box.is-bad{border-left-color:var(--danger);background:var(--danger-soft)}
+.sv-login-box p{margin:4px 0 0}

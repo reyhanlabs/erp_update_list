@@ -117,6 +117,7 @@ Everyone uses the same Redmine connection, as before.
 | `SITES_TELEGRAM` | – | cron-sites | `off` to stop those alerts |
 | `SITES_CRON_STALE_HOURS` | – | cron-sites | Re-check sites older than this (default 12) |
 | `SITES_CRON_BUDGET_MS` | – | cron-sites | Time per round (default 50000; the function may run 60 s) |
+| `LOGIN_CHECKS` | – | login check | Monitoring accounts for Dev / Prod test servers, JSON list — see **Login + open-data check** below |
 | `CLOUDINARY_CLOUD_NAME` | for KB images | Cloudinary → Dashboard → Cloud name |
 | `CLOUDINARY_API_KEY` | for KB images | Cloudinary → Settings → API Keys |
 | `CLOUDINARY_API_SECRET` | for KB images | same page; keep secret |
@@ -128,6 +129,20 @@ Everyone uses the same Redmine connection, as before.
 **Service account:** Firebase Console → Project settings → Service accounts → *Generate new private key*. Paste the whole JSON into `FIREBASE_SERVICE_ACCOUNT`. Never commit the JSON file (it is in `.gitignore`).
 
 After changing an env var → **Redeploy**.
+
+### Login + open-data check (v4.68.0)
+
+For **Dev / Prod test servers** (not client sites) the app can sign in for real and open a data, the way a user does:
+`GET /api/v2/me` (Basic e-mail:password + `client` header) → `POST /api/v2/migration` (Bearer token + `slug` header) → `GET /api/v2/company_setting`.
+The row shows ✓ / ✕ with the failing step (Login, Open data, Read data), the HTTP status and the server's own message; the scheduled check (`/api/cron-sites`) runs it on **every** call and sends a Telegram alert after 2 failures in a row, and again when it works.
+
+1. Make a **dedicated monitoring account** (not a personal one) with access to one test data on each server.
+2. Vercel → Settings → Environment Variables → `LOGIN_CHECKS`, one line of JSON:
+   ```json
+   [{"host":"erp.zahir.dev","email":"monitor@…","password":"…","client":"<value of the 'client' request header>","slug":"regressiontest…-pg.zahironline.com"}]
+   ```
+   `client` is the `client:` header the Zahir web app sends with `/api/v2/me` (DevTools → Network). `host` must match the server's address in Client Versions (with `:port` if it has one). Add one object per server.
+3. Redeploy. Passwords stay on the server: never in Firestore or the browser, and each account is only ever sent to its own `host`.
 
 ---
 
