@@ -2,7 +2,7 @@
  * Login + open-data check for Dev / Prod test servers (v4.68.0)
  *
  * Does what the Zahir ERP web app does when someone signs in and opens a data:
- *   1. login      GET  /api/v2/me                        Authorization: Basic email:password, client: <web client>
+ *   1. login      GET  /api/v2/me                        Authorization: Basic email:password, client: <web client>, slug
  *   2. open data  POST /api/v2/migration                 Authorization: Bearer <token>, slug: <company>
  *   3. read data  GET  /api/v2/company_setting?is_skip_pagination=true   (same headers)
  * and reports which step failed, the HTTP status and the server's own message.
@@ -107,7 +107,8 @@ export async function checkLogin(siteUrl, account){
 
   // 1) login
   const basic = Buffer.from(`${acc.email}:${acc.password}`).toString('base64');
-  const r1 = await call(`${origin}/api/v2/me`, { method: 'GET', headers: { authorization: `Basic ${basic}`, client: acc.client } });
+  // the web app sends the data's slug with the login too
+  const r1 = await call(`${origin}/api/v2/me`, { method: 'GET', headers: { authorization: `Basic ${basic}`, client: acc.client, ...(acc.slug ? { slug: acc.slug } : {}) } });
   steps.push({ step: 'login', status: r1.status, ms: r1.ms, ok: r1.ok });
   let me = null;
   try { me = JSON.parse(r1.text); } catch(_) {}

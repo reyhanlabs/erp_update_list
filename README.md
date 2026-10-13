@@ -141,7 +141,7 @@ The row shows ✓ / ✕ with the failing step (Login, Open data, Read data), the
    ```json
    [{"host":"erp.zahir.dev","email":"monitor@…","password":"…","client":"<value of the 'client' request header>","slug":"regressiontest…-pg.zahironline.com"}]
    ```
-   `client` is the `client:` header the Zahir web app sends with `/api/v2/me` (DevTools → Network). `host` must match the server's address in Client Versions (with `:port` if it has one). Add one object per server.
+   `client` is the `client:` header the Zahir web app sends with `/api/v2/me` (DevTools → Network). **Each server has its own** (Dev and Prod differ): a wrong one gives the same 401 "wrong e-mail/password" as a wrong password. `host` must match the server's address in Client Versions (with `:port` if it has one). Add one object per server.
 3. Redeploy. Passwords stay on the server: never in Firestore or the browser, and each account is only ever sent to its own `host`.
 
 ---
