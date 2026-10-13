@@ -1,5 +1,5 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.68.1';
+export const APP_VERSION = '4.68.2';
 export const APP_VERSION_DATE = '2026-10-13';
 export const APP_VERSION_NOTE = 'Login check';
 

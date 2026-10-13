@@ -15,13 +15,25 @@
 const STEP_TIMEOUT = 15000;
 const UA = 'Mozilla/5.0 (compatible; ZahirERPUpdateManager-LoginCheck/1.0)';
 
-export function loginAccounts(){
-  let list = [];
-  try { list = JSON.parse(process.env.LOGIN_CHECKS || '[]'); } catch(_) { return []; }
+/* Reads LOGIN_CHECKS and says what is wrong with it (never the values). */
+export function loginConfig(){
+  let raw = String(process.env.LOGIN_CHECKS || '').trim();
+  if(!raw) return { set: false, accounts: [], problems: ['LOGIN_CHECKS is not set in Vercel (or the app was not redeployed after adding it)'] };
+  if(/^'.*'$/s.test(raw) || /^".*"$/s.test(raw) && !/^"\s*[[{]/.test(raw)) raw = raw.slice(1, -1).trim();   // pasted with quotes around it
+  let list;
+  try { list = JSON.parse(raw); }
+  catch(err){ return { set: true, accounts: [], problems: [`LOGIN_CHECKS is not valid JSON (${String(err.message).replace(/ in JSON.*$/, '')}) — check quotes, commas and brackets`] }; }
   if(!Array.isArray(list)) list = [list];
-  return list.filter(a => a && a.host && a.email && a.password && a.client)
-    .map(a => ({ ...a, host: String(a.host).toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '') }));
+  const problems = [], accounts = [];
+  list.forEach((a, n) => {
+    const miss = ['host', 'email', 'password', 'client'].filter(k => !a || !String(a[k] || '').trim());
+    if(miss.length){ problems.push(`entry ${n + 1}${a && a.host ? ` (${a.host})` : ''} is missing: ${miss.join(', ')}`); return; }
+    if(!a.slug) problems.push(`entry ${n + 1} (${a.host}) has no slug: only the login is checked, not opening a data`);
+    accounts.push({ ...a, host: String(a.host).trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '') });
+  });
+  return { set: true, accounts, problems };
 }
+export function loginAccounts(){ return loginConfig().accounts; }
 export function loginHosts(){ return loginAccounts().map(a => a.host); }
 const hostOf = (url) => { try { return new URL(url).host.toLowerCase(); } catch(_) { return ''; } };
 export function accountFor(url){ const h = hostOf(url); return loginAccounts().find(a => a.host === h) || null; }

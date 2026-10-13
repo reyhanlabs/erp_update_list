@@ -83,6 +83,7 @@ function subscribe(background){
     S.sites = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     S.loaded = true;
     try { noticeLoginChanges(); } catch(e){ console.warn('login notices', e); }
+    setTimeout(() => autoCheckLogins(), 0);
     updateNavCount();
     render();
     try { window.dispatchEvent(new CustomEvent('sites:updated')); } catch(_){}
@@ -880,14 +881,21 @@ let clientsListening = false;
 const LOGIN_STALE = 30 * 60 * 1000;
 const STEP_LABEL = { config: 'Setup', login: 'Login', open: 'Open data', read: 'Read data' };
 S.loginHosts = null; S.loginBusy = new Set();
-async function loadLoginHosts(){
-  if(S.loginHosts) return S.loginHosts;
-  try {
-    const r = await apiFetch('/api/erp-version?login=hosts');
-    const d = await r.json().catch(() => ({}));
-    S.loginHosts = (d.hosts || []).map(h => String(h).toLowerCase());
-  } catch(_){ S.loginHosts = []; }
-  return S.loginHosts;
+// which servers have a monitoring account; a failed read (e.g. before sign-in finished) is retried
+let loginHostsP = null;
+function loadLoginHosts(){
+  if(S.loginHosts) return Promise.resolve(S.loginHosts);
+  if(!loginHostsP) loginHostsP = (async () => {
+    try {
+      const r = await apiFetch('/api/erp-version?login=hosts');
+      const d = await r.json().catch(() => ({}));
+      if(r.ok){ S.loginHosts = (d.hosts || []).map(h => String(h).toLowerCase()); S.loginProblems = d.problems || []; }
+      else S.loginProblems = [`login setup could not be read (HTTP ${r.status}${d.error ? ': ' + d.error : ''})`];
+    } catch(err){ S.loginProblems = [`login setup could not be read: ${err.message || err}`]; }
+    finally { loginHostsP = null; }
+    return S.loginHosts;
+  })();
+  return loginHostsP;
 }
 const hasLogin = (s) => !!(s.isTest && S.loginHosts && S.loginHosts.includes(hostOf(s.url).toLowerCase()));
 function loginBadge(s){
@@ -902,7 +910,16 @@ function loginBadge(s){
 }
 function loginDetails(s){
   const L = s.login;
-  if(!L) return hasLogin(s) ? '<p><b>Login check:</b> not run yet.</p>' : '';
+  if(!L && !hasLogin(s)){
+    // tell why there is no login check for this test server
+    if(!S.loginHosts) return '';
+    const h = hostOf(s.url).toLowerCase();
+    const why = (S.loginProblems || []).length ? S.loginProblems : [];
+    return `<div class="sv-login-box"><b>Login check: not set up for ${escapeHtml(h)}</b>
+      <p class="sv-muted">${S.loginHosts.length ? `LOGIN_CHECKS has accounts for: ${escapeHtml(S.loginHosts.join(', '))}. Add one with "host":"${escapeHtml(h)}".` : `Add an account for "host":"${escapeHtml(h)}" to LOGIN_CHECKS (Vercel → Settings → Environment Variables), then redeploy.`}</p>
+      ${why.map(p => `<p class="sv-err">${escapeHtml(p)}</p>`).join('')}</div>`;
+  }
+  if(!L) return '<p><b>Login check:</b> not run yet.</p>';
   const steps = (L.steps || []).map(x => `${STEP_LABEL[x.step] || x.step} ${x.ok ? '✓' : '✕'} ${x.status || 'no answer'} · ${x.ms} ms`).join(' → ');
   const db = L.db && L.db.current != null ? ` · database version ${L.db.current}${L.db.last != null ? ` (latest ${L.db.last})` : ''}` : '';
   return `<div class="sv-login-box ${L.ok ? 'is-ok' : 'is-bad'}"><b>Login check</b> (${escapeHtml(L.email || '')}${L.slug ? ` → ${escapeHtml(L.slug)}` : ''}) · ${escapeHtml(new Date(L.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}
@@ -957,11 +974,18 @@ function noticeLoginChanges(){
   S.loginSeen = seen;
 }
 
+// Runs whenever the sites load or the page opens, and every 10 min while the app is open;
+// checks servers whose last login check is older than 30 min (editors and up only).
+let loginTimer = null;
 async function autoCheckLogins(){
-  if(!canEdit()) return;
+  if(!S.sites.some(s => s.isTest)) return;
+  const had = !!S.loginHosts;
   await loadLoginHosts();
-  render();
-  S.sites.filter(s => hasLogin(s) && Date.now() - (s.login?.at || 0) > LOGIN_STALE).forEach(s => checkLoginSite(s.id, { quiet: true }));
+  if(!had && S.loginHosts) render();
+  if(!loginTimer) loginTimer = setInterval(() => autoCheckLogins(), 10 * 60 * 1000);
+  if(!canEdit() || !S.loginHosts) return;
+  S.sites.filter(s => hasLogin(s) && !S.loginBusy.has(s.id) && Date.now() - (s.login?.at || 0) > LOGIN_STALE)
+    .forEach(s => checkLoginSite(s.id, { quiet: true }));
 }
 
 function onSitesShown(){
@@ -971,9 +995,8 @@ function onSitesShown(){
   subscribe();
   render();
   autoCheckStale();
-  if(!loginAutoRan){ loginAutoRan = true; setTimeout(() => autoCheckLogins(), 1500); } else loadLoginHosts().then(() => render());
+  autoCheckLogins();
 }
-let loginAutoRan = false;
 function getAllSites(){ return S.sites.map(({ id, ...rest }) => ({ id, ...rest })); }
 
 export {
