@@ -302,7 +302,7 @@
             <span>Notifications</span>
             <button type="button" class="notif-panel-close" onclick="closeNotifPanel(event)" aria-label="Close" title="Close">×</button>
           </div>
-          <p class="notif-panel-desc">Alert when new <b>Ready for Testing</b> issues appear in Redmine.</p>
+          <p class="notif-panel-desc">Alert when new <b>Ready for Testing</b> issues appear in Redmine, and when a Dev / Prod server can't log in or open data.</p>
           <div class="notif-status-row">
             <span class="notif-status-pill" id="testerNotifStatusPill">Off</span>
             <span class="notif-panel-status" id="testerNotifStatus">Browser alerts off</span>
@@ -1498,6 +1498,10 @@
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
               <div class="changelog-item">
+                <span class="cl-ver">v4.68.1</span>
+                <span class="cl-note">Login-check alerts in the notification bell (and as a browser notification when browser alerts are on) on every screen: failing and OK again</span>
+              </div>
+              <div class="changelog-item">
                 <span class="cl-ver">v4.68.0</span>
                 <span class="cl-note">Client Versions: login + open-data check for Dev / Prod test servers — shows which step failed (login, open data, read data) with the server's message, runs with the scheduled check and alerts Telegram</span>
               </div>
@@ -2556,7 +2560,7 @@
                 <li>A <b>server check</b> runs every night (and more often if a scheduler calls it): it re-checks every site, records version changes and posts to Telegram which sites changed version, which are <b>not reachable</b> (2 failed checks in a row) and which are back up. Such sites show <i>● down since …</i> and are listed under the <b>Down</b> filter; "(server)" marks checks done by the server.</li>
                 <li>Each site is linked to its <b>Redmine client</b> (Edit → Redmine client name; empty = same name as the site). Its details show the open issues with a link to <b>By Client</b>; there, the client's FE / V2 / V3 versions are shown above its issues.</li>
                 <li>Tick <b>Test / internal server</b> in Edit for a dev, test or reference site and choose <b>Dev</b> (the tester's build) or <b>Prod</b> (production reference). They are listed on top in two blocks, <b>Dev servers</b> and <b>Prod servers</b>, whatever the sort or filter. Their versions count for Latest, but the servers themselves aren't counted in the rollout or Behind latest. Older entries without a choice are guessed from the name or address (dev, staging, uat… → Dev).</li>
-                <li><b>Login check</b> (Dev / Prod test servers with a monitoring account in <code>LOGIN_CHECKS</code>, see README): the row shows <b>✓ Login · open data OK</b> or <b>✕ Login / Open data / Read data failed</b> with the server's message. The key button runs it now; the scheduled server check runs it every time and sends a Telegram alert after 2 failures in a row, and again when it works.</li>
+                <li><b>Login check</b> (Dev / Prod test servers with a monitoring account in <code>LOGIN_CHECKS</code>, see README): the row shows <b>✓ Login · open data OK</b> or <b>✕ Login / Open data / Read data failed</b> with the server's message. The key button runs it now; the scheduled server check runs it every time and sends a Telegram alert after 2 failures in a row, and again when it works. The notification bell (and browser alerts, when on) shows the same on every screen.</li>
                 <li>Filters on top: <b>Latest FE</b>, <b>Latest V2</b> and <b>Latest V3</b> (each shows the highest version of that part across all sites, test servers included, and how many sites run it), <b>Behind latest</b> (behind on front-end, API V2 or API V3), <b>Couldn't read</b>, and <b>Specific version…</b> to list the clients on one version. The sidebar number counts clients behind on any of the three.</li>
                 <li>When a version changes, hovering the version shows the previous one and when it changed. Click anywhere on a client's row to open its details (where the version was found, API answers, version history).</li>
                 <li>If a site's version can't be read, enter it by hand in <b>Edit</b>; it is marked <i>manual</i>.</li>

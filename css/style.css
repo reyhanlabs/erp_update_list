@@ -3911,3 +3911,10 @@ body:not([data-role]) [data-perm]{display:none !important}
 .sv-login-box.is-ok{border-left-color:var(--success)}
 .sv-login-box.is-bad{border-left-color:var(--danger);background:var(--danger-soft)}
 .sv-login-box p{margin:4px 0 0}
+
+/* bell panel: server / login alerts (v4.68.1) */
+.notif-item.notif-alert{border-left:3px solid var(--brand)}
+.notif-item.notif-alert.is-bad{border-left-color:var(--danger)}
+.notif-item.notif-alert.is-bad .notif-item-id{color:var(--danger)}
+.notif-item.notif-alert.is-ok{border-left-color:var(--success)}
+.notif-item.notif-alert.is-ok .notif-item-id{color:var(--success)}

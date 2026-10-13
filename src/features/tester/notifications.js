@@ -141,10 +141,18 @@ function renderNotifRecent(){
   if(!box) return;
   const list = window.__notifRecent || [];
   if(!list.length){
-    box.innerHTML = '<p class="notif-empty">No new RFT alerts yet in this session.</p>';
+    box.innerHTML = '<p class="notif-empty">No new alerts yet in this session.</p>';
     return;
   }
   box.innerHTML = list.slice(0, 12).map(item => {
+    if(item.kind === 'alert'){
+      // server / login alerts (v4.68.1): open the screen they belong to
+      return `<a class="notif-item notif-alert is-${escapeHtml(item.tone || 'info')}" href="?view=${escapeHtml(item.view || 'sites')}" onclick="markNotifSeen('${escapeHtml(item.id)}'); closeNotifPanel(); switchView('${escapeHtml(item.view || 'sites')}'); return false;">
+        <div class="notif-item-top"><span class="notif-item-id">${escapeHtml(item.title || '')}</span></div>
+        <div class="notif-item-sub">${escapeHtml(item.subject || '')}</div>
+        <div class="notif-item-meta">${escapeHtml(item.meta || '')}${item.at ? ' · ' + escapeHtml(item.at) : ''}</div>
+      </a>`;
+    }
     const pri = (item.priority || '').toLowerCase();
     const priClass = /immediate|urgent/.test(pri) ? 'immediate' : /high/.test(pri) ? 'high' : '';
     const priLabel = item.priority ? `<span class="notif-item-pri ${priClass}">${escapeHtml(item.priority)}</span>` : '';
@@ -187,6 +195,22 @@ function pushNotifRecent(issues){
   });
   window.__notifRecent = window.__notifRecent.slice(0, 30);
   updateNotifToggleUI();
+}
+
+/* Generic alert in the bell panel (+ browser notification when browser alerts are on). */
+function pushNotifAlert({ key, title, body, meta = '', tone = 'info', view = 'sites' }){
+  window.__notifRecent = window.__notifRecent || [];
+  if(window.__notifRecent.some(x => x.id === key)) return;
+  window.__notifRecent.unshift({ id: key, kind: 'alert', title, subject: body, meta, tone, view,
+    at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), seen: false });
+  window.__notifRecent = window.__notifRecent.slice(0, 30);
+  updateNotifToggleUI();
+  if(isTesterNotifEnabled() && typeof Notification !== 'undefined' && Notification.permission === 'granted'){
+    try {
+      const n = new Notification(title, { body, icon: '/icon.png', badge: '/icon.png', tag: key, requireInteraction: tone === 'bad' });
+      n.onclick = () => { try { window.focus(); window.switchView && window.switchView(view); } catch(_){} n.close(); };
+    } catch(_){}
+  }
 }
 
 function positionNotifPanel(){
@@ -497,6 +521,7 @@ export {
   notifyNewTesterIssues,
   positionNotifPanel,
   pushNotifRecent,
+  pushNotifAlert,
   renderNotifRecent,
   setTelegramRftEnabled,
   startTesterNotifPoll,

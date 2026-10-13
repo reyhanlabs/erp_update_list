@@ -12,6 +12,7 @@
 import { db } from '../firebase.js';
 import { CloudSync } from '../core/cloud-sync.js';
 import { canEdit } from '../core/team.js';
+import { pushNotifAlert } from './tester/notifications.js';
 import { $, escapeHtml, toast } from '../core/helpers.js';
 import { apiFetch } from '../api.js';
 import { confirmDialog } from '../ui/confirm.js';
@@ -81,6 +82,7 @@ function subscribe(background){
   S.unsub = ref().onSnapshot(snap => {
     S.sites = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     S.loaded = true;
+    try { noticeLoginChanges(); } catch(e){ console.warn('login notices', e); }
     updateNavCount();
     render();
     try { window.dispatchEvent(new CustomEvent('sites:updated')); } catch(_){}
@@ -925,6 +927,36 @@ async function checkLoginSite(id, { quiet = false } = {}){
   } catch(err){ if(!quiet) toast(err.message || String(err), 'error'); }
   finally { S.loginBusy.delete(id); renderNow(); }
 }
+/* Bell + browser notification + toast when a test server's login check changes state
+   (written by the app or by the scheduled server check). On the first snapshot only
+   servers that are failing right now are announced. */
+S.loginSeen = null;
+function noticeLoginChanges(){
+  const first = !S.loginSeen;
+  const seen = S.loginSeen || new Map();
+  S.sites.forEach(s => {
+    const L = s.login;
+    if(!s.isTest || !L || !L.at) return;
+    const prev = seen.get(s.id);
+    seen.set(s.id, { ok: !!L.ok, at: L.at });
+    if(prev && prev.at === L.at) return;
+    const failed = !L.ok && (first || !prev || prev.ok);
+    const back = L.ok && prev && !prev.ok;
+    if(!failed && !back) return;
+    const step = STEP_LABEL[L.step] || 'Check';
+    const host = hostOf(s.url);
+    if(failed){
+      pushNotifAlert({ key: `login-${s.id}-${L.at}`, tone: 'bad', title: `🔐 ${s.name}: ${step} failed`,
+        body: String(L.message || '').slice(0, 160), meta: `${host}${(s.loginFailCount || 0) > 1 ? ` · ${s.loginFailCount} checks in a row` : ''}` });
+      if(!first) toast(`${s.name}: ${step} failed — ${String(L.message || '').slice(0, 90)}`, 'error');
+    } else {
+      pushNotifAlert({ key: `login-${s.id}-${L.at}`, tone: 'ok', title: `🔓 ${s.name}: login + open data OK again`, body: L.message || '', meta: host });
+      toast(`${s.name}: login + open data OK again`);
+    }
+  });
+  S.loginSeen = seen;
+}
+
 async function autoCheckLogins(){
   if(!canEdit()) return;
   await loadLoginHosts();
