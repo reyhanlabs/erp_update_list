@@ -64,8 +64,10 @@ self.addEventListener('fetch', (event) => {
   );
 
   if (isAppCode) {
+    // cache: 'no-cache' → always ask the server (ETag), so modules of one
+    // deploy are never mixed with modules from the browser's HTTP cache.
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           if (res.ok) putInCache(req, res);
           return res;
