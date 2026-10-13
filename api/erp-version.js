@@ -33,11 +33,14 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const VER = String.raw`[vV]?(\d{1,4}\.\d{1,3}(?:\.\d{1,8}){0,3}(?:[-+][0-9A-Za-z.\-]{1,24})?)`;
 const LIB_NEAR = /\b(vue|react|angular|axios|core-js|lodash|moment|dayjs|chart|bootstrap|jquery|element|antd|ant-design|quasar|vuetify|sentry|firebase|webpack|babel|tslib|zone\.js|rxjs|swiper|sweetalert|popper|tinymce|quill|pdf|xlsx|socket|echarts|apexcharts|highcharts|leaflet|i18n|pinia|vuex|router|primevue|naive|tailwind|fontawesome|crypto|uuid|nprogress|workbox|hammer)\b/i;
 
-/* Syntactic check: a real-looking public DNS name on the default https port. */
+/* Syntactic check: a real-looking public DNS name, or a public IPv4 address
+   written in full (v4.67.1: self-hosted servers such as http://202.152.63.154:8989). */
 function hostAllowed(host) {
   const h = String(host || '').toLowerCase().replace(/\.$/, '');
   if (!h || h.length > 253 || h.includes(':') || h.includes('[')) return false;     // IPv6 literal
-  if (/^\d+(\.\d+){0,3}$/.test(h) || /^0x/i.test(h)) return false;                  // IPv4 literal / numeric forms
+  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) return v4.slice(1).every(n => Number(n) <= 255 && !/^0\d/.test(n)) && !ipPrivate(h);
+  if (/^\d+(\.\d+){0,3}$/.test(h) || /^0x/i.test(h)) return false;                  // short / numeric forms
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(h) || !/\.[a-z][a-z0-9-]{1,62}$/.test(h)) return false;
   if (/(^|\.)(localhost|local|localdomain|internal|intranet|lan|home|corp|private|test|invalid|example)$/.test(h)) return false;
   return true;
@@ -72,7 +75,9 @@ async function assertPublicHost(host) {
   try { await dnsCache.get(host); }
   catch (err) { dnsCache.delete(host); throw new Error(`${host}: ${err.code === 'ENOTFOUND' ? 'address not found' : err.message}`); }
 }
-function portOk(u) { return !u.port || u.port === '443'; }
+/* Default ports, or an unprivileged port (self-hosted servers often run on 8080, 8989 …). */
+function portOk(u) { const p = Number(u.port); return !u.port || p === 80 || p === 443 || (p >= 1024 && p <= 65535); }
+const protoOk = (u) => u.protocol === 'https:' || u.protocol === 'http:';
 
 function normalizeUrl(raw) {
   let s = String(raw || '').trim();
@@ -80,7 +85,7 @@ function normalizeUrl(raw) {
   if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
   let u;
   try { u = new URL(s); } catch (_) { return null; }
-  u.protocol = 'https:';
+  if (!protoOk(u)) return { blocked: u.host };   // http:// kept when typed (servers without HTTPS)
   u.hash = '';
   if (!hostAllowed(u.hostname) || !portOk(u)) return { blocked: u.host };
   return u;
@@ -144,7 +149,7 @@ function httpsGetLoose(url, timeoutMs, maxBytes) {
 async function fetchText(url, deadline, { maxBytes = MAX_FILE } = {}) {
   let current = new URL(url);
   for (let hop = 0; hop < 4; hop++) {
-    if (!hostAllowed(current.hostname) || !portOk(current) || current.protocol !== 'https:') throw new Error(`not allowed: ${current.host}`);
+    if (!hostAllowed(current.hostname) || !portOk(current) || !protoOk(current)) throw new Error(`not allowed: ${current.host}`);
     await assertPublicHost(current.hostname);
     const left = deadline - Date.now();
     if (left < 300) throw new Error('time budget used up');
@@ -292,7 +297,7 @@ function sameSiteUrl(ref, base) {
   try {
     const b = new URL(base);
     const u = new URL(ref, b);
-    return u.protocol === 'https:' && u.hostname === b.hostname && portOk(u) ? u.toString() : null;   // the page's own host only
+    return protoOk(u) && u.hostname === b.hostname && u.port === b.port && portOk(u) ? u.toString() : null;   // the page's own host + port only
   } catch (_) { return null; }
 }
 
@@ -365,9 +370,9 @@ async function backendVersions(origin, deadline) {
 export async function detectVersion(rawUrl, { hint = '' } = {}) {
   const started = Date.now();
   const deadline = started + BUDGET_MS;
-  const target = normalizeUrl(rawUrl);
+  let target = normalizeUrl(rawUrl);
   if (!target) return { error: 'Invalid URL' };
-  if (target.blocked) return { error: `Address not allowed: ${target.blocked}`, hint: 'Use the public https address of the Zahir ERP site (no IP address, local name or custom port).' };
+  if (target.blocked) return { error: `Address not allowed: ${target.blocked}`, hint: 'Use the public address of the Zahir ERP site (a public domain or public IP; no local or private address, and ports 80, 443 or 1024–65535).' };
 
   const candidates = [];
   const fetched = [];
@@ -375,12 +380,24 @@ export async function detectVersion(rawUrl, { hint = '' } = {}) {
   const log = (url, note) => fetched.push(note ? `${url} (${note})` : url);
 
   // 0) backend versions, in parallel with everything below
-  const backendP = backendVersions(target.origin, deadline);
+  let backendP = backendVersions(target.origin, deadline);
 
   // 1) the login page itself
   let page;
   try { page = await fetchText(target.toString(), deadline); }
-  catch (err) { return { error: `Could not open the page: ${err.message}`, url: target.toString(), backend: await backendP }; }
+  catch (err) {
+    // a server without HTTPS (often an IP with its own port): try plain http once
+    const plainOnly = /does not speak HTTPS|TLS handshake|ERR_SSL|EPROTO|ECONNRESET|certificate/i.test(err.message);
+    if (target.protocol === 'https:' && (plainOnly || target.port || /^\d+\.\d+\.\d+\.\d+$/.test(target.hostname))) {
+      const plain = new URL(target.toString()); plain.protocol = 'http:';
+      try {
+        page = await fetchText(plain.toString(), deadline);
+        target = plain;
+        backendP = backendVersions(target.origin, deadline);
+      } catch (_) { /* keep the https error */ }
+    }
+    if (!page) return { error: `Could not open the page: ${err.message}`, url: target.toString(), backend: await backendP };
+  }
   if (page.status >= 400) return { error: `The page answered HTTP ${page.status}`, url: target.toString(), backend: await backendP };
   log(page.finalUrl, `HTTP ${page.status}`);
   const html = page.text;

@@ -64,8 +64,7 @@ function cleanUrl(raw){
   if(!s) return '';
   if(!/^https?:\/\//i.test(s)) s = 'https://' + s;
   try {
-    const u = new URL(s);
-    u.protocol = 'https:';
+    const u = new URL(s);   // http:// and a port (e.g. http://202.152.63.154:8989) are kept as typed
     if(u.pathname === '/' || !u.pathname) u.pathname = '/auth';   // the login page shows the version
     u.hash = '';
     return u.toString();
@@ -275,6 +274,7 @@ async function checkSite(site, { quiet = false } = {}){
       ...backendPatch(site, d.backend, now)
     };
     if(d.chunkHint) patch.chunkHint = String(d.chunkHint);
+    if(d.url && /^http:/i.test(d.url) && /^https:/i.test(site.url || '')) patch.url = d.url;   // the server only answers on plain http
     if(d.version){
       patch.version = d.version;
       if(site.version && site.version !== d.version){ patch.prevVersion = site.version; patch.versionChangedAt = now; }

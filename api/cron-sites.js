@@ -71,6 +71,7 @@ export function buildPatch(site, d, now) {
       candidates: (d.candidates || []).slice(0, 6)
     });
     if (d.chunkHint) patch.chunkHint = String(d.chunkHint);
+    if (d.url && /^http:/i.test(d.url) && /^https:/i.test(site.url || '')) patch.url = d.url;   // server only answers on plain http
     if (d.version) {
       patch.version = d.version;
       if (site.version && site.version !== d.version) { patch.prevVersion = site.version; patch.versionChangedAt = now; }
