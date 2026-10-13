@@ -3894,3 +3894,10 @@ body:not([data-role]) [data-perm]{display:none !important}
 .sv-env{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text-secondary)}
 .sv-env.hidden{display:none}
 .sv-env .select{height:32px;font-size:12.5px;min-width:96px}
+
+/* Client report: "+N more" opens the rest (v4.67.3) */
+.rs-more-btn{border:none;background:none;padding:2px 0;font:inherit;font-size:11.5px;font-weight:650;color:var(--brand);cursor:pointer}
+.rs-more-btn:hover{text-decoration:underline}
+.rs-done-list li.rs-more::before{content:''}
+.rs-done-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--text-tertiary);text-decoration:none;margin-right:4px}
+.rs-done-id:hover{color:var(--brand)}

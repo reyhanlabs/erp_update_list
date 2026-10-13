@@ -23,7 +23,19 @@ const LIST_MAX = 10;        // not-started rows shown per topic
 const DONE_MAX = 4;         // done titles shown per topic
 const OLD_DAYS = 182;       // "older than 6 months"
 
-const state = { mode: 'auto' };   // auto | topic | category | tracker | product
+const state = { mode: 'auto',      // auto | topic | category | tracker | product
+  open: new Set(),                  // lists expanded with "+N more"
+  all: false,                       // "Show all" in the toolbar
+  full: false };                    // image export: everything, no buttons
+const isOpen = (key) => state.full || state.all || state.open.has(key);
+function moreBtn(key, hidden, li){
+  if(state.full) return '';
+  const tag = li ? 'li' : 'div';
+  const k = escapeHtml(JSON.stringify(key));
+  if(hidden > 0) return `<${tag} class="rs-more"><button type="button" class="rs-more-btn" onclick="toggleClientReportMore(${k})">+${hidden} more</button></${tag}>`;
+  if(state.open.has(key) && !state.all) return `<${tag} class="rs-more"><button type="button" class="rs-more-btn" onclick="toggleClientReportMore(${k})">Show less</button></${tag}>`;
+  return '';
+}
 
 /* ---------------- status buckets ---------------- */
 function groupOf(issue){
@@ -200,26 +212,29 @@ const topicHead = (t, right) => `<div class="rs-topic"><i style="background:${t.
 function todoList(m){
   const ts = m.topics.filter(t => t.by.todo.length);
   if(!ts.length) return '<p class="rs-none">Nothing waiting to be started.</p>';
-  return ts.map(t => topicHead(t, `${t.by.todo.length} issue${t.by.todo.length === 1 ? '' : 's'}`) + t.by.todo.slice(0, LIST_MAX).map(i => `<div class="rs-row">
+  return ts.map(t => { const key = 'todo:' + t.name, n = isOpen(key) ? t.by.todo.length : LIST_MAX;
+    return topicHead(t, `${t.by.todo.length} issue${t.by.todo.length === 1 ? '' : 's'}`) + t.by.todo.slice(0, n).map(i => `<div class="rs-row">
       ${idLink(i)}<span class="rs-subj">${escapeHtml(i.subject || '—')}</span>
       <span class="rs-who${i.assigned_to ? '' : ' is-none'}">${escapeHtml(i.assigned_to?.name || 'No assignee')}</span></div>`).join('')
-    + (t.by.todo.length > LIST_MAX ? `<div class="rs-more">+${t.by.todo.length - LIST_MAX} more</div>` : '')).join('');
+    + moreBtn(key, t.by.todo.length - n, false); }).join('');
 }
 
 function doingList(m){
   if(!m.all.doing.length) return '<p class="rs-none">Nothing in progress.</p>';
-  return m.all.doing.slice().sort((a, b) => String(b.updated_on).localeCompare(String(a.updated_on))).slice(0, 12).map(i => `<div class="rs-row rs-row-doing">
+  const n = isOpen('doing') ? m.all.doing.length : 12;
+  return m.all.doing.slice().sort((a, b) => String(b.updated_on).localeCompare(String(a.updated_on))).slice(0, n).map(i => `<div class="rs-row rs-row-doing">
       ${idLink(i)}<span class="rs-subj">${escapeHtml(i.subject || '—')}<em class="rs-chip">${escapeHtml(i.status?.name || '')}${i.done_ratio ? ` · ${i.done_ratio}%` : ''}</em></span>
       <span class="rs-who${i.assigned_to ? '' : ' is-none'}">${escapeHtml(i.assigned_to?.name || 'No assignee')}</span></div>`).join('')
-    + (m.all.doing.length > 12 ? `<div class="rs-more">+${m.all.doing.length - 12} more</div>` : '');
+    + moreBtn('doing', m.all.doing.length - n, false);
 }
 
 function doneList(m){
   const ts = m.topics.filter(t => t.by.done.length);
   if(!ts.length) return '<p class="rs-none">Nothing finished yet.</p>';
-  return ts.map(t => `<div class="rs-done-block">${topicHead(t, `<em class="rs-done-pill">${t.by.done.length} done</em>`)}
-      <ul class="rs-done-list">${t.by.done.slice(0, DONE_MAX).map(i => `<li title="#${i.id}">${escapeHtml(i.subject || '—')}</li>`).join('')}
-      ${t.by.done.length > DONE_MAX ? `<li class="rs-more-li">+${t.by.done.length - DONE_MAX} more</li>` : ''}</ul></div>`).join('');
+  return ts.map(t => { const key = 'done:' + t.name, n = isOpen(key) ? t.by.done.length : DONE_MAX;
+    return `<div class="rs-done-block">${topicHead(t, `<em class="rs-done-pill">${t.by.done.length} done</em>`)}
+      <ul class="rs-done-list">${t.by.done.slice(0, n).map(i => `<li><a class="rs-done-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a> ${escapeHtml(i.subject || '—')}</li>`).join('')}
+      ${moreBtn(key, t.by.done.length - n, true)}</ul></div>`; }).join('');
 }
 
 const MODE_LABEL = { auto: 'Auto', topic: 'Topic (from subjects)', category: 'Redmine category', tracker: 'Tracker', product: 'Product' };
@@ -276,6 +291,7 @@ export function renderClientReport(el, clientName, issues){
         <select class="select" onchange="setClientReportGroup(this.value)">${Object.entries(MODE_LABEL).map(([k, v]) => `<option value="${k}"${state.mode === k ? ' selected' : ''}>${v}${k === 'auto' ? ` (${MODE_LABEL[m.mode].split(' ')[0].toLowerCase()})` : ''}</option>`).join('')}</select>
       </label>
       <div class="rs-actions">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleClientReportAll()">${state.all ? 'Collapse lists' : 'Show all issues'}</button>
         <button type="button" class="btn btn-primary btn-sm" onclick="downloadClientReportPng()">Download image</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReportImage()">Copy image</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReport()">Copy text</button>
@@ -289,7 +305,12 @@ function rerender(){
   const ctx = window.__clientReportCtx, host = $('clientReportBody');
   if(ctx && host) renderClientReport(host, ctx.clientName, ctx.issues);
 }
-export function setClientReportGroup(mode){ state.mode = MODE_LABEL[mode] ? mode : 'auto'; rerender(); }
+export function setClientReportGroup(mode){ state.mode = MODE_LABEL[mode] ? mode : 'auto'; state.open.clear(); rerender(); }
+export function toggleClientReportMore(key){
+  if(state.open.has(key)) state.open.delete(key); else state.open.add(key);
+  const y = window.scrollY; rerender(); window.scrollTo(0, y);
+}
+export function toggleClientReportAll(){ state.all = !state.all; if(!state.all) state.open.clear(); const y = window.scrollY; rerender(); window.scrollTo(0, y); }
 export function toggleClientReportDone(){ rerender(); }   // kept for old links; the summary covers every issue
 
 /* ---------------- image ---------------- */
@@ -307,12 +328,20 @@ function loadHtml2Canvas(){
   }
   return h2cPromise;
 }
+/* The image always holds every issue: lists are drawn in full for the capture, then put back. */
 async function reportBlob(){
-  const node = $('clientReportPaper');
-  if(!node) throw new Error('Open the Report tab first');
+  if(!$('clientReportPaper')) throw new Error('Open the Report tab first');
   const h2c = await loadHtml2Canvas();
-  const canvas = await h2c(node, { scale: 2, backgroundColor: getComputedStyle(node).backgroundColor || '#ffffff', useCORS: true, logging: false, windowWidth: node.scrollWidth });
-  return await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Image failed')), 'image/png'));
+  const y = window.scrollY;
+  state.full = true; rerender();
+  try {
+    const node = $('clientReportPaper');
+    await new Promise(r => requestAnimationFrame(() => r()));
+    const canvas = await h2c(node, { scale: 2, backgroundColor: getComputedStyle(node).backgroundColor || '#ffffff', useCORS: true, logging: false, windowWidth: node.scrollWidth });
+    return await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Image failed')), 'image/png'));
+  } finally {
+    state.full = false; rerender(); window.scrollTo(0, y);
+  }
 }
 function fileName(ext){
   const ctx = window.__clientReportCtx || { clientName: 'client' };
@@ -348,6 +377,7 @@ function reportText(){
   m.topics.forEach(t => { out += `• ${t.name}: ${t.by.done.length}/${t.total} done${t.by.doing.length ? `, ${t.by.doing.length} in progress` : ''}${t.by.todo.length ? `, ${t.by.todo.length} not started` : ''}\n`; });
   if(doing.length){ out += `\n*🔧 In progress (${doing.length})*\n`; doing.forEach(i => { out += `• #${i.id} ${i.subject} [${i.status?.name || ''}]\n`; }); }
   if(todo.length){ out += `\n*⏳ Not started (${todo.length})*\n`; todo.forEach(i => { out += `• #${i.id} ${i.subject}${i.assigned_to ? ` (${i.assigned_to.name})` : ''}\n`; }); }
+  if(done.length){ out += `\n*✅ Done (${done.length})*\n`; m.topics.filter(t => t.by.done.length).forEach(t => { out += `_${t.name}_\n`; t.by.done.forEach(i => { out += `• #${i.id} ${i.subject}\n`; }); }); }
   out += `\n*Highlights*\n${highlights(m).map(h => `• ${h}`).join('\n')}`;
   return out.trim();
 }
