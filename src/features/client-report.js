@@ -1,284 +1,375 @@
 /**
- * Client Report (v4.55.0)
+ * Client Report — summary (v4.66.0)
  *
- * For one client: every request grouped by progress —
- *   Done (Resolved / Closed), In progress (In Progress, Ready for Testing,
- *   Feedback, Rework, On Deploy, …), Not started (New) —
- * with what was asked (from the issue description) and the latest progress
- * note from Redmine. Done items default to the last 90 days.
- * Copy as text (WhatsApp / Telegram) or export a CSV that opens in Excel.
+ * One page per client for a PM, not a list of issue cards:
+ *   - totals: all / done / in progress / not started (New)
+ *   - status donut + progress per topic
+ *   - not-started list and in-progress list (id, subject, assignee),
+ *     done work summarised per topic
+ *   - highlights written from the data (backlog, ageing, assignee load)
+ * Topics come from the Redmine category when most issues have one, otherwise
+ * from words the subjects share ("cost code", "uang muka", "psak 109" …).
+ * Download as PNG / copy as image for WhatsApp, copy as text, or export CSV.
+ * English throughout, like the rest of the app.
  */
 import { $, escapeHtml, toast } from '../core/helpers.js';
-import { fetchRedmine } from '../redmine/client.js';
 import { writeClipboard } from '../core/clipboard.js';
 
-const GROUPS = [
-  { key: 'todo',  label: 'Not started',  icon: '⏳', hint: 'New' },
-  { key: 'doing', label: 'In progress',  icon: '🔧', hint: 'In Progress, Ready for Testing, Feedback, Rework, On Deploy' },
-  { key: 'done',  label: 'Done',         icon: '✅', hint: 'Resolved, Closed' }
-];
-const DONE_DAYS = 90;
 const REDMINE = 'https://pjm.zahironline.com/issues/';
+const H2C_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+const TOPIC_COLORS = ['#4f46e5', '#7c3aed', '#0284c7', '#c026d3', '#0d9488', '#db2777', '#64748b'];   // theme family; last = "other"
+const MAX_TOPICS = 6;
+const LIST_MAX = 10;        // not-started rows shown per topic
+const DONE_MAX = 4;         // done titles shown per topic
+const OLD_DAYS = 182;       // "older than 6 months"
 
-const state = { showAllDone: false, journals: new Map(), loading: false };
+const state = { mode: 'auto' };   // auto | topic | category | tracker | product
 
+/* ---------------- status buckets ---------------- */
 function groupOf(issue){
   const n = String(issue.status?.name || '').toLowerCase();
   if(/^new$|^baru$/.test(n)) return 'todo';
-  if(issue.closed_on || issue.status?.is_closed || /resolved|closed|fixed|done|selesai|rejected|cancel|duplicate/.test(n)) return 'done';
+  if(issue.closed_on || issue.status?.is_closed || /resolved|closed|fixed|done|finish|selesai|rejected|cancel|duplicate/.test(n)) return 'done';
   return 'doing';
 }
 
-function finishedAt(issue){ return issue.closed_on || issue.updated_on || ''; }
+/* ---------------- dates ---------------- */
+const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const BULAN_PANJANG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function tgl(iso, long){
+  const d = new Date(iso); if(!iso || isNaN(d)) return '';
+  return `${d.getDate()} ${(long ? BULAN_PANJANG : BULAN)[d.getMonth()]} ${d.getFullYear()}`;
+}
+function ageDays(iso){ const t = new Date(iso).getTime(); return isNaN(t) ? 0 : Math.floor((Date.now() - t) / 86400000); }
 
-function daysAgo(iso){
-  if(!iso) return null;
-  const t = new Date(iso).getTime();
-  return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+/* ---------------- topics ---------------- */
+const STOP = new Set(('lap laporan report reports fe be di dan yang tidak tdk untuk utk pada dengan dgn ke dari saat ada belum bisa dapat data filter menu error bug gagal muncul tampil ' +
+  'menampilkan tampilkan ditampilkan perbaikan perbaiki enhancement request req penambahan tambah tambahkan menambahkan field kolom button tombol dialog form list detail rincian per by the of on in ' +
+  'for and to a an is zahir erp online v1 v2 v3 issue masih harus agar jika ketika sudah akan atau juga sebagai seperti terjadi nilai baru lama semua pada saat sesuai tidak muncul new ' +
+  'implementasi implementation desain design mohon minta permintaan custom update hasil proses fitur feature menjadi dibagi jumlah sisi').split(/\s+/));
+const ACRONYM = new Set(['psak', 'opz', 'coa', 'ppn', 'pph', 'api', 'csv', 'pdf', 'pos', 'hpp', 'sku', 'baz', 'po', 'so', 'do', 'dp', 'ar', 'ap', 'gl', 'bpjs', 'npwp', 'efaktur', 'spt']);
+function words(subject){
+  return String(subject || '').toLowerCase()
+    .replace(/^\s*\[?(fe|be)\]?\s*[-:]\s*/i, '')
+    .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
 }
-function ago(iso){
-  const d = daysAgo(iso);
-  if(d == null) return '';
-  if(d <= 0) return 'today';
-  if(d === 1) return 'yesterday';
-  if(d < 30) return `${d} days ago`;
-  const m = Math.round(d / 30);
-  return m < 12 ? `${m} month${m > 1 ? 's' : ''} ago` : `${Math.round(d / 365)} year(s) ago`;
-}
-function shortDate(iso){
-  if(!iso) return '';
-  const d = new Date(iso); if(isNaN(d)) return '';
-  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-/* Markdown / Textile → plain text */
-function plain(text){
-  return String(text || '')
-    .replace(/\r\n?/g, '\n')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')            // md images
-    .replace(/![^\s!]+\.(png|jpe?g|gif|webp)(\([^)]*\))?!/gi, '')   // textile images
-    .replace(/<\/?[^>]+>/g, '')
-    .replace(/^\s*h[1-6]\.\s*/gim, '')
-    .replace(/^\s*#{1,6}\s*/gm, '')
-    .replace(/\*\*([^*]+)\*\*/g, '$1').replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, '$1$2')
-    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1')
-    .replace(/"([^"]+)":https?:\S+/g, '$1')
-    .replace(/@([^@\n]+)@/g, '$1').replace(/`([^`]+)`/g, '$1')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/* What was asked: the QA format's Actual / Expected / Summary sections when
- * present, otherwise the first lines of the description. */
-function requestSummary(issue){
-  const text = plain(issue.description);
-  if(!text) return '';
-  const sec = (re) => {
-    const m = text.match(new RegExp(`(?:^|\\n)\\s*(?:${re})\\s*:?\\s*\\n([\\s\\S]*?)(?=\\n\\s*[A-Z][A-Za-z /]{2,30}:?\\s*\\n|$)`, 'i'));
-    return m ? m[1].replace(/^\s*(?:[-*•]|\d+[.)])\s*/gm, '').trim() : '';
-  };
-  const parts = [];
-  const summary = sec('summary|deskripsi masalah|deskripsi|feature overview|ringkasan');
-  const actual = sec('actual results?|hasil saat ini|current (?:condition|behavior)');
-  const expected = sec('expected results?|hasil yang diharapkan|harapan|requirements?|kebutuhan|proposed behavior');
-  if(summary) parts.push(summary);
-  if(actual) parts.push('Now: ' + actual.replace(/\n+/g, '; '));
-  if(expected) parts.push('Wanted: ' + expected.replace(/\n+/g, '; '));
-  let out = parts.length ? parts.join('\n') : text;
-  out = out.replace(/^\s*[-*•]\s*/gm, '').replace(/\n{2,}/g, '\n');
-  return out.length > 360 ? out.slice(0, 357).replace(/\s+\S*$/, '') + '…' : out;
-}
-
-function lastNote(id){
-  const j = state.journals.get(String(id));
-  return j && j.notes && j.notes[0] ? j.notes[0] : null;
-}
-
-/* ---- data: latest progress notes, loaded in batches when the report opens ---- */
-async function loadJournals(issues, rerender){
-  const key = (i) => `${i.id}@${i.updated_on || ''}`;
-  let cached = {};
-  try { cached = JSON.parse(sessionStorage.getItem('erp_client_journals_v1') || '{}'); } catch(_){}
-  issues.forEach(i => { if(cached[key(i)]) state.journals.set(String(i.id), cached[key(i)]); });
-  const missing = issues.filter(i => !state.journals.has(String(i.id)));
-  if(!missing.length || state.loading) return;
-  state.loading = true;
-  rerender();
-  try {
-    for(let i = 0; i < missing.length; i += 40){
-      const batch = missing.slice(i, i + 40);
-      const { data } = await fetchRedmine(`/api/redmine?resource=journals&ids=${batch.map(x => x.id).join(',')}`, { force: true });
-      Object.entries((data && data.journals) || {}).forEach(([id, j]) => {
-        if(j && !j.error){
-          state.journals.set(id, j);
-          const iss = batch.find(x => String(x.id) === id);
-          if(iss) cached[key(iss)] = j;
-        }
-      });
-      try { sessionStorage.setItem('erp_client_journals_v1', JSON.stringify(cached)); } catch(_){}
-      rerender();
-    }
-  } catch(err){
-    console.warn('client report journals', err);
-    toast('Could not load progress notes from Redmine', 'error');
-  } finally {
-    state.loading = false;
-    rerender();
+function keep(w){ return !STOP.has(w) && (w.length >= 3 || ACRONYM.has(w)) && !/^\d+$/.test(w); }
+function termsOf(subject){
+  const w = words(subject), out = new Set();
+  for(let i = 0; i < w.length; i++){
+    if(keep(w[i]) && w[i].length >= 4) out.add(w[i]);
+    const a = w[i], b = w[i + 1];
+    if(!b) continue;
+    if((keep(a) && keep(b)) || (keep(a) && /^\d{2,4}$/.test(b))) out.add(a + ' ' + b);   // "uang muka", "psak 109"
   }
+  return out;
+}
+const titleCase = (t) => t.split(' ').map(x => ACRONYM.has(x) ? x.toUpperCase() : /^\d+$/.test(x) ? x : x[0].toUpperCase() + x.slice(1)).join(' ');
+
+/* Greedy: the term shared by most remaining issues becomes a topic (two-word terms preferred). */
+function topicsFromSubjects(issues){
+  const min = issues.length >= 15 ? 3 : 2;
+  const termSets = new Map(issues.map(i => [i, termsOf(i.subject)]));
+  const left = new Set(issues);
+  const topics = [];
+  while(topics.length < MAX_TOPICS && left.size){
+    const count = new Map();
+    left.forEach(i => termSets.get(i).forEach(t => count.set(t, (count.get(t) || 0) + 1)));
+    let best = null, bestScore = 0;
+    count.forEach((n, t) => {
+      if(n < min) return;
+      const score = n * (t.includes(' ') ? 1.6 : 1);
+      if(score > bestScore){ best = t; bestScore = score; }
+    });
+    if(!best) break;
+    const members = [...left].filter(i => termSets.get(i).has(best));
+    members.forEach(i => left.delete(i));
+    topics.push({ name: titleCase(best), issues: members });
+  }
+  if(left.size) topics.push({ name: topics.length ? 'Other' : 'All issues', issues: [...left], other: true });
+  return topics;
 }
 
-/* issues → { todo, doing, done, hiddenDone } */
-function buildGroups(issues){
-  const g = { todo: [], doing: [], done: [] };
-  let hiddenDone = 0;
-  issues.forEach(i => {
-    const k = groupOf(i);
-    if(k === 'done' && !state.showAllDone){
-      const d = daysAgo(finishedAt(i));
-      if(d != null && d > DONE_DAYS){ hiddenDone++; return; }
-    }
-    g[k].push(i);
+function topicsBy(issues, keyFn, emptyLabel){
+  const map = new Map();
+  issues.forEach(i => { const k = keyFn(i) || emptyLabel; if(!map.has(k)) map.set(k, []); map.get(k).push(i); });
+  const list = [...map.entries()].map(([name, iss]) => ({ name, issues: iss, other: name === emptyLabel }))
+    .sort((a, b) => (a.other - b.other) || b.issues.length - a.issues.length);
+  if(list.length <= MAX_TOPICS + 1) return list;
+  const head = list.filter(t => !t.other).slice(0, MAX_TOPICS);
+  const rest = list.filter(t => !head.includes(t)).flatMap(t => t.issues);
+  return [...head, { name: 'Other', issues: rest, other: true }];
+}
+
+function effectiveMode(issues){
+  if(state.mode !== 'auto') return state.mode;
+  const withCat = issues.filter(i => i.category && i.category.name).length;
+  return withCat >= issues.length * 0.6 ? 'category' : 'topic';
+}
+function buildTopics(issues, mode){
+  if(mode === 'category') return topicsBy(issues, i => i.category?.name, 'No category');
+  if(mode === 'tracker') return topicsBy(issues, i => i.tracker?.name, 'Other');
+  if(mode === 'product') return topicsBy(issues, i => i.project?.name, 'Other');
+  return topicsFromSubjects(issues);
+}
+
+/* ---------------- model ---------------- */
+function buildModel(clientName, issues){
+  const mode = effectiveMode(issues);
+  const topics = buildTopics(issues, mode).map((t, n) => {
+    const by = { todo: [], doing: [], done: [] };
+    t.issues.forEach(i => by[groupOf(i)].push(i));
+    by.todo.sort((a, b) => String(a.created_on).localeCompare(String(b.created_on)));
+    by.doing.sort((a, b) => String(b.updated_on).localeCompare(String(a.updated_on)));
+    by.done.sort((a, b) => String(b.closed_on || b.updated_on).localeCompare(String(a.closed_on || a.updated_on)));
+    return { ...t, color: t.other ? TOPIC_COLORS[TOPIC_COLORS.length - 1] : TOPIC_COLORS[n % (TOPIC_COLORS.length - 1)], by, total: t.issues.length };
   });
-  g.todo.sort((a, b) => String(a.created_on).localeCompare(String(b.created_on)));            // oldest waiting first
-  g.doing.sort((a, b) => String(b.updated_on).localeCompare(String(a.updated_on)));
-  g.done.sort((a, b) => String(finishedAt(b)).localeCompare(String(finishedAt(a))));
-  return { ...g, hiddenDone };
+  const all = { todo: [], doing: [], done: [] };
+  issues.forEach(i => all[groupOf(i)].push(i));
+  const statusCount = (list) => {
+    const m = new Map(); list.forEach(i => { const s = i.status?.name || '—'; m.set(s, (m.get(s) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const created = issues.map(i => i.created_on).filter(Boolean).sort();
+  const products = [...new Set(issues.map(i => i.project?.name).filter(Boolean))];
+  return { clientName, issues, mode, topics, all, total: issues.length, created, products,
+    doneStatus: statusCount(all.done), doingStatus: statusCount(all.doing) };
 }
 
-function card(i, groupKey){
-  const note = lastNote(i.id);
-  const req = requestSummary(i);
-  const full = plain(i.description);
-  const who = i.assigned_to?.name || 'Unassigned';
-  const prod = String(i.project?.name || '').replace(/^Zahir\s+/i, '');
-  const pct = i.done_ratio != null && groupKey === 'doing' && i.done_ratio > 0 ? ` · ${i.done_ratio}%` : '';
-  const when = groupKey === 'done' ? `done ${ago(finishedAt(i))}`
-    : groupKey === 'todo' ? `waiting since ${shortDate(i.created_on)}` : `updated ${ago(i.updated_on)}`;
-  return `<article class="cr-card">
-    <header class="cr-card-head">
-      <a class="cr-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a>
-      <h4 class="cr-subject">${escapeHtml(i.subject || '—')}</h4>
-    </header>
-    <div class="cr-meta"><span class="cr-status">${escapeHtml(i.status?.name || '')}${pct}</span><span>${escapeHtml(prod)}</span><span>${escapeHtml(who)}</span><span>${escapeHtml(when)}</span></div>
-    <div class="cr-block">
-      <span class="cr-label">Request</span>
-      <p class="cr-text">${req ? escapeHtml(req) : '<i class="cr-empty">No description in Redmine</i>'}</p>
-      ${full && full.length > req.length + 20 ? `<details class="cr-more"><summary>Full description</summary><div class="cr-full">${escapeHtml(full)}</div></details>` : ''}
-    </div>
-    <div class="cr-block">
-      <span class="cr-label">Latest progress</span>
-      ${note
-        ? `<p class="cr-text">${escapeHtml(note.text.length > 400 ? note.text.slice(0, 397) + '…' : note.text)}</p><span class="cr-note-by">${escapeHtml(note.by)} · ${escapeHtml(shortDate(note.at))}</span>`
-        : `<p class="cr-text"><i class="cr-empty">${state.journals.has(String(i.id)) ? 'No notes yet' : (state.loading ? 'Loading…' : '—')}</i></p>`}
-    </div>
-  </article>`;
+const pct = (a, b) => b ? Math.round(a * 100 / b) : 0;
+
+function highlights(m){
+  const out = [];
+  const { todo, doing, done } = m.all;
+  const backlog = m.topics.filter(t => t.by.todo.length).sort((a, b) => b.by.todo.length - a.by.todo.length);
+  let s = `${done.length} of ${m.total} issues (${pct(done.length, m.total)}%) are done`;
+  if(backlog.length) s += `; the biggest New backlog${backlog[1] ? 's are' : ' is'} ${backlog[0].name} (${backlog[0].by.todo.length})` + (backlog[1] ? ` and ${backlog[1].name} (${backlog[1].by.todo.length})` : '') + '.';
+  else s += '; nothing is waiting to be started.';
+  out.push(s);
+  if(doing.length) out.push(`${doing.length} issue${doing.length === 1 ? '' : 's'} in progress: ${m.doingStatus.map(([k, n]) => `${k} ${n}`).join(', ')}.`);
+  if(todo.length){
+    const old = todo.filter(i => ageDays(i.created_on) > OLD_DAYS).length;
+    const newest = todo.map(i => i.created_on).filter(Boolean).sort().pop();
+    const sameDay = newest ? todo.filter(i => String(i.created_on).slice(0, 10) === newest.slice(0, 10)).length : 0;
+    out.push(`Ageing: ${old} of ${todo.length} New issues are older than 6 months` + (newest ? `; the newest was created ${tgl(newest)}${sameDay > 1 ? ` (${sameDay} issues that day)` : ''}.` : '.'));
+    const by = new Map(); let none = [];
+    todo.forEach(i => { const a = i.assigned_to?.name; if(!a) none.push(i); else by.set(a, (by.get(a) || 0) + 1); });
+    const top = [...by.entries()].sort((a, b) => b[1] - a[1])[0];
+    let a = top ? `Assignee load: ${top[1]} of ${todo.length} New issues are with ${top[0]}` : 'Assignee load: no New issue has an assignee yet';
+    if(none.length) a += `${top ? ', and ' : '; '}${none.length} issue${none.length === 1 ? ' has' : 's have'} no assignee (${none.slice(0, 4).map(i => '#' + i.id).join(', ')}${none.length > 4 ? ', …' : ''})`;
+    out.push(a + '.');
+  }
+  const recent = done.filter(i => i.closed_on && ageDays(i.closed_on) <= 30).length;
+  if(recent) out.push(`${recent} issue${recent === 1 ? '' : 's'} finished in the last 30 days.`);
+  return out;
 }
 
-function renderInto(el, clientName, issues){
-  const g = buildGroups(issues);
-  const total = g.todo.length + g.doing.length + g.done.length;
-  const sections = GROUPS.map(G => {
-    const items = g[G.key];
-    const extra = G.key === 'done' && (g.hiddenDone || state.showAllDone)
-      ? `<button type="button" class="cr-toggle" onclick="toggleClientReportDone()">${state.showAllDone ? `Show only the last ${DONE_DAYS} days` : `Show ${g.hiddenDone} older`}</button>` : '';
-    return `<section class="cr-group cr-group-${G.key}">
-      <h3 class="cr-group-title"><span aria-hidden="true">${G.icon}</span> ${G.label} <span class="cr-count">${items.length}</span>
-        <small>${escapeHtml(G.hint)}${G.key === 'done' && !state.showAllDone ? ` · last ${DONE_DAYS} days` : ''}</small>${extra}</h3>
-      ${items.length ? `<div class="cr-cards">${items.map(i => card(i, G.key)).join('')}</div>` : '<p class="cr-none">Nothing here.</p>'}
-    </section>`;
+/* ---------------- render ---------------- */
+function donut(m){
+  const r = 52, c = 2 * Math.PI * r;
+  const css = getComputedStyle(document.body);
+  const v = (name, fb) => (css.getPropertyValue(name) || '').trim() || fb;
+  const parts = [['done', v('--success', '#059669')], ['doing', v('--warning', '#d97706')], ['todo', v('--danger', '#dc2626')]];
+  let offset = 0;
+  const arcs = parts.map(([k, color]) => {
+    const n = m.all[k].length; if(!n) return '';
+    const len = c * n / m.total, gap = m.total > n ? 2 : 0;
+    const arc = `<circle cx="70" cy="70" r="${r}" fill="none" stroke="${color}" stroke-width="22" stroke-dasharray="${Math.max(0, len - gap)} ${c - Math.max(0, len - gap)}" stroke-dashoffset="${-offset}" transform="rotate(-90 70 70)"/>`;
+    offset += len; return arc;
   }).join('');
-  el.innerHTML = `
-    <div class="cr-head">
-      <div class="cr-summary">
-        <b>${escapeHtml(clientName)}</b>: ${total} request${total === 1 ? '' : 's'} ·
-        <span class="cr-s-done">${g.done.length} done</span> ·
-        <span class="cr-s-doing">${g.doing.length} in progress</span> ·
-        <span class="cr-s-todo">${g.todo.length} not started</span>
-        ${state.loading ? '<span class="cr-loading">loading progress notes…</span>' : ''}
+  return `<div class="rs-donut-wrap"><svg width="170" height="170" viewBox="0 0 140 140" class="rs-donut" role="img" aria-label="${pct(m.all.done.length, m.total)}% done">
+    <circle cx="70" cy="70" r="${r}" fill="none" class="rs-donut-track" stroke-width="22"/>${arcs}
+    <text x="70" y="70" text-anchor="middle" class="rs-donut-pct">${pct(m.all.done.length, m.total)}%</text>
+    <text x="70" y="90" text-anchor="middle" class="rs-donut-sub">done</text></svg></div>`;
+}
+
+function bars(m){
+  const max = Math.max(1, ...m.topics.map(t => t.total));
+  return m.topics.map(t => {
+    const seg = (k, cls) => { const n = t.by[k].length; return n ? `<span class="rs-seg ${cls}" style="flex:${n}">${n * 100 / max >= 7 ? n : ''}</span>` : ''; };
+    return `<div class="rs-bar-row">
+      <div class="rs-bar-label"><b>${escapeHtml(t.name)}</b><small>${t.total} issue${t.total === 1 ? '' : 's'} | ${pct(t.by.done.length, t.total)}% done</small></div>
+      <div class="rs-bar-track"><div class="rs-bar" style="width:${t.total * 100 / max}%">${seg('done', 'is-done')}${seg('doing', 'is-doing')}${seg('todo', 'is-todo')}</div></div>
+    </div>`;
+  }).join('');
+}
+
+const idLink = (i) => `<a class="rs-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a>`;
+const topicHead = (t, right) => `<div class="rs-topic"><i style="background:${t.color}"></i><b style="color:${t.color}">${escapeHtml(t.name)}</b><span>${right}</span></div>`;
+
+function todoList(m){
+  const ts = m.topics.filter(t => t.by.todo.length);
+  if(!ts.length) return '<p class="rs-none">Nothing waiting to be started.</p>';
+  return ts.map(t => topicHead(t, `${t.by.todo.length} issue${t.by.todo.length === 1 ? '' : 's'}`) + t.by.todo.slice(0, LIST_MAX).map(i => `<div class="rs-row">
+      ${idLink(i)}<span class="rs-subj">${escapeHtml(i.subject || '—')}</span>
+      <span class="rs-who${i.assigned_to ? '' : ' is-none'}">${escapeHtml(i.assigned_to?.name || 'No assignee')}</span></div>`).join('')
+    + (t.by.todo.length > LIST_MAX ? `<div class="rs-more">+${t.by.todo.length - LIST_MAX} more</div>` : '')).join('');
+}
+
+function doingList(m){
+  if(!m.all.doing.length) return '<p class="rs-none">Nothing in progress.</p>';
+  return m.all.doing.slice().sort((a, b) => String(b.updated_on).localeCompare(String(a.updated_on))).slice(0, 12).map(i => `<div class="rs-row rs-row-doing">
+      ${idLink(i)}<span class="rs-subj">${escapeHtml(i.subject || '—')}<em class="rs-chip">${escapeHtml(i.status?.name || '')}${i.done_ratio ? ` · ${i.done_ratio}%` : ''}</em></span>
+      <span class="rs-who${i.assigned_to ? '' : ' is-none'}">${escapeHtml(i.assigned_to?.name || 'No assignee')}</span></div>`).join('')
+    + (m.all.doing.length > 12 ? `<div class="rs-more">+${m.all.doing.length - 12} more</div>` : '');
+}
+
+function doneList(m){
+  const ts = m.topics.filter(t => t.by.done.length);
+  if(!ts.length) return '<p class="rs-none">Nothing finished yet.</p>';
+  return ts.map(t => `<div class="rs-done-block">${topicHead(t, `<em class="rs-done-pill">${t.by.done.length} done</em>`)}
+      <ul class="rs-done-list">${t.by.done.slice(0, DONE_MAX).map(i => `<li title="#${i.id}">${escapeHtml(i.subject || '—')}</li>`).join('')}
+      ${t.by.done.length > DONE_MAX ? `<li class="rs-more-li">+${t.by.done.length - DONE_MAX} more</li>` : ''}</ul></div>`).join('');
+}
+
+const MODE_LABEL = { auto: 'Auto', topic: 'Topic (from subjects)', category: 'Redmine category', tracker: 'Tracker', product: 'Product' };
+
+function paper(m){
+  const { todo, doing, done } = m.all;
+  const today = tgl(new Date().toISOString(), true);
+  const range = m.created.length ? `Created ${tgl(m.created[0])} - ${tgl(m.created[m.created.length - 1])}` : '';
+  const prod = m.products.length ? m.products.map(p => escapeHtml(p)).join(', ') : '—';
+  const kpi = (cls, label, n, sub) => `<div class="rs-kpi ${cls}"><span>${label}</span><b>${n}</b><small>${sub}</small></div>`;
+  const legend = `<div class="rs-legend"><span><i class="is-done"></i>Done</span><span><i class="is-doing"></i>In progress</span><span><i class="is-todo"></i>Not started (New)</span></div>`;
+  const statusLine = (list) => list.map(([k, n]) => `${escapeHtml(k)} ${n}`).join(', ') || '—';
+  return `<div class="rs-paper" id="clientReportPaper">
+    <header class="rs-top">
+      <div><h2>${escapeHtml(m.clientName)} — Report Summary</h2><p>Issue progress | Product: ${prod} | Data as of ${today}</p></div>
+      <div class="rs-top-right"><b>${m.total} issue${m.total === 1 ? '' : 's'}</b><p>${range}</p></div>
+    </header>
+    <div class="rs-content">
+      <div class="rs-kpis">
+        ${kpi('is-total', 'Total issues', m.total, 'all statuses')}
+        ${kpi('is-done', 'Done', done.length, `${pct(done.length, m.total)}% of total`)}
+        ${kpi('is-doing', 'In progress', doing.length, escapeHtml(m.doingStatus.map(([k]) => k).slice(0, 3).join(' & ') || '—'))}
+        ${kpi('is-todo', 'Not started', todo.length, 'status New')}
       </div>
-      <div class="cr-actions">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReport()">Copy for WhatsApp / Telegram</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="exportClientReport()">Export Excel (CSV)</button>
+      <div class="rs-grid-2 rs-charts">
+        <section class="rs-card rs-comp"><h3>Status Breakdown</h3>${donut(m)}</section>
+        <section class="rs-card"><div class="rs-card-head"><h3>Progress by ${m.mode === 'category' ? 'Category' : m.mode === 'tracker' ? 'Tracker' : m.mode === 'product' ? 'Product' : 'Topic'}</h3>${legend}</div>${bars(m)}</section>
       </div>
+      <div class="rs-grid-2">
+        <section>
+          <div class="rs-band is-todo"><span>Not started (status New)</span><b>${todo.length} issue${todo.length === 1 ? '' : 's'}</b></div>
+          <div class="rs-card rs-list">${todoList(m)}</div>
+        </section>
+        <section>
+          <div class="rs-band is-doing"><span>In progress</span><b>${doing.length} issue${doing.length === 1 ? '' : 's'}</b></div>
+          <div class="rs-card rs-list">${doingList(m)}</div>
+          <div class="rs-band is-done"><span>Done</span><b>${done.length} issue${done.length === 1 ? '' : 's'}</b></div>
+          <div class="rs-card rs-list">${doneList(m)}</div>
+        </section>
+      </div>
+      <section class="rs-high"><h3>Highlights for the PM</h3><ul>${highlights(m).map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ul></section>
+      <p class="rs-foot">Source: Redmine (pjm.zahironline.com) | Done = ${statusLine(m.doneStatus)} | In progress = ${statusLine(m.doingStatus)} | Not started = New ${todo.length}</p>
     </div>
-    ${sections}`;
-  return g;
+  </div>`;
 }
 
 export function renderClientReport(el, clientName, issues){
   window.__clientReportCtx = { clientName, issues };
-  const g = renderInto(el, clientName, issues);
-  loadJournals([...g.todo, ...g.doing, ...g.done], () => {
-    const ctx = window.__clientReportCtx;
-    const host = $('clientReportBody');
-    if(ctx && host && host.isConnected){
-      // keep open "Full description" panels and scroll position
-      const open = [...host.querySelectorAll('details[open]')].map(d => d.closest('.cr-card')?.querySelector('.cr-id')?.textContent);
-      renderInto(host, ctx.clientName, ctx.issues);
-      host.querySelectorAll('.cr-card').forEach(c => { if(open.includes(c.querySelector('.cr-id')?.textContent)) c.querySelector('details')?.setAttribute('open', ''); });
-    }
-  });
+  if(!el) return;
+  const m = buildModel(clientName, issues);
+  window.__clientReportModel = m;
+  el.innerHTML = `<div class="rs-toolbar">
+      <label class="rs-mode">Group by
+        <select class="select" onchange="setClientReportGroup(this.value)">${Object.entries(MODE_LABEL).map(([k, v]) => `<option value="${k}"${state.mode === k ? ' selected' : ''}>${v}${k === 'auto' ? ` (${MODE_LABEL[m.mode].split(' ')[0].toLowerCase()})` : ''}</option>`).join('')}</select>
+      </label>
+      <div class="rs-actions">
+        <button type="button" class="btn btn-primary btn-sm" onclick="downloadClientReportPng()">Download image</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReportImage()">Copy image</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReport()">Copy text</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="exportClientReport()">Export CSV</button>
+      </div>
+    </div>
+    <div class="rs-scroll">${paper(m)}</div>`;
 }
 
-export function toggleClientReportDone(){
-  state.showAllDone = !state.showAllDone;
-  const ctx = window.__clientReportCtx;
-  const host = $('clientReportBody');
+function rerender(){
+  const ctx = window.__clientReportCtx, host = $('clientReportBody');
   if(ctx && host) renderClientReport(host, ctx.clientName, ctx.issues);
 }
+export function setClientReportGroup(mode){ state.mode = MODE_LABEL[mode] ? mode : 'auto'; rerender(); }
+export function toggleClientReportDone(){ rerender(); }   // kept for old links; the summary covers every issue
 
-/* ---- copy / export ---- */
-function reportText(){
-  const ctx = window.__clientReportCtx;
-  if(!ctx) return '';
-  const g = buildGroups(ctx.issues);
-  const total = g.todo.length + g.doing.length + g.done.length;
-  const d = new Date();
-  let out = `📋 **Laporan ${ctx.clientName}**\n📅 ${shortDate(d.toISOString())}\n${total} permintaan · ${g.done.length} selesai · ${g.doing.length} dikerjakan · ${g.todo.length} belum\n`;
-  const titles = { done: '✅ Selesai', doing: '🔧 Sedang dikerjakan', todo: '⏳ Belum dikerjakan' };
-  ['done', 'doing', 'todo'].forEach(k => {
-    if(!g[k].length) return;
-    out += `\n**${titles[k]} (${g[k].length})**\n`;
-    g[k].forEach((i, n) => {
-      out += `${n + 1}. #${i.id} ${i.subject} [${i.status?.name || ''}]\n`;
-      const note = lastNote(i.id);
-      if(note && k !== 'todo') out += `   ↳ ${note.text.replace(/\s+/g, ' ').slice(0, 160)}\n`;
+/* ---------------- image ---------------- */
+let h2cPromise = null;
+function loadHtml2Canvas(){
+  if(window.html2canvas) return Promise.resolve(window.html2canvas);
+  if(!h2cPromise){
+    h2cPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = H2C_URL; s.async = true; s.crossOrigin = 'anonymous';
+      s.onload = () => window.html2canvas ? resolve(window.html2canvas) : reject(new Error('html2canvas missing'));
+      s.onerror = () => { h2cPromise = null; reject(new Error('Could not load the image tool (check the connection)')); };
+      document.head.appendChild(s);
     });
-  });
-  return out.trim();
+  }
+  return h2cPromise;
+}
+async function reportBlob(){
+  const node = $('clientReportPaper');
+  if(!node) throw new Error('Open the Report tab first');
+  const h2c = await loadHtml2Canvas();
+  const canvas = await h2c(node, { scale: 2, backgroundColor: getComputedStyle(node).backgroundColor || '#ffffff', useCORS: true, logging: false, windowWidth: node.scrollWidth });
+  return await new Promise((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error('Image failed')), 'image/png'));
+}
+function fileName(ext){
+  const ctx = window.__clientReportCtx || { clientName: 'client' };
+  return `report-summary-${ctx.clientName.replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+}
+export async function downloadClientReportPng(){
+  try {
+    toast('Making the image…');
+    const blob = await reportBlob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = fileName('png'); a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    toast('Image downloaded');
+  } catch(err){ toast(err.message || 'Could not make the image', 'error'); }
+}
+export async function copyClientReportImage(){
+  try {
+    if(!window.ClipboardItem || !navigator.clipboard?.write) throw new Error('This browser can’t copy images — use Download image');
+    // Safari needs the promise passed straight to ClipboardItem
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': reportBlob() })]);
+    toast('Image copied, paste it in WhatsApp / Telegram');
+  } catch(err){ toast(err.message || 'Could not copy the image', 'error'); }
 }
 
+/* ---------------- text / CSV ---------------- */
+function reportText(){
+  const m = window.__clientReportModel;
+  if(!m) return '';
+  const { todo, doing, done } = m.all;
+  let out = `📋 *${m.clientName} — Report Summary*\n📅 Data as of ${tgl(new Date().toISOString(), true)}\n`;
+  out += `${m.total} issues · ✅ ${done.length} done (${pct(done.length, m.total)}%) · 🔧 ${doing.length} in progress · ⏳ ${todo.length} not started\n`;
+  out += `\n*Progress by ${m.mode === 'category' ? 'category' : 'topic'}*\n`;
+  m.topics.forEach(t => { out += `• ${t.name}: ${t.by.done.length}/${t.total} done${t.by.doing.length ? `, ${t.by.doing.length} in progress` : ''}${t.by.todo.length ? `, ${t.by.todo.length} not started` : ''}\n`; });
+  if(doing.length){ out += `\n*🔧 In progress (${doing.length})*\n`; doing.forEach(i => { out += `• #${i.id} ${i.subject} [${i.status?.name || ''}]\n`; }); }
+  if(todo.length){ out += `\n*⏳ Not started (${todo.length})*\n`; todo.forEach(i => { out += `• #${i.id} ${i.subject}${i.assigned_to ? ` (${i.assigned_to.name})` : ''}\n`; }); }
+  out += `\n*Highlights*\n${highlights(m).map(h => `• ${h}`).join('\n')}`;
+  return out.trim();
+}
 export async function copyClientReport(){
   const text = reportText();
   if(!text) return;
-  try { await writeClipboard(text); toast('Report copied, ready to paste'); } catch(_){}
+  try { await writeClipboard(text); toast('Summary copied, ready to paste'); } catch(_){}
 }
-
 export function exportClientReport(){
-  const ctx = window.__clientReportCtx;
-  if(!ctx) return;
-  const all = [...ctx.issues].sort((a, b) => ['todo', 'doing', 'done'].indexOf(groupOf(a)) - ['todo', 'doing', 'done'].indexOf(groupOf(b)));
-  const rows = [['Group', 'Issue', 'Subject', 'Status', 'Product', 'Assignee', 'Request', 'Latest progress', 'Progress by', 'Progress date', 'Created', 'Updated', 'Closed', 'Link']];
+  const m = window.__clientReportModel;
+  if(!m) return;
   const label = { todo: 'Not started', doing: 'In progress', done: 'Done' };
-  all.forEach(i => {
-    const n = lastNote(i.id);
-    rows.push([label[groupOf(i)], i.id, i.subject, i.status?.name || '', i.project?.name || '', i.assigned_to?.name || '',
-      requestSummary(i), n ? n.text : '', n ? n.by : '', n ? shortDate(n.at) : '',
-      shortDate(i.created_on), shortDate(i.updated_on), shortDate(i.closed_on), `${REDMINE}${i.id}`]);
-  });
-  const cell = (v) => {
-    const s = String(v ?? '');
-    return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const rows = [['Group', 'Topic', 'Issue', 'Subject', 'Status', 'Product', 'Assignee', 'Created', 'Updated', 'Closed', 'Link']];
+  m.topics.forEach(t => ['todo', 'doing', 'done'].forEach(k => t.by[k].forEach(i => rows.push([label[k], t.name, i.id, i.subject, i.status?.name || '', i.project?.name || '', i.assigned_to?.name || '',
+    tgl(i.created_on), tgl(i.updated_on), tgl(i.closed_on), `${REDMINE}${i.id}`]))));
+  const cell = (v) => { const s = String(v ?? ''); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const csv = '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `report-${ctx.clientName.replace(/[^\w]+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = fileName('csv'); a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast(`Exported ${all.length} issue(s)`);
+  toast(`Exported ${rows.length - 1} issue(s)`);
 }
 
-export function resetClientReport(){ state.journals.clear(); state.showAllDone = false; }
+export function resetClientReport(){ /* nothing cached any more (progress notes are no longer loaded) */ }
