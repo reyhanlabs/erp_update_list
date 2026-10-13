@@ -117,6 +117,12 @@ function envOf(s){
   if(s.testEnv === 'dev' || s.testEnv === 'prod') return s.testEnv;
   return /\b(dev|devel|staging|stg|uat|sandbox|test|qa)\b|[.-](dev|stg|uat)[.-]/i.test(`${s.name || ''} ${s.url || ''}`) ? 'dev' : 'prod';
 }
+const HIST_SHOW = 3;          // version-history lines shown before "+N more"
+S.histOpen = new Set();
+function toggleSiteHistory(id){
+  if(S.histOpen.has(id)) S.histOpen.delete(id); else S.histOpen.add(id);
+  renderNow();
+}
 const counted = () => { const live = S.sites.filter(s => !s.isTest); return live.length ? live : S.sites; };   // rollout: clients only
 function latestOf(part){ return S.sites.map(part.get).filter(Boolean).sort(cmpVersion).pop() || ''; }
 function latestAll(){ return Object.fromEntries(PARTS.map(p => [p.key, latestOf(p)])); }
@@ -509,7 +515,10 @@ function renderNow(){
   const historyHtml = (s) => {
     const h = (s.history || []).slice().reverse();
     if(!h.length) return '<p><b>Version history:</b> no change seen yet (changes are recorded from now on).</p>';
-    return `<div class="sv-hist"><b>Version history</b><ul>${h.map(c => `<li><span>${escapeHtml(new Date(c.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span><b>${partLabel(c.part)}</b> ${escapeHtml(c.from)} → <b>${escapeHtml(c.to)}</b></li>`).join('')}</ul></div>`;
+    const all = S.histOpen.has(s.id), shown = all ? h : h.slice(0, HIST_SHOW), more = h.length - shown.length;
+    return `<div class="sv-hist"><b>Version history</b><ul>${shown.map(c => `<li><span>${escapeHtml(new Date(c.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span><b>${partLabel(c.part)}</b> ${escapeHtml(c.from)} → <b>${escapeHtml(c.to)}</b></li>`).join('')}</ul>${more > 0
+      ? `<button type="button" class="sv-hist-more" onclick="toggleSiteHistory('${s.id}')">+${more} more</button>`
+      : all && h.length > HIST_SHOW ? `<button type="button" class="sv-hist-more" onclick="toggleSiteHistory('${s.id}')">Show less</button>` : ''}</div>`;
   };
 
   const rowHtml = (s) => {
@@ -1000,7 +1009,7 @@ function onSitesShown(){
 function getAllSites(){ return S.sites.map(({ id, ...rest }) => ({ id, ...rest })); }
 
 export {
-  onSitesShown, checkLoginSite, openSiteForm, closeSiteForm, openBulk as openSitesBulk, saveBulk as saveSitesBulk,
+  onSitesShown, checkLoginSite, toggleSiteHistory, openSiteForm, closeSiteForm, openBulk as openSitesBulk, saveBulk as saveSitesBulk,
   checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
   setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings,

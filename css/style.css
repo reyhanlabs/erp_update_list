@@ -3507,7 +3507,7 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .sv-row.is-test{background:repeating-linear-gradient(135deg,transparent 0 10px,var(--bg-subtle) 10px 11px)}
 .sv-badge.is-ahead{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
 .sv-hist{margin:6px 0 2px}
-.sv-hist ul{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:180px;overflow:auto}
+.sv-hist ul{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
 .sv-hist li{display:flex;gap:8px;font-variant-numeric:tabular-nums}
 .sv-hist li > span{min-width:150px;color:var(--text-tertiary)}
 .sv-rollout{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;padding:4px 4px 12px}
@@ -3918,3 +3918,7 @@ body:not([data-role]) [data-perm]{display:none !important}
 .notif-item.notif-alert.is-bad .notif-item-id{color:var(--danger)}
 .notif-item.notif-alert.is-ok{border-left-color:var(--success)}
 .notif-item.notif-alert.is-ok .notif-item-id{color:var(--success)}
+
+/* Client Versions: version history shows 3 lines, "+N more" opens the rest (v4.68.4) */
+.sv-hist-more{margin-top:4px;border:none;background:none;padding:2px 0;font:inherit;font-size:12px;font-weight:650;color:var(--brand);cursor:pointer}
+.sv-hist-more:hover{text-decoration:underline}
