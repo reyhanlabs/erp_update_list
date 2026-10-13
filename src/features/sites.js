@@ -651,7 +651,7 @@ function recentChangesHtml(){
   if(!all.length) return '';
   all.sort((a, b) => b.at - a.at);
   const week = all.filter(c => c.at >= Date.now() - 7 * 86400000).length;
-  const shown = S.showAllChanges ? all : all.slice(0, 8);
+  const shown = S.showAllChanges ? all : all.slice(0, HIST_SHOW);
   const open = S.recentOpen ?? week > 0;      // open by itself when something changed this week
   return `<details class="sv-recent"${open ? ' open' : ''} ontoggle="setSitesRecentOpen(this.open)">
     <summary>Recent changes <b>${week}</b> this week · ${all.length} in 30 days</summary>
@@ -660,11 +660,12 @@ function recentChangesHtml(){
       <button type="button" class="sv-recent-name" onclick="toggleSiteDetails('${c.site.id}')">${escapeHtml(c.site.name)}</button>
       <span><b>${partLabel(c.part)}</b> ${escapeHtml(c.from)} → <b>${escapeHtml(c.to)}</b></span>
     </li>`).join('')}</ul>
-    ${all.length > shown.length ? `<button type="button" class="btn btn-ghost btn-sm" onclick="showAllSiteChanges()">Show all ${all.length}</button>` : ''}
+    ${all.length > shown.length ? `<button type="button" class="sv-hist-more" onclick="showAllSiteChanges()">+${all.length - shown.length} more</button>`
+      : S.showAllChanges && all.length > HIST_SHOW ? `<button type="button" class="sv-hist-more" onclick="showAllSiteChanges()">Show less</button>` : ''}
   </details>`;
 }
 function setSitesRecentOpen(open){ S.recentOpen = !!open; }
-function showAllSiteChanges(){ S.showAllChanges = true; S.recentOpen = true; renderNow(); }
+function showAllSiteChanges(){ S.showAllChanges = !S.showAllChanges; S.recentOpen = true; renderNow(); }
 
 function setSitesFilter(v){ S.versionFilter = v; renderNow(); }
 function setSitesSort(v){ S.sort = v; renderNow(); }
