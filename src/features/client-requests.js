@@ -85,17 +85,11 @@ function requestLevelOf(id){
   }
   return cur;
 }
-/** progress group of a linked issue, its sub-issues included */
-function linkedGroup(id, depth = 0){
+/** progress group of a linked issue: its OWN current status (v4.69.5). Sub-issues are
+    only shown as information ("2/3 sub-issues done"), they don't change the status. */
+function linkedGroup(id){
   const i = issueById(id);
-  if(!i) return 'todo';
-  const own = groupOf(i);
-  if(own === 'done' || depth > 4) return own;
-  const kids = childrenOf(id).map(k => linkedGroup(k.id, depth + 1));
-  if(!kids.length) return own;
-  if(kids.every(g => g === 'done')) return 'done';
-  if(own === 'todo' && kids.every(g => g === 'todo')) return 'todo';
-  return 'doing';
+  return i ? groupOf(i) : 'todo';
 }
 
 /* ---------------- data ---------------- */
@@ -271,7 +265,7 @@ function issueChip(id, listId, itemId){
   const i = issueById(id);
   const g = i ? linkedGroup(id) : '';
   const kids = i ? childrenOf(id) : [];
-  const kidsDone = kids.filter(k => linkedGroup(k.id) === 'done').length;
+  const kidsDone = kids.filter(k => groupOf(k) === 'done').length;
   const cls = g === 'done' ? 'is-done' : g === 'todo' ? 'is-todo' : g ? 'is-doing' : 'is-unknown';
   const tip = i ? `${i.subject || ''} — ${i.status?.name || ''}${kids.length ? `\nSub-issues: ${kids.map(k => `#${k.id} ${k.status?.name || ''}`).join(', ')}` : ''}` : 'Issue not in this client\'s list';
   return `<span class="rq-chip ${cls}" title="${escapeHtml(tip)}">
