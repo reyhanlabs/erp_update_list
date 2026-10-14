@@ -4054,3 +4054,23 @@ body:not([data-role]) [data-perm]{display:none !important}
 .sv-hist li > span.sv-recent-when,.sv-hist li > span.sv-recent-from{color:var(--text-tertiary)}
 .sv-hist li > span.sv-recent-part{font-weight:700;color:var(--text-secondary)}
 .sv-hist li > span.sv-recent-to{font-weight:700;color:var(--text)}
+/* v4.69.9 — Compare versions: framed table with column dividers */
+.svc-scroll{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.svc-table{border-collapse:separate;border-spacing:0}
+.svc-table th,.svc-table td{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:10px 12px}
+.svc-table tr > :first-child{border-left:none}
+.svc-table thead th{background:var(--bg-subtle);border-bottom:1px solid var(--line);padding:10px 12px}
+.svc-table thead tr > th:first-child{border-top-left-radius:11px}
+.svc-table thead tr > th:last-child{border-top-right-radius:11px}
+.svc-table tbody th{background:var(--bg-subtle);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-tertiary);vertical-align:middle}
+.svc-table tbody tr:last-child > *{border-bottom:none}
+.svc-table tbody tr:last-child > th:first-child{border-bottom-left-radius:11px}
+.svc-table tbody tr:last-child > td:last-child{border-bottom-right-radius:11px}
+.svc-table td.is-ref{background:var(--brand-soft)}
+.svc-table td.is-older{box-shadow:inset 3px 0 0 #f59e0b}
+.svc-table td.is-newer{box-shadow:inset 3px 0 0 #3b82f6}
+.svc-table td.is-same{box-shadow:inset 3px 0 0 #22c55e}
+.svc-meta td,.svc-meta th{background:var(--bg-subtle)}
+.svc-meta td{font-size:12px}
+.svc-pick select{background:var(--surface)}
+.svc-verdict{border:1px solid var(--line);border-radius:10px;background:var(--bg-subtle);padding:8px 12px 8px 28px}
