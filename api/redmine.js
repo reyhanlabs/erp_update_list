@@ -352,6 +352,7 @@ export default async function handler(req, res) {
         project: issue.project,
         tracker: issue.tracker,
         category: issue.category || null,
+        parent: issue.parent ? { id: issue.parent.id } : null,   // v4.69.1: client requests link parent issues
         author: issue.author,
         assigned_to: issue.assigned_to,
         created_on: issue.created_on,

@@ -47,6 +47,33 @@ const who = () => (auth.currentUser && (auth.currentUser.email || auth.currentUs
 const host = () => $('clientRequestsBody');
 const issuesOfClient = () => window.__clientIssues || [];
 const issueById = (id) => issuesOfClient().find(i => String(i.id) === String(id));
+/* v4.69.1: a request usually has ONE parent issue in Redmine (same or similar title) with
+   FE / BE / design sub-issues. Points link to the parent; the sub-issues only feed its status. */
+const parentIdOf = (i) => i && i.parent && i.parent.id ? String(i.parent.id) : '';
+const childrenOf = (id) => issuesOfClient().filter(i => parentIdOf(i) === String(id));
+/** the top issue to link for any issue: walks up while the parent is in this client's list */
+function topIdOf(id){
+  let cur = String(id), seen = new Set();
+  while(!seen.has(cur)){
+    seen.add(cur);
+    const p = parentIdOf(issueById(cur));
+    if(!p || !issueById(p)) break;
+    cur = p;
+  }
+  return cur;
+}
+/** progress group of a linked issue, its sub-issues included */
+function linkedGroup(id, depth = 0){
+  const i = issueById(id);
+  if(!i) return 'todo';
+  const own = groupOf(i);
+  if(own === 'done' || depth > 4) return own;
+  const kids = childrenOf(id).map(k => linkedGroup(k.id, depth + 1));
+  if(!kids.length) return own;
+  if(kids.every(g => g === 'done')) return 'done';
+  if(own === 'todo' && kids.every(g => g === 'todo')) return 'todo';
+  return 'doing';
+}
 
 /* ---------------- data ---------------- */
 function listen(clientName){
@@ -90,7 +117,7 @@ export function itemStatus(item){
   if(item.mode === 'dropped') return 'dropped';
   const ids = item.issueIds || [];
   if(!ids.length) return 'missing';
-  const g = ids.map(id => { const i = issueById(id); return i ? groupOf(i) : 'todo'; });
+  const g = ids.map(id => linkedGroup(id));
   if(g.every(x => x === 'done')) return 'done';
   if(g.every(x => x === 'todo')) return 'todo';
   return 'doing';
@@ -187,12 +214,21 @@ function issueToks(i){
   if(!tokCache.has(k)) tokCache.set(k, { s: toks(i.subject), d: toks(String(i.description || '').slice(0, 600)) });
   return tokCache.get(k);
 }
+/* suggestions are parent (top) issues only: a matching sub-issue suggests its parent */
 export function suggestIssues(item, n = 3){
   const t = toks(`${item.text} ${item.detail || ''}`);
   const linked = new Set((item.issueIds || []).map(String));
-  return issuesOfClient().filter(i => !linked.has(String(i.id)))
-    .map(i => { const it = issueToks(i); return { issue: i, score: Math.max(similarity(t, it.s), similarity(t, it.d) * 0.8) }; })
-    .filter(x => x.score >= 0.25).sort((a, b) => b.score - a.score).slice(0, n);
+  const best = new Map();   // top id → best score
+  issuesOfClient().forEach(i => {
+    const it = issueToks(i);
+    let score = Math.max(similarity(t, it.s), similarity(t, it.d) * 0.8);
+    const top = topIdOf(i.id);
+    if(top !== String(i.id)) score *= 0.9;          // matched through a sub-issue
+    if(score > (best.get(top) || 0)) best.set(top, score);
+  });
+  return [...best.entries()].filter(([id, s]) => s >= 0.25 && !linked.has(id))
+    .map(([id, score]) => ({ issue: issueById(id), score })).filter(x => x.issue)
+    .sort((a, b) => b.score - a.score).slice(0, n);
 }
 
 /* ---------------- render ---------------- */
@@ -208,10 +244,13 @@ export function renderClientRequests(el, clientName){
 const statusPill = (st) => `<span class="rq-status ${STATUS[st].cls}">${STATUS[st].label}</span>`;
 function issueChip(id, listId, itemId){
   const i = issueById(id);
-  const g = i ? groupOf(i) : '';
+  const g = i ? linkedGroup(id) : '';
+  const kids = i ? childrenOf(id) : [];
+  const kidsDone = kids.filter(k => linkedGroup(k.id) === 'done').length;
   const cls = g === 'done' ? 'is-done' : g === 'todo' ? 'is-todo' : g ? 'is-doing' : 'is-unknown';
-  return `<span class="rq-chip ${cls}" title="${escapeHtml(i ? `${i.status?.name || ''} · ${i.subject || ''}` : 'Issue not in this client\'s list')}">
-    <a href="${REDMINE}${id}" target="_blank" rel="noopener">#${id}</a>${i ? `<small>${escapeHtml(i.status?.name || '')}</small>` : ''}
+  const tip = i ? `${i.subject || ''} — ${i.status?.name || ''}${kids.length ? `\nSub-issues: ${kids.map(k => `#${k.id} ${k.status?.name || ''}`).join(', ')}` : ''}` : 'Issue not in this client\'s list';
+  return `<span class="rq-chip ${cls}" title="${escapeHtml(tip)}">
+    <a href="${REDMINE}${id}" target="_blank" rel="noopener">#${id}</a>${i ? `<small>${escapeHtml(i.status?.name || '')}${kids.length ? ` · ${kidsDone}/${kids.length} sub-issues done` : ''}</small>` : ''}
     ${canEdit() ? `<button type="button" aria-label="Unlink #${id}" onclick="unlinkRequestIssue('${listId}','${itemId}','${id}')">×</button>` : ''}</span>`;
 }
 
@@ -340,7 +379,7 @@ function renderInto(el){
     <div><b>Client requests</b> <span class="rq-muted">${R.lists.length ? `${R.lists.length} list${R.lists.length === 1 ? '' : 's'} · ${all.total || 0} points · ${all.done || 0} done · ${all.missing || 0} not in Redmine yet` : 'the client\'s own list, point by point, linked to Redmine issues'}</span></div>
     ${edit && !R.form ? `<button type="button" class="btn btn-primary btn-sm" onclick="openRequestForm()">+ Add request list</button>` : ''}
   </div>`;
-  const datalist = `<datalist id="rqIssueList">${issuesOfClient().slice(0, 400).map(i => `<option value="${i.id}">#${i.id} ${escapeHtml(String(i.subject || '').slice(0, 80))}</option>`).join('')}</datalist>`;
+  const datalist = `<datalist id="rqIssueList">${issuesOfClient().filter(i => !parentIdOf(i) || !issueById(parentIdOf(i))).slice(0, 400).map(i => `<option value="${i.id}">#${i.id} ${escapeHtml(String(i.subject || '').slice(0, 80))}</option>`).join('')}</datalist>`;
   const body = !R.loaded ? '<div class="kb-state kb-state-sm"><p>Loading…</p></div>'
     : R.lists.length ? R.lists.map(listCard).join('')
     : R.form ? '' : `<div class="kb-state kb-state-sm"><p>No request list for this client yet.${edit ? ' Paste the list the client sent (or import their Excel), then link each point to its Redmine issue.' : ''}</p></div>`;
@@ -436,7 +475,9 @@ function linkRequestIssue(listId, itemId, raw){
   const id = String(raw || '').match(/\d{2,7}/)?.[0];
   if(!id){ toast('Type an issue number, e.g. 32312', 'error'); return; }
   if(!issueById(id)) toast(`#${id} is not in this client's issue list — linked anyway`);
-  mutateItem(listId, itemId, it => { if(!it.issueIds.map(String).includes(id)) it.issueIds.push(id); return it; });
+  const top = issueById(id) ? topIdOf(id) : id;
+  if(top !== id) toast(`#${id} is a sub-issue — linked its parent #${top}`);
+  mutateItem(listId, itemId, it => { if(!it.issueIds.map(String).includes(top)) it.issueIds.push(top); return it; });
 }
 function unlinkRequestIssue(listId, itemId, id){ mutateItem(listId, itemId, it => { it.issueIds = it.issueIds.filter(x => String(x) !== String(id)); return it; }); }
 function setRequestMode(listId, itemId, mode){ mutateItem(listId, itemId, it => { it.mode = ['done', 'dropped'].includes(mode) ? mode : 'auto'; return it; }); }
