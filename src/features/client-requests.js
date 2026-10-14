@@ -56,14 +56,31 @@ const issueById = (id) => issuesOfClient().find(i => String(i.id) === String(id)
 /* v4.69.1: a request usually has ONE parent issue in Redmine (same or similar title) with
    FE / BE / design sub-issues. Points link to the parent; the sub-issues only feed its status. */
 const parentIdOf = (i) => i && i.parent && i.parent.id ? String(i.parent.id) : '';
-const childrenOf = (id) => issuesOfClient().filter(i => parentIdOf(i) === String(id));
-/** the top issue to link for any issue: walks up while the parent is in this client's list */
-function topIdOf(id){
-  let cur = String(id), seen = new Set();
+// parent id → sub-issues, rebuilt when the client's issue list changes
+let kidsMap = null, kidsKey = null;
+function kids(){
+  const own = window.__clientIssues || [], extra = window.__clientParents || [];
+  if(kidsMap && kidsKey && kidsKey[0] === own && kidsKey[1] === extra && kidsKey[2] === own.length + extra.length) return kidsMap;
+  kidsMap = new Map();
+  issuesOfClient().forEach(i => { const p = parentIdOf(i); if(p){ if(!kidsMap.has(p)) kidsMap.set(p, []); kidsMap.get(p).push(i); } });
+  kidsKey = [own, extra, own.length + extra.length];
+  return kidsMap;
+}
+const childrenOf = (id) => kids().get(String(id)) || [];
+/* v4.69.3: Redmine trees can have three levels, e.g.
+     RUMAH YATIM (client container) → one issue per request → FE / BE sub-issues.
+   A "container" is an issue whose sub-issues have sub-issues of their own. The
+   request level is the highest issue below a container. Suggestions use that
+   level; an issue picked by hand is linked exactly as picked. */
+const hasChildren = (id) => childrenOf(id).length > 0;
+const isContainer = (id) => childrenOf(id).some(c => hasChildren(c.id));
+function requestLevelOf(id){
+  let cur = String(id);
+  const seen = new Set();
   while(!seen.has(cur)){
     seen.add(cur);
     const p = parentIdOf(issueById(cur));
-    if(!p || !issueById(p)) break;
+    if(!p || !issueById(p) || isContainer(p)) break;
     cur = p;
   }
   return cur;
@@ -220,15 +237,17 @@ function issueToks(i){
   if(!tokCache.has(k)) tokCache.set(k, { s: toks(i.subject), d: toks(String(i.description || '').slice(0, 600)) });
   return tokCache.get(k);
 }
-/* suggestions are parent (top) issues only: a matching sub-issue suggests its parent */
+/* suggestions are request-level issues: a matching FE / BE sub-issue suggests its request
+   issue, never the client container above it */
 export function suggestIssues(item, n = 3){
   const t = toks(`${item.text} ${item.detail || ''}`);
   const linked = new Set((item.issueIds || []).map(String));
-  const best = new Map();   // top id → best score
+  const best = new Map();   // request-level id → best score
   issuesOfClient().forEach(i => {
+    if(isContainer(i.id)) return;
     const it = issueToks(i);
     let score = Math.max(similarity(t, it.s), similarity(t, it.d) * 0.8);
-    const top = topIdOf(i.id);
+    const top = requestLevelOf(i.id);
     if(top !== String(i.id)) score *= 0.9;          // matched through a sub-issue
     if(score > (best.get(top) || 0)) best.set(top, score);
   });
@@ -385,10 +404,11 @@ function renderInto(el){
     <div><b>Client requests</b> <span class="rq-muted">${R.lists.length ? `${R.lists.length} list${R.lists.length === 1 ? '' : 's'} · ${all.total || 0} points · ${all.done || 0} done · ${all.missing || 0} not in Redmine yet` : 'the client\'s own list, point by point, linked to Redmine issues'}</span></div>
     ${edit && !R.form ? `<button type="button" class="btn btn-primary btn-sm" onclick="openRequestForm()">+ Add request list</button>` : ''}
   </div>`;
-  // every issue of the client (sub-issues say whose; linking one links its parent)
+  // every issue of the client, with where it sits in the tree
   const datalist = `<datalist id="rqIssueList">${issuesOfClient().map(i => {
-    const p = parentIdOf(i) && issueById(parentIdOf(i)) ? ` (sub-issue of #${parentIdOf(i)})` : '';
-    return `<option value="${i.id}">#${i.id} ${escapeHtml(String(i.subject || '').slice(0, 90))}${p} · ${escapeHtml(i.status?.name || '')}</option>`;
+    const p = parentIdOf(i) && issueById(parentIdOf(i)) ? ` (under #${parentIdOf(i)})` : '';
+    const kind = isContainer(i.id) ? ' [group]' : hasChildren(i.id) ? ' [has sub-issues]' : '';
+    return `<option value="${i.id}">#${i.id} ${escapeHtml(String(i.subject || '').slice(0, 90))}${kind}${p} · ${escapeHtml(i.status?.name || '')}</option>`;
   }).join('')}</datalist>`;
   const body = !R.loaded ? '<div class="kb-state kb-state-sm"><p>Loading…</p></div>'
     : R.lists.length ? R.lists.map(listCard).join('')
@@ -485,9 +505,8 @@ function linkRequestIssue(listId, itemId, raw){
   const id = String(raw || '').match(/\d{2,7}/)?.[0];
   if(!id){ toast('Type an issue number, e.g. 32312', 'error'); return; }
   if(!issueById(id)) toast(`#${id} is not in this client's issue list — linked anyway`);
-  const top = issueById(id) ? topIdOf(id) : id;
-  if(top !== id) toast(`#${id} is a sub-issue — linked its parent #${top}`);
-  mutateItem(listId, itemId, it => { if(!it.issueIds.map(String).includes(top)) it.issueIds.push(top); return it; });
+  // linked exactly as picked (a request issue, a sub-issue, or a container)
+  mutateItem(listId, itemId, it => { if(!it.issueIds.map(String).includes(id)) it.issueIds.push(id); return it; });
 }
 function unlinkRequestIssue(listId, itemId, id){ mutateItem(listId, itemId, it => { it.issueIds = it.issueIds.filter(x => String(x) !== String(id)); return it; }); }
 function setRequestMode(listId, itemId, mode){ mutateItem(listId, itemId, it => { it.mode = ['done', 'dropped'].includes(mode) ? mode : 'auto'; return it; }); }
