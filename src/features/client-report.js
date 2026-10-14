@@ -39,10 +39,13 @@ function moreBtn(key, hidden, li){
 }
 
 /* ---------------- status buckets ---------------- */
+/* The CURRENT status decides. closed_on is not used: Redmine keeps it when an
+   issue is reopened, so a reopened issue (e.g. back In Progress) read as done (v4.69.4). */
 export function groupOf(issue){
   const n = String(issue.status?.name || '').toLowerCase();
   if(/^new$|^baru$/.test(n)) return 'todo';
-  if(issue.closed_on || issue.status?.is_closed || /resolved|closed|fixed|done|finish|selesai|rejected|cancel|duplicate/.test(n)) return 'done';
+  if(/resolved|closed|fixed|done|finish|selesai|rejected|cancel|duplicate/.test(n)) return 'done';
+  if(issue.status?.is_closed === true) return 'done';
   return 'doing';
 }
 
