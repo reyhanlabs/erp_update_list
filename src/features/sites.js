@@ -516,7 +516,7 @@ function renderNow(){
     const h = (s.history || []).slice().reverse();
     if(!h.length) return '<p><b>Version history:</b> no change seen yet (changes are recorded from now on).</p>';
     const all = S.histOpen.has(s.id), shown = all ? h : h.slice(0, HIST_SHOW), more = h.length - shown.length;
-    return `<div class="sv-hist"><b>Version history</b><ul>${shown.map(c => `<li><span>${escapeHtml(new Date(c.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span><b>${partLabel(c.part)}</b> ${escapeHtml(c.from)} → <b>${escapeHtml(c.to)}</b></li>`).join('')}</ul>${more > 0
+    return `<div class="sv-hist"><b>Version history</b><ul><li class="sv-hist-head" aria-hidden="true"><span>Date &amp; time</span><span>Part</span><span>Before</span><span>After</span></li>${shown.map(c => `<li><span class="sv-recent-when">${escapeHtml(new Date(c.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span><span class="sv-recent-part">${partLabel(c.part)}</span><span class="sv-recent-from">${escapeHtml(c.from)}</span><span class="sv-recent-to">${escapeHtml(c.to)}</span></li>`).join('')}</ul>${more > 0
       ? `<button type="button" class="sv-hist-more" onclick="toggleSiteHistory('${s.id}')">+${more} more</button>`
       : all && h.length > HIST_SHOW ? `<button type="button" class="sv-hist-more" onclick="toggleSiteHistory('${s.id}')">Show less</button>` : ''}</div>`;
   };

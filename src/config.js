@@ -1,5 +1,5 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.69.7';
+export const APP_VERSION = '4.69.8';
 export const APP_VERSION_DATE = '2026-10-14';
 export const APP_VERSION_NOTE = 'Client requests';
 

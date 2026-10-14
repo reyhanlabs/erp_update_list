@@ -4037,3 +4037,20 @@ body:not([data-role]) [data-perm]{display:none !important}
   .sv-recent li.sv-recent-head{display:none}
   .sv-recent-from::after{content:' →'}
 }
+/* v4.69.8 — Version history as the same bordered table as Recent changes */
+.sv-hist ul{gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);margin:6px 0 2px;font-size:12.5px;max-width:640px}
+.sv-hist li{display:grid;grid-template-columns:160px 50px minmax(110px,1fr) minmax(110px,1fr);gap:10px;align-items:center;padding:6px 12px;border-top:1px solid var(--line)}
+.sv-hist li:first-child{border-top:none}
+.sv-hist li > span{min-width:0}
+.sv-hist li:nth-child(odd):not(.sv-hist-head){background:var(--bg-subtle)}
+.sv-hist li:not(.sv-hist-head):hover{background:var(--brand-soft)}
+.sv-hist li.sv-hist-head{background:var(--bg-subtle);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-tertiary);padding-top:5px;padding-bottom:5px}
+.sv-hist li.sv-hist-head > span{color:var(--text-tertiary)}
+@media (max-width:640px){
+  .sv-hist li{grid-template-columns:1fr 1fr;gap:2px 10px}
+  .sv-hist li.sv-hist-head{display:none}
+  .sv-hist .sv-recent-from::after{content:' →'}
+}
+.sv-hist li > span.sv-recent-when,.sv-hist li > span.sv-recent-from{color:var(--text-tertiary)}
+.sv-hist li > span.sv-recent-part{font-weight:700;color:var(--text-secondary)}
+.sv-hist li > span.sv-recent-to{font-weight:700;color:var(--text)}
