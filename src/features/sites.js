@@ -655,10 +655,12 @@ function recentChangesHtml(){
   const open = S.recentOpen ?? week > 0;      // open by itself when something changed this week
   return `<details class="sv-recent"${open ? ' open' : ''} ontoggle="setSitesRecentOpen(this.open)">
     <summary>Recent changes <b>${week}</b> this week · ${all.length} in 30 days</summary>
-    <ul>${shown.map(c => `<li>
-      <span class="sv-recent-when">${escapeHtml(ago(c.at))}</span>
+    <ul><li class="sv-recent-head" aria-hidden="true"><span>Date &amp; time</span><span>Client</span><span>Part</span><span>Before</span><span>After</span></li>${shown.map(c => `<li>
+      <span class="sv-recent-when" title="${escapeHtml(ago(c.at))}">${escapeHtml(new Date(c.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</span>
       <button type="button" class="sv-recent-name" onclick="toggleSiteDetails('${c.site.id}')">${escapeHtml(c.site.name)}</button>
-      <span><b>${partLabel(c.part)}</b> ${escapeHtml(c.from)} → <b>${escapeHtml(c.to)}</b></span>
+      <span class="sv-recent-part">${partLabel(c.part)}</span>
+      <span class="sv-recent-from">${escapeHtml(c.from)}</span>
+      <span class="sv-recent-to">${escapeHtml(c.to)}</span>
     </li>`).join('')}</ul>
     ${all.length > shown.length ? `<button type="button" class="sv-hist-more" onclick="showAllSiteChanges()">+${all.length - shown.length} more</button>`
       : S.showAllChanges && all.length > HIST_SHOW ? `<button type="button" class="sv-hist-more" onclick="showAllSiteChanges()">Show less</button>` : ''}
