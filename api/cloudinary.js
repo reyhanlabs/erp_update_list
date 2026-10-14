@@ -54,15 +54,19 @@ export default async function handler(req, res) {
   const body = await readBody(req);
   const timestamp = Math.floor(Date.now() / 1000);
 
+  // v4.69.0: kind 'file' = client request attachments (Excel, Word, PDF …) as raw files in their own folder
+  const filesFolder = c.folder.replace(/\/kb$/, '') + '/requests';
   if (body.action === 'sign') {
-    const params = { folder: c.folder, timestamp };
+    const isFile = body.kind === 'file';
+    const folder = isFile ? filesFolder : c.folder;
+    const params = { folder, timestamp };
     return res.status(200).json({
       cloudName: c.cloudName,
       apiKey: c.apiKey,
-      folder: c.folder,
+      folder,
       timestamp,
       signature: sign(params, c.apiSecret),
-      uploadUrl: `https://api.cloudinary.com/v1_1/${encodeURIComponent(c.cloudName)}/image/upload`
+      uploadUrl: `https://api.cloudinary.com/v1_1/${encodeURIComponent(c.cloudName)}/${isFile ? 'raw' : 'image'}/upload`
     });
   }
 

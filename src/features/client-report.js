@@ -14,6 +14,7 @@
  */
 import { $, escapeHtml, toast } from '../core/helpers.js';
 import { writeClipboard } from '../core/clipboard.js';
+import { getRequestLists, itemStatus, listCounts, REQUEST_STATUS } from './client-requests.js';
 
 const REDMINE = 'https://pjm.zahironline.com/issues/';
 const H2C_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -38,7 +39,7 @@ function moreBtn(key, hidden, li){
 }
 
 /* ---------------- status buckets ---------------- */
-function groupOf(issue){
+export function groupOf(issue){
   const n = String(issue.status?.name || '').toLowerCase();
   if(/^new$|^baru$/.test(n)) return 'todo';
   if(issue.closed_on || issue.status?.is_closed || /resolved|closed|fixed|done|finish|selesai|rejected|cancel|duplicate/.test(n)) return 'done';
@@ -153,6 +154,10 @@ const pct = (a, b) => b ? Math.round(a * 100 / b) : 0;
 function highlights(m){
   const out = [];
   const { todo, doing, done } = m.all;
+  if(m.requests && m.requests.length){
+    const c = m.requests.map(listCounts).reduce((a, x) => { Object.keys(x).forEach(k => a[k] = (a[k] || 0) + x[k]); return a; }, {});
+    out.push(`Client requests: ${c.done} of ${c.active} point${c.active === 1 ? '' : 's'} (${pct(c.done, c.active)}%) are done, ${c.doing} in progress, ${c.todo} not started` + (c.missing ? `; ${c.missing} point${c.missing === 1 ? ' has' : 's have'} no Redmine issue yet.` : '.'));
+  }
   const backlog = m.topics.filter(t => t.by.todo.length).sort((a, b) => b.by.todo.length - a.by.todo.length);
   let s = `${done.length} of ${m.total} issues (${pct(done.length, m.total)}%) are done`;
   if(backlog.length) s += `; the biggest New backlog${backlog[1] ? 's are' : ' is'} ${backlog[0].name} (${backlog[0].by.todo.length})` + (backlog[1] ? ` and ${backlog[1].name} (${backlog[1].by.todo.length})` : '') + '.';
@@ -237,6 +242,27 @@ function doneList(m){
       ${moreBtn(key, t.by.done.length - n, true)}</ul></div>`; }).join('');
 }
 
+/* the client's own request list(s), point by point (v4.69.0) */
+const REQ_MAX = 8;
+let reqListening = false;
+function requestsSection(m){
+  const lists = m.requests || [];
+  if(!lists.length) return '';
+  return `<section class="rs-card rs-req"><div class="rs-card-head"><h3>Client requests</h3><span class="rs-req-legend">${['done', 'doing', 'todo', 'missing'].map(k => `<span class="rq-status ${REQUEST_STATUS[k].cls}">${REQUEST_STATUS[k].label}</span>`).join('')}</span></div>
+    ${lists.map(l => {
+      const c = listCounts(l), key = 'req:' + l.id, items = l.items || [], n = isOpen(key) ? items.length : REQ_MAX;
+      return `<div class="rs-req-list">
+        <div class="rs-req-head"><b>${escapeHtml(l.title || 'Requests')}</b><small>${l.receivedAt ? `received ${escapeHtml(tgl(l.receivedAt))} · ` : ''}${c.done} of ${c.active} done (${pct(c.done, c.active)}%)${c.missing ? ` · ${c.missing} no issue yet` : ''}</small></div>
+        ${items.slice(0, n).map(it => { const st = itemStatus(it); return `<div class="rs-req-row">
+          <span class="rs-req-no">${escapeHtml(it.no || '')}</span>
+          <span class="rs-req-text">${escapeHtml(it.text || '')}${it.note ? `<small>${escapeHtml(it.note)}</small>` : ''}</span>
+          <span class="rs-req-ids">${(it.issueIds || []).map(id => `#${escapeHtml(String(id))}`).join(' ')}</span>
+          <span class="rq-status ${REQUEST_STATUS[st].cls}">${REQUEST_STATUS[st].label}</span></div>`; }).join('')}
+        ${moreBtn(key, items.length - n, false)}
+      </div>`; }).join('')}
+  </section>`;
+}
+
 const MODE_LABEL = { auto: 'Auto', topic: 'Topic (from subjects)', category: 'Redmine category', tracker: 'Tracker', product: 'Product' };
 
 function paper(m){
@@ -263,6 +289,7 @@ function paper(m){
         <section class="rs-card rs-comp"><h3>Status Breakdown</h3>${donut(m)}</section>
         <section class="rs-card"><div class="rs-card-head"><h3>Progress by ${m.mode === 'category' ? 'Category' : m.mode === 'tracker' ? 'Tracker' : m.mode === 'product' ? 'Product' : 'Topic'}</h3>${legend}</div>${bars(m)}</section>
       </div>
+      ${requestsSection(m)}
       <div class="rs-grid-2">
         <section>
           <div class="rs-band is-todo"><span>Not started (status New)</span><b>${todo.length} issue${todo.length === 1 ? '' : 's'}</b></div>
@@ -285,7 +312,9 @@ export function renderClientReport(el, clientName, issues){
   window.__clientReportCtx = { clientName, issues };
   if(!el) return;
   const m = buildModel(clientName, issues);
+  m.requests = getRequestLists(clientName);
   window.__clientReportModel = m;
+  if(!reqListening){ reqListening = true; window.addEventListener('requests:updated', (e) => { const c = window.__clientReportCtx; if(c && e.detail?.client === c.clientName && $('clientReportPaper')) rerender(); }); }
   el.innerHTML = `<div class="rs-toolbar">
       <label class="rs-mode">Group by
         <select class="select" onchange="setClientReportGroup(this.value)">${Object.entries(MODE_LABEL).map(([k, v]) => `<option value="${k}"${state.mode === k ? ' selected' : ''}>${v}${k === 'auto' ? ` (${MODE_LABEL[m.mode].split(' ')[0].toLowerCase()})` : ''}</option>`).join('')}</select>
@@ -378,6 +407,11 @@ function reportText(){
   if(doing.length){ out += `\n*🔧 In progress (${doing.length})*\n`; doing.forEach(i => { out += `• #${i.id} ${i.subject} [${i.status?.name || ''}]\n`; }); }
   if(todo.length){ out += `\n*⏳ Not started (${todo.length})*\n`; todo.forEach(i => { out += `• #${i.id} ${i.subject}${i.assigned_to ? ` (${i.assigned_to.name})` : ''}\n`; }); }
   if(done.length){ out += `\n*✅ Done (${done.length})*\n`; m.topics.filter(t => t.by.done.length).forEach(t => { out += `_${t.name}_\n`; t.by.done.forEach(i => { out += `• #${i.id} ${i.subject}\n`; }); }); }
+  (m.requests || []).forEach(l => {
+    const c = listCounts(l);
+    out += `\n*📝 Client requests — ${l.title || 'Requests'}* (${c.done}/${c.active} done)\n`;
+    (l.items || []).forEach(it => { const st = itemStatus(it); out += `${it.no ? it.no + '. ' : '• '}${it.text} — ${REQUEST_STATUS[st].label}${(it.issueIds || []).length ? ` (${it.issueIds.map(x => '#' + x).join(', ')})` : ''}\n`; });
+  });
   out += `\n*Highlights*\n${highlights(m).map(h => `• ${h}`).join('\n')}`;
   return out.trim();
 }
@@ -393,6 +427,7 @@ export function exportClientReport(){
   const rows = [['Group', 'Topic', 'Issue', 'Subject', 'Status', 'Product', 'Assignee', 'Created', 'Updated', 'Closed', 'Link']];
   m.topics.forEach(t => ['todo', 'doing', 'done'].forEach(k => t.by[k].forEach(i => rows.push([label[k], t.name, i.id, i.subject, i.status?.name || '', i.project?.name || '', i.assigned_to?.name || '',
     tgl(i.created_on), tgl(i.updated_on), tgl(i.closed_on), `${REDMINE}${i.id}`]))));
+  (m.requests || []).forEach(l => (l.items || []).forEach(it => rows.push(['Client request', l.title || '', (it.issueIds || []).join(' '), `${it.no ? it.no + '. ' : ''}${it.text}`, REQUEST_STATUS[itemStatus(it)].label, '', '', l.receivedAt || '', '', '', it.note || ''])));
   const cell = (v) => { const s = String(v ?? ''); return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const csv = '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n');
   const a = document.createElement('a');

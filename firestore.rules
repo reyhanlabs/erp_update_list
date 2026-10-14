@@ -80,6 +80,11 @@ service cloud.firestore {
           && request.resource.data.name is string && request.resource.data.name.size() <= 120
           && request.resource.data.url is string && request.resource.data.url.size() <= 300;
       }
+      // Client requests: the client's own list, point by point, linked to Redmine issues (v4.69.0)
+      match /requests/{requestId} {
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
+      }
       // Knowledge Base guides + their screenshots
       match /kb/{articleId} {
         allow read: if isMember(ws);

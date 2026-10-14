@@ -150,7 +150,7 @@ The row shows ✓ / ✕ with the failing step (Login, Open data, Read data), the
 
 1. Authentication → Sign-in method → enable **Google**. **Anonymous** is no longer used and can be disabled.
 2. Authentication → Settings → Authorized domains → add the Vercel domain + `localhost`.
-3. Firestore → Rules → paste the contents of `firestore.rules` → **Publish**. Do this again whenever `firestore.rules` changes (most recently for Team & access in v4.64.0 — see the order above).
+3. Firestore → Rules → paste the contents of `firestore.rules` → **Publish**. Do this again whenever `firestore.rules` changes (most recently for Client requests in v4.69.0; for Team & access in v4.64.0 see the order above).
 
 ---
 

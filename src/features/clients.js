@@ -13,6 +13,7 @@ import { fetchRedmineAllIssues, genericLoadingSkeleton, priorityBadge } from './
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { issueDescriptionCell, resolveNewIssueProjectIds } from './new-issues.js';
 import { renderClientReport, resetClientReport } from './client-report.js';
+import { renderClientRequests } from './client-requests.js';
 import { siteForClient, ensureSitesLoaded, sitesLoaded } from './sites.js';
 
 /* ============================================================
@@ -486,7 +487,7 @@ function renderClientOverview(el){
 function rememberOverviewUi(){ /* state lives in window.__clientOvUi (v4.52.0) */ }
 
 function setClientTab(tab){
-  window.__clientTab = tab === 'report' ? 'report' : 'issues';
+  window.__clientTab = ['report', 'requests'].includes(tab) ? tab : 'issues';
   renderClientIssues();
 }
 
@@ -559,7 +560,8 @@ function renderClientIssues(){
   if(filtersBar) filtersBar.classList.remove('hidden');
 
   const tabs = `<div class="cr-tabs" role="tablist" aria-label="Client view">
-      <button type="button" role="tab" class="cr-tab${window.__clientTab !== 'report' ? ' is-active' : ''}" aria-selected="${window.__clientTab !== 'report'}" onclick="setClientTab('issues')">Issues</button>
+      <button type="button" role="tab" class="cr-tab${!['report', 'requests'].includes(window.__clientTab) ? ' is-active' : ''}" aria-selected="${!['report', 'requests'].includes(window.__clientTab)}" onclick="setClientTab('issues')">Issues</button>
+      <button type="button" role="tab" class="cr-tab${window.__clientTab === 'requests' ? ' is-active' : ''}" aria-selected="${window.__clientTab === 'requests'}" onclick="setClientTab('requests')">Requests</button>
       <button type="button" role="tab" class="cr-tab${window.__clientTab === 'report' ? ' is-active' : ''}" aria-selected="${window.__clientTab === 'report'}" onclick="setClientTab('report')">Report</button>
     </div>`;
   const backRow = `<div class="list-meta-row cl-ov-back-row" style="padding:4px 4px 10px">
@@ -568,6 +570,13 @@ function renderClientIssues(){
       ${prod !== 'all' ? `<button type="button" class="cl-ov-back" onclick="setClientOv('product','all')">Show all products</button>` : ''}
       ${tabs}
     </div>${clientVersionsLine(q)}`;
+  if(window.__clientTab === 'requests'){
+    // the client's own request list(s), point by point, linked to Redmine issues (v4.69.0)
+    el.innerHTML = backRow + '<div id="clientRequestsBody" class="cr-body rq-body-wrap"></div>';
+    renderClientRequests($('clientRequestsBody'), q);
+    if(filtersBar) filtersBar.classList.add('hidden');
+    return;
+  }
   if(window.__clientTab === 'report'){
     // report covers every issue of the client (quick-filter chips don't apply)
     const all = (window.__clientIssues || []).filter(i => prod === 'all' || (i.project && i.project.name) === prod);
