@@ -140,7 +140,7 @@ async function loadClientIssues(clientName, force){
           params.set('client_cf_id', String(cfId));
           params.set('client_name', q);
         }
-        const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 4 });
+        const result = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 10 });
         anyOk = true;
         (result.issues || []).forEach(i => {
           const client = getIssueClientName(i) || (cfId ? q : '');
@@ -198,6 +198,20 @@ async function loadClientIssues(clientName, force){
 
     list.sort((a, b) => String(b.updated_on || '').localeCompare(String(a.updated_on || '')));
     window.__clientIssues = list;
+    // v4.69.2: parent issues often don't carry the Client Name field — fetch them by id for Client requests
+    window.__clientParents = [];
+    try {
+      const have = new Set(list.map(i => String(i.id)));
+      const missing = [...new Set(list.map(i => i.parent && i.parent.id ? String(i.parent.id) : '').filter(id => id && !have.has(id)))];
+      for(let n = 0; n < missing.length; n += 50){
+        const params = new URLSearchParams();
+        params.set('issue_id', missing.slice(n, n + 50).join(','));
+        params.set('status_id', '*');
+        params.set('with_description', '1');
+        const r = await fetchRedmineAllIssues(params, { force: !!force, pageSize: 100, maxPages: 1 });
+        window.__clientParents.push(...(r.issues || []));
+      }
+    } catch(err){ console.warn('client parent issues', err); }
     window.__clientError = null;
     window.__clientMeta = { q, total: list.length, at: Date.now(), cfId };
     const tb = $('clientsTotalBadge');

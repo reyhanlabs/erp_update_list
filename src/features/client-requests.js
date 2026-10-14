@@ -45,7 +45,13 @@ const ref = () => db.collection('workspaces').doc(CloudSync.workspaceId).collect
 const uid = () => Math.random().toString(36).slice(2, 10);
 const who = () => (auth.currentUser && (auth.currentUser.email || auth.currentUser.displayName)) || '';
 const host = () => $('clientRequestsBody');
-const issuesOfClient = () => window.__clientIssues || [];
+// the client's issues plus parent issues that don't carry the Client Name field (fetched by id)
+const issuesOfClient = () => {
+  const own = window.__clientIssues || [], extra = window.__clientParents || [];
+  if(!extra.length) return own;
+  const ids = new Set(own.map(i => String(i.id)));
+  return own.concat(extra.filter(i => !ids.has(String(i.id))));
+};
 const issueById = (id) => issuesOfClient().find(i => String(i.id) === String(id));
 /* v4.69.1: a request usually has ONE parent issue in Redmine (same or similar title) with
    FE / BE / design sub-issues. Points link to the parent; the sub-issues only feed its status. */
@@ -379,7 +385,11 @@ function renderInto(el){
     <div><b>Client requests</b> <span class="rq-muted">${R.lists.length ? `${R.lists.length} list${R.lists.length === 1 ? '' : 's'} · ${all.total || 0} points · ${all.done || 0} done · ${all.missing || 0} not in Redmine yet` : 'the client\'s own list, point by point, linked to Redmine issues'}</span></div>
     ${edit && !R.form ? `<button type="button" class="btn btn-primary btn-sm" onclick="openRequestForm()">+ Add request list</button>` : ''}
   </div>`;
-  const datalist = `<datalist id="rqIssueList">${issuesOfClient().filter(i => !parentIdOf(i) || !issueById(parentIdOf(i))).slice(0, 400).map(i => `<option value="${i.id}">#${i.id} ${escapeHtml(String(i.subject || '').slice(0, 80))}</option>`).join('')}</datalist>`;
+  // every issue of the client (sub-issues say whose; linking one links its parent)
+  const datalist = `<datalist id="rqIssueList">${issuesOfClient().map(i => {
+    const p = parentIdOf(i) && issueById(parentIdOf(i)) ? ` (sub-issue of #${parentIdOf(i)})` : '';
+    return `<option value="${i.id}">#${i.id} ${escapeHtml(String(i.subject || '').slice(0, 90))}${p} · ${escapeHtml(i.status?.name || '')}</option>`;
+  }).join('')}</datalist>`;
   const body = !R.loaded ? '<div class="kb-state kb-state-sm"><p>Loading…</p></div>'
     : R.lists.length ? R.lists.map(listCard).join('')
     : R.form ? '' : `<div class="kb-state kb-state-sm"><p>No request list for this client yet.${edit ? ' Paste the list the client sent (or import their Excel), then link each point to its Redmine issue.' : ''}</p></div>`;
