@@ -4089,3 +4089,24 @@ body:not([data-role]) [data-perm]{display:none !important}
 .svc-verdict .is-newer,[data-theme="dark"] .svc-verdict .is-newer{color:var(--brand)}
 .svc-verdict .is-same,[data-theme="dark"] .svc-verdict .is-same{color:var(--success)}
 .svc-verdict{background:var(--brand-soft);border-color:var(--brand-ring)}
+/* v4.70.0 — Client requests: edit / move / delete points, edit list details, remove files */
+.rq-file{display:inline-flex;align-items:center;gap:4px}
+.rq-file a{color:var(--brand);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rq-file a:hover{text-decoration:underline}
+.rq-file button{border:none;background:none;padding:0 0 0 2px;cursor:pointer;color:var(--text-tertiary);font-size:14px;line-height:1}
+.rq-file button:hover{color:var(--danger)}
+.rq-item-tools{display:flex;gap:2px}
+.rq-tool{width:24px;height:24px;display:inline-grid;place-items:center;border:1px solid transparent;border-radius:6px;background:none;cursor:pointer;color:var(--text-tertiary);font-size:13px;line-height:1;padding:0}
+.rq-tool:hover:not(:disabled){border-color:var(--line);background:var(--bg-subtle);color:var(--brand)}
+.rq-tool.rq-del{font-size:16px}
+.rq-tool.rq-del:hover{color:var(--danger)}
+.rq-tool:disabled{opacity:.3;cursor:default}
+.rq-text[ondblclick]{cursor:text}
+.rq-item.rq-editing{background:var(--brand-soft);border-radius:10px;padding:10px;margin:4px 0;border-top-color:transparent;grid-template-columns:56px minmax(0,1fr)}
+.rq-item.rq-editing + .rq-item{border-top-color:transparent}
+.rq-editing .input{width:100%;font-size:13px}
+.rq-edit-no{text-align:center;height:34px}
+.rq-editing .rq-body{display:flex;flex-direction:column;gap:6px}
+.rq-edit-detail{resize:vertical;min-height:60px}
+.rq-editing .rq-form-actions{margin-top:2px}
+.rq-editlist .rq-form-grid{margin:0}

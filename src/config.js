@@ -1,6 +1,6 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.69.10';
-export const APP_VERSION_DATE = '2026-10-14';
+export const APP_VERSION = '4.70.0';
+export const APP_VERSION_DATE = '2026-10-16';
 export const APP_VERSION_NOTE = 'Client requests';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';

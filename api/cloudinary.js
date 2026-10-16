@@ -7,7 +7,7 @@
  *
  *   GET  /api/cloudinary                → { configured, cloudName, folder }
  *   POST /api/cloudinary {action:'sign'}                 → upload signature
- *   POST /api/cloudinary {action:'destroy', public_id}   → delete one image
+ *   POST /api/cloudinary {action:'destroy', public_id}   → delete one image ({kind:'file'} → one request attachment)
  *
  * Env: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
  *      CLOUDINARY_FOLDER (optional, default "erp-update-list/kb")
@@ -72,14 +72,16 @@ export default async function handler(req, res) {
 
   if (body.action === 'destroy') {
     const publicId = String(body.public_id || '');
-    // only images in our own folder can be deleted
-    if (!publicId.startsWith(c.folder + '/') || !/^[\w\-/.]+$/.test(publicId) || publicId.includes('..')) {
+    // only files in our own folders can be deleted: KB images, or (v4.70.0) client request attachments (raw)
+    const isFile = body.kind === 'file';
+    const base = isFile ? filesFolder : c.folder;
+    if (!publicId.startsWith(base + '/') || !/^[\w\-/.]+$/.test(publicId) || publicId.includes('..')) {
       return res.status(400).json({ error: 'Invalid public_id' });
     }
     const params = { public_id: publicId, timestamp };
     const form = new URLSearchParams({ ...params, api_key: c.apiKey, signature: sign(params, c.apiSecret) });
     try {
-      const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(c.cloudName)}/image/destroy`, {
+      const r = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(c.cloudName)}/${isFile ? 'raw' : 'image'}/destroy`, {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form
       });
       const d = await r.json().catch(() => ({}));

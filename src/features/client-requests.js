@@ -39,6 +39,8 @@ const R = {
   open: new Set(),          // list ids expanded
   form: null,               // { mode:'paste'|'excel', … } while adding a list
   addTo: null,              // list id receiving pasted points
+  editList: null,           // list id whose title / date is being edited (v4.70.0)
+  editItem: null,           // 'listId:itemId' of the point being edited (v4.70.0)
   busy: false
 };
 const ref = () => db.collection('workspaces').doc(CloudSync.workspaceId).collection('requests');
@@ -273,14 +275,25 @@ function issueChip(id, listId, itemId){
     ${canEdit() ? `<button type="button" aria-label="Unlink #${id}" onclick="unlinkRequestIssue('${listId}','${itemId}','${id}')">×</button>` : ''}</span>`;
 }
 
-function itemRow(list, it){
+function itemEditRow(list, it){
+  return `<div class="rq-item rq-editing" onkeydown="if(event.key==='Escape'){event.preventDefault();cancelEditRequestItem();}">
+    <input class="input rq-edit-no" id="rqEditNo" value="${escapeHtml(it.no || '')}" maxlength="12" aria-label="Number">
+    <div class="rq-body">
+      <input class="input" id="rqEditText" value="${escapeHtml(it.text || '')}" maxlength="1000" placeholder="The request, as the client wrote it" aria-label="Request" onkeydown="if(event.key==='Enter'){event.preventDefault();saveEditRequestItem('${list.id}','${it.id}');}">
+      <textarea class="input rq-edit-detail" id="rqEditDetail" rows="3" maxlength="3000" placeholder="Detail (optional)" aria-label="Detail">${escapeHtml(it.detail || '')}</textarea>
+      <div class="rq-form-actions"><button type="button" class="btn btn-secondary btn-sm" onclick="cancelEditRequestItem()">Cancel</button><button type="button" class="btn btn-primary btn-sm" onclick="saveEditRequestItem('${list.id}','${it.id}')">Save</button></div>
+    </div>
+  </div>`;
+}
+function itemRow(list, it, n, count){
+  if(R.editItem === `${list.id}:${it.id}` && canEdit()) return itemEditRow(list, it);
   const st = itemStatus(it);
   const sug = canEdit() && st !== 'dropped' ? suggestIssues(it) : [];
   const edit = canEdit();
   return `<div class="rq-item rq-${st}">
     <div class="rq-no">${escapeHtml(it.no || '')}</div>
     <div class="rq-body">
-      <div class="rq-text">${escapeHtml(it.text || '')}</div>
+      <div class="rq-text"${edit ? ` ondblclick="editRequestItem('${list.id}','${it.id}')" title="Double-click to edit"` : ''}>${escapeHtml(it.text || '')}</div>
       ${it.detail ? `<div class="rq-detail">${escapeHtml(it.detail)}</div>` : ''}
       <div class="rq-links">
         ${(it.issueIds || []).map(id => issueChip(id, list.id, it.id)).join('')}
@@ -298,7 +311,12 @@ function itemRow(list, it){
         <option value="done"${it.mode === 'done' ? ' selected' : ''}>Done (no issue needed)</option>
         <option value="dropped"${it.mode === 'dropped' ? ' selected' : ''}>Dropped</option>
       </select>
-      <button type="button" class="rq-del" title="Remove this point" aria-label="Remove this point" onclick="removeRequestItem('${list.id}','${it.id}')">×</button>` : ''}
+      <div class="rq-item-tools">
+        <button type="button" class="rq-tool" title="Move up" aria-label="Move up" ${n === 0 ? 'disabled' : ''} onclick="moveRequestItem('${list.id}','${it.id}',-1)">↑</button>
+        <button type="button" class="rq-tool" title="Move down" aria-label="Move down" ${n === count - 1 ? 'disabled' : ''} onclick="moveRequestItem('${list.id}','${it.id}',1)">↓</button>
+        <button type="button" class="rq-tool" title="Edit this point" aria-label="Edit this point" onclick="editRequestItem('${list.id}','${it.id}')">✎</button>
+        <button type="button" class="rq-tool rq-del" title="Delete this point" aria-label="Delete this point" onclick="removeRequestItem('${list.id}','${it.id}')">×</button>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -307,8 +325,8 @@ function listCard(list){
   const c = listCounts(list);
   const open = R.open.has(list.id);
   const pct = c.active ? Math.round(c.done * 100 / c.active) : 0;
-  const files = (list.files || []).map(f => `<a class="rq-file" href="${escapeHtml(f.url)}" target="_blank" rel="noopener" title="${escapeHtml(f.name)}">📎 ${escapeHtml(f.name)}</a>`).join('');
   const edit = canEdit();
+  const files = (list.files || []).map((f, i) => `<span class="rq-file"><a href="${escapeHtml(f.url)}" target="_blank" rel="noopener" title="${escapeHtml(f.name)}">📎 ${escapeHtml(f.name)}</a>${edit ? `<button type="button" aria-label="Remove ${escapeHtml(f.name)}" title="Remove this file" onclick="removeRequestFile('${list.id}',${i})">×</button>` : ''}</span>`).join('');
   return `<section class="rq-list${open ? ' is-open' : ''}">
     <header class="rq-list-head" onclick="if(!event.target.closest('button,a,input'))toggleRequestList('${list.id}')">
       <div class="rq-list-title">
@@ -330,12 +348,18 @@ function listCard(list){
         <button type="button" class="btn btn-secondary btn-xs" onclick="autoLinkRequests('${list.id}')">Link best suggestions</button>
         <button type="button" class="btn btn-secondary btn-xs" onclick="openAddRequestPoints('${list.id}')">Add points</button>
         <label class="btn btn-secondary btn-xs rq-attach">Attach file<input type="file" multiple hidden onchange="attachRequestFiles('${list.id}', this.files); this.value=''"></label>
-        <button type="button" class="btn btn-secondary btn-xs" onclick="renameRequestList('${list.id}')">Rename</button>
+        <button type="button" class="btn btn-secondary btn-xs" onclick="renameRequestList('${list.id}')">Edit details</button>
         <button type="button" class="btn btn-ghost btn-xs rq-danger" onclick="deleteRequestList('${list.id}')">Delete list</button>
       </div>` : ''}
+      ${R.editList === list.id && edit ? `<div class="rq-addpoints rq-editlist" onkeydown="if(event.key==='Escape'){event.preventDefault();cancelEditRequestList();}">
+        <div class="rq-form-grid">
+          <label class="field"><span>Title</span><input class="input" id="rqListTitle" maxlength="160" value="${escapeHtml(list.title || '')}" onkeydown="if(event.key==='Enter'){event.preventDefault();saveEditRequestList('${list.id}');}"></label>
+          <label class="field"><span>Received</span><input class="input" type="date" id="rqListDate" value="${escapeHtml(list.receivedAt || '')}"></label>
+        </div>
+        <div class="rq-form-actions"><button type="button" class="btn btn-secondary btn-sm" onclick="cancelEditRequestList()">Cancel</button><button type="button" class="btn btn-primary btn-sm" onclick="saveEditRequestList('${list.id}')">Save</button></div></div>` : ''}
       ${R.addTo === list.id ? `<div class="rq-addpoints"><textarea id="rqAddText" class="input" rows="4" placeholder="Paste more points, one per line or numbered"></textarea>
         <div class="rq-form-actions"><button type="button" class="btn btn-secondary btn-sm" onclick="cancelAddRequestPoints()">Cancel</button><button type="button" class="btn btn-primary btn-sm" onclick="saveAddRequestPoints('${list.id}')">Add</button></div></div>` : ''}
-      <div class="rq-items">${(list.items || []).map(it => itemRow(list, it)).join('') || '<p class="rq-empty">No points yet.</p>'}</div>
+      <div class="rq-items">${(list.items || []).map((it, n, a) => itemRow(list, it, n, a.length)).join('') || '<p class="rq-empty">No points yet.</p>'}</div>
     </div>` : ''}
   </section>`;
 }
@@ -390,6 +414,7 @@ function excelItems(){
   }));
 }
 
+const KEEP_IDS = ['rqAddText', 'rqEditNo', 'rqEditText', 'rqEditDetail', 'rqListTitle', 'rqListDate'];
 function renderInto(el){
   if(R.error){ el.innerHTML = `<div class="kb-state kb-state-sm"><p>${escapeHtml(R.error)}</p></div>`; return; }
   const edit = canEdit();
@@ -408,7 +433,11 @@ function renderInto(el){
     : R.lists.length ? R.lists.map(listCard).join('')
     : R.form ? '' : `<div class="kb-state kb-state-sm"><p>No request list for this client yet.${edit ? ' Paste the list the client sent (or import their Excel), then link each point to its Redmine issue.' : ''}</p></div>`;
   const y = window.scrollY;
+  const keep = KEEP_IDS.map(id => { const x = document.getElementById(id); return x && el.contains(x) ? [id, x.value] : null; }).filter(Boolean);
+  const act = document.activeElement && el.contains(document.activeElement) ? document.activeElement.id : '';
   el.innerHTML = head + (R.form ? formHtml() : '') + body + datalist;
+  keep.forEach(([id, v]) => { const x = document.getElementById(id); if(x) x.value = v; });
+  if(act){ const x = document.getElementById(act); if(x) x.focus(); }
   window.scrollTo(0, y);
 }
 
@@ -509,7 +538,10 @@ async function removeRequestItem(listId, itemId){
   const list = listById(listId); if(!list) return;
   const it = (list.items || []).find(x => x.id === itemId);
   const ok = await confirmDialog({ title: 'Remove this point?', message: escapeHtml(it?.text || ''), okText: 'Remove', type: 'danger' });
-  if(ok) saveItems(list, (list.items || []).filter(x => x.id !== itemId));
+  if(!ok) return;
+  const items = list.items || [], left = items.filter(x => x.id !== itemId);
+  if(R.editItem === `${listId}:${itemId}`) R.editItem = null;
+  saveItems(list, isSequential(items) ? renumber(left) : left);
 }
 function autoLinkRequests(listId){
   const list = listById(listId); if(!list) return;
@@ -542,24 +574,83 @@ async function attachRequestFiles(listId, files){
   const up = await uploadAll([...files]);
   if(up.length){ await saveList(listId, { files: [...(list.files || []), ...up] }); toast(`Attached ${up.length} file${up.length === 1 ? '' : 's'}`); }
 }
-async function renameRequestList(listId){
+/* ---- v4.70.0: edit list details, edit / move points, remove files ---- */
+function renameRequestList(listId){
+  if(!canEdit() || !listById(listId)) return;
+  R.editList = listId; R.open.add(listId); rerender();
+  setTimeout(() => { const x = $('rqListTitle'); if(x){ x.focus(); x.select(); } }, 30);
+}
+function cancelEditRequestList(){ R.editList = null; rerender(); }
+async function saveEditRequestList(listId){
   const list = listById(listId); if(!list) return;
-  const t = prompt('List title', list.title || '');
-  if(t == null) return;
-  const d = prompt('Received (YYYY-MM-DD)', list.receivedAt || '');
-  await saveList(listId, { title: t.trim().slice(0, 160) || list.title, ...(d && /^\d{4}-\d{2}-\d{2}$/.test(d.trim()) ? { receivedAt: d.trim() } : {}) });
+  const title = String($('rqListTitle')?.value || '').trim().slice(0, 160);
+  const date = String($('rqListDate')?.value || '').trim();
+  if(!title){ toast('The list needs a title', 'error'); return; }
+  try {
+    await saveList(listId, { title, ...(/^\d{4}-\d{2}-\d{2}$/.test(date) ? { receivedAt: date } : {}) });
+    R.editList = null; rerender(); toast('List updated');
+  } catch(err){ toast(err.code === 'permission-denied' ? 'Not allowed: ask for editor access' : (err.message || 'Could not save'), 'error'); }
+}
+function editRequestItem(listId, itemId){
+  if(!canEdit()) return;
+  R.editItem = `${listId}:${itemId}`; rerender();
+  setTimeout(() => { const x = $('rqEditText'); if(x){ x.focus(); x.setSelectionRange(x.value.length, x.value.length); } }, 30);
+}
+function cancelEditRequestItem(){ R.editItem = null; rerender(); }
+function saveEditRequestItem(listId, itemId){
+  const text = String($('rqEditText')?.value || '').trim();
+  if(!text){ toast('A point needs some text — use × to delete it instead', 'error'); return; }
+  const no = String($('rqEditNo')?.value || '').trim().slice(0, 12);
+  const detail = String($('rqEditDetail')?.value || '').trim().slice(0, 3000);
+  R.editItem = null;
+  mutateItem(listId, itemId, it => ({ ...it, no, text: text.slice(0, 1000), detail }));
+  rerender();
+}
+// numbers that were 1, 2, 3 … stay 1, 2, 3 … after a point is moved or deleted
+const isSequential = (items) => items.length > 0 && items.every((it, n) => String(it.no) === String(n + 1));
+const renumber = (items) => items.map((it, n) => ({ ...it, no: String(n + 1) }));
+function moveRequestItem(listId, itemId, dir){
+  const list = listById(listId); if(!list) return;
+  const items = [...(list.items || [])];
+  const i = items.findIndex(x => x.id === itemId), j = i + dir;
+  if(i < 0 || j < 0 || j >= items.length) return;
+  const seq = isSequential(items);
+  [items[i], items[j]] = [items[j], items[i]];
+  saveItems(list, seq ? renumber(items) : items);
+}
+async function destroyFile(f){
+  if(!f || !f.publicId) return;
+  try { await apiFetch('/api/cloudinary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'destroy', kind: 'file', public_id: f.publicId }) }); }
+  catch(_){ /* the link is gone from the list either way */ }
+}
+async function removeRequestFile(listId, index){
+  const list = listById(listId); if(!list) return;
+  const f = (list.files || [])[index]; if(!f) return;
+  const ok = await confirmDialog({ title: 'Remove this file?', message: `<b>${escapeHtml(f.name || '')}</b> will be removed from the list and deleted from storage.`, okText: 'Remove', type: 'danger' });
+  if(!ok) return;
+  try {
+    await saveList(listId, { files: (list.files || []).filter((_, i) => i !== index) });
+    destroyFile(f);
+    toast('File removed');
+  } catch(err){ toast(err.message || 'Could not remove the file', 'error'); }
 }
 async function deleteRequestList(listId){
   const list = listById(listId); if(!list) return;
-  const ok = await confirmDialog({ title: 'Delete this request list?', message: `<b>${escapeHtml(list.title || '')}</b> and its ${(list.items || []).length} point(s) will be removed. Redmine issues are not touched.`, okText: 'Delete', type: 'danger' });
+  const nf = (list.files || []).length;
+  const ok = await confirmDialog({ title: 'Delete this request list?', message: `<b>${escapeHtml(list.title || '')}</b> and its ${(list.items || []).length} point(s)${nf ? ` and ${nf} attached file${nf === 1 ? '' : 's'}` : ''} will be removed. Redmine issues are not touched.`, okText: 'Delete', type: 'danger' });
   if(!ok) return;
-  try { await ref().doc(listId).delete(); toast('List deleted'); }
-  catch(err){ toast(err.message || 'Could not delete', 'error'); }
+  try {
+    await ref().doc(listId).delete();
+    (list.files || []).forEach(destroyFile);
+    if(R.editList === listId) R.editList = null;
+    toast('List deleted');
+  } catch(err){ toast(err.message || 'Could not delete', 'error'); }
 }
 
 export {
   openRequestForm, closeRequestForm, R_setForm, R_setFiles, R_readExcel, saveRequestForm, toggleRequestList,
   linkRequestIssue, unlinkRequestIssue, setRequestMode, setRequestNote, removeRequestItem, autoLinkRequests,
   openAddRequestPoints, cancelAddRequestPoints, saveAddRequestPoints, attachRequestFiles, renameRequestList, deleteRequestList,
+  cancelEditRequestList, saveEditRequestList, editRequestItem, cancelEditRequestItem, saveEditRequestItem, moveRequestItem, removeRequestFile,
   STATUS as REQUEST_STATUS
 };
