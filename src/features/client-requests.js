@@ -21,18 +21,12 @@ import { $, escapeHtml, toast } from '../core/helpers.js';
 import { apiFetch } from '../api.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { canEdit } from '../core/team.js';
-import { groupOf } from './client-report.js';
+import { groupOf, REQUEST_STATUS as STATUS, issuesOfClient, issueById, linkedGroup, itemStatus, listCounts } from './report-status.js';
+import { setRequestSource } from './client-report.js';
 
 const REDMINE = 'https://pjm.zahironline.com/issues/';
 const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const MAX_FILE = 20 * 1024 * 1024;
-const STATUS = {
-  done:    { label: 'Done',            cls: 'is-done' },
-  doing:   { label: 'In progress',     cls: 'is-doing' },
-  todo:    { label: 'Not started',     cls: 'is-todo' },
-  missing: { label: 'No issue yet',    cls: 'is-missing' },
-  dropped: { label: 'Dropped',         cls: 'is-dropped' }
-};
 
 const R = {
   client: '', lists: [], loaded: false, unsub: null, ws: null,
@@ -47,14 +41,6 @@ const ref = () => db.collection('workspaces').doc(CloudSync.workspaceId).collect
 const uid = () => Math.random().toString(36).slice(2, 10);
 const who = () => (auth.currentUser && (auth.currentUser.email || auth.currentUser.displayName)) || '';
 const host = () => $('clientRequestsBody');
-// the client's issues plus parent issues that don't carry the Client Name field (fetched by id)
-const issuesOfClient = () => {
-  const own = window.__clientIssues || [], extra = window.__clientParents || [];
-  if(!extra.length) return own;
-  const ids = new Set(own.map(i => String(i.id)));
-  return own.concat(extra.filter(i => !ids.has(String(i.id))));
-};
-const issueById = (id) => issuesOfClient().find(i => String(i.id) === String(id));
 /* v4.69.1: a request usually has ONE parent issue in Redmine (same or similar title) with
    FE / BE / design sub-issues. Points link to the parent; the sub-issues only feed its status. */
 const parentIdOf = (i) => i && i.parent && i.parent.id ? String(i.parent.id) : '';
@@ -87,12 +73,6 @@ function requestLevelOf(id){
   }
   return cur;
 }
-/** progress group of a linked issue: its OWN current status (v4.69.5). Sub-issues are
-    only shown as information ("2/3 sub-issues done"), they don't change the status. */
-function linkedGroup(id){
-  const i = issueById(id);
-  return i ? groupOf(i) : 'todo';
-}
 
 /* ---------------- data ---------------- */
 function listen(clientName){
@@ -120,6 +100,8 @@ export function getRequestLists(clientName){
   listen(clientName);
   return R.client === clientName ? R.lists : [];
 }
+setRequestSource(getRequestLists);   // the Report reads the lists through this (no import back)
+export { itemStatus, listCounts };
 
 async function saveList(id, patch){
   await ref().doc(id).set({ ...patch, updatedAt: Date.now(), updatedBy: who() }, { merge: true });
@@ -131,22 +113,6 @@ async function saveItems(list, items){
 const listById = (id) => R.lists.find(l => l.id === id);
 
 /* ---------------- status ---------------- */
-export function itemStatus(item){
-  if(item.mode === 'done') return 'done';
-  if(item.mode === 'dropped') return 'dropped';
-  const ids = item.issueIds || [];
-  if(!ids.length) return 'missing';
-  const g = ids.map(id => linkedGroup(id));
-  if(g.every(x => x === 'done')) return 'done';
-  if(g.every(x => x === 'todo')) return 'todo';
-  return 'doing';
-}
-export function listCounts(list){
-  const c = { total: 0, done: 0, doing: 0, todo: 0, missing: 0, dropped: 0 };
-  (list.items || []).forEach(it => { c.total++; c[itemStatus(it)]++; });
-  c.active = c.total - c.dropped;
-  return c;
-}
 
 /* ---------------- parsing ---------------- */
 // "1. …", "1) …", "- …", "• …", "a. …" start a point; other lines continue the previous one.

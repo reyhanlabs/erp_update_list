@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Client Report · Zahir ERP</title>
+<link rel="icon" href="/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+<script>
+  (function(){
+    var saved = 'auto';
+    try { saved = localStorage.getItem('zahir-theme') || 'auto'; } catch(e) {}
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', saved === 'auto' ? (dark ? 'dark' : 'light') : saved);
+  })();
+</script>
+</head>
+<body class="pr-body">
+  <header class="pr-top">
+    <div class="pr-brand"><img src="/icon.png" alt=""><div><b id="prClient">Client report</b><small>Zahir ERP · live progress</small></div></div>
+    <div class="pr-meta" id="prMeta"></div>
+  </header>
+  <main class="pr-main">
+    <div id="clientReportBody"><div class="pr-state"><div class="pr-spin"></div><p>Loading the report…</p></div></div>
+  </main>
+  <footer class="pr-foot">Read-only report shared by the Zahir ERP team. The status is read from our issue tracker each time this page is opened.</footer>
+  <div class="toast" id="toast"></div>
+  <script type="module" src="/src/public/report-page.js"></script>
+</body>
+</html>

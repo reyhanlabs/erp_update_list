@@ -15,6 +15,10 @@
       "destination": "/share.html?id=:id"
     },
     {
+      "source": "/r/:token",
+      "destination": "/report.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }

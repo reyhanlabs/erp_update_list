@@ -14,7 +14,14 @@
  */
 import { $, escapeHtml, toast } from '../core/helpers.js';
 import { writeClipboard } from '../core/clipboard.js';
-import { getRequestLists, itemStatus, listCounts, REQUEST_STATUS } from './client-requests.js';
+import { groupOf, itemStatus, listCounts, REQUEST_STATUS } from './report-status.js';
+export { groupOf };
+
+/* Client requests come in through a setter so this module never imports Firebase:
+   the app plugs in client-requests.js, the public page (/r/<token>) plugs in the lists
+   the server sent. */
+let requestSource = () => [];
+export function setRequestSource(fn){ requestSource = typeof fn === 'function' ? fn : () => []; }
 
 const REDMINE = 'https://pjm.zahironline.com/issues/';
 const H2C_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
@@ -27,7 +34,10 @@ const OLD_DAYS = 182;       // "older than 6 months"
 const state = { mode: 'auto',      // auto | topic | category | tracker | product
   open: new Set(),                  // lists expanded with "+N more"
   all: false,                       // "Show all" in the toolbar
-  full: false };                    // image export: everything, no buttons
+  full: false,                      // image export: everything, no buttons
+  public: false };                  // v4.71.0: shared page for the client (no Redmine links, no internal tools)
+/** v4.71.0: the public report page turns this on (and may set the grouping the link was made with). */
+export function setReportPublic(on, mode){ state.public = !!on; if(mode && MODE_LABEL[mode]) state.mode = mode; }
 const isOpen = (key) => state.full || state.all || state.open.has(key);
 function moreBtn(key, hidden, li){
   if(state.full) return '';
@@ -41,13 +51,6 @@ function moreBtn(key, hidden, li){
 /* ---------------- status buckets ---------------- */
 /* The CURRENT status decides. closed_on is not used: Redmine keeps it when an
    issue is reopened, so a reopened issue (e.g. back In Progress) read as done (v4.69.4). */
-export function groupOf(issue){
-  const n = String(issue.status?.name || '').toLowerCase();
-  if(/^new$|^baru$/.test(n)) return 'todo';
-  if(/resolved|closed|fixed|done|finish|selesai|rejected|cancel|duplicate/.test(n)) return 'done';
-  if(issue.status?.is_closed === true) return 'done';
-  return 'doing';
-}
 
 /* ---------------- dates ---------------- */
 const BULAN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -214,7 +217,7 @@ function bars(m){
   }).join('');
 }
 
-const idLink = (i) => `<a class="rs-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a>`;
+const idLink = (i) => state.public ? `<span class="rs-id">#${i.id}</span>` : `<a class="rs-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a>`;
 const topicHead = (t, right) => `<div class="rs-topic"><i style="background:${t.color}"></i><b style="color:${t.color}">${escapeHtml(t.name)}</b><span>${right}</span></div>`;
 
 function todoList(m){
@@ -241,7 +244,7 @@ function doneList(m){
   if(!ts.length) return '<p class="rs-none">Nothing finished yet.</p>';
   return ts.map(t => { const key = 'done:' + t.name, n = isOpen(key) ? t.by.done.length : DONE_MAX;
     return `<div class="rs-done-block">${topicHead(t, `<em class="rs-done-pill">${t.by.done.length} done</em>`)}
-      <ul class="rs-done-list">${t.by.done.slice(0, n).map(i => `<li><a class="rs-done-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a> ${escapeHtml(i.subject || '—')}</li>`).join('')}
+      <ul class="rs-done-list">${t.by.done.slice(0, n).map(i => `<li>${state.public ? `<span class="rs-done-id">#${i.id}</span>` : `<a class="rs-done-id" href="${REDMINE}${i.id}" target="_blank" rel="noopener">#${i.id}</a>`} ${escapeHtml(i.subject || '—')}</li>`).join('')}
       ${moreBtn(key, t.by.done.length - n, true)}</ul></div>`; }).join('');
 }
 
@@ -315,7 +318,7 @@ export function renderClientReport(el, clientName, issues){
   window.__clientReportCtx = { clientName, issues };
   if(!el) return;
   const m = buildModel(clientName, issues);
-  m.requests = getRequestLists(clientName);
+  m.requests = requestSource(clientName) || [];
   window.__clientReportModel = m;
   if(!reqListening){ reqListening = true; window.addEventListener('requests:updated', (e) => { const c = window.__clientReportCtx; if(c && e.detail?.client === c.clientName && $('clientReportPaper')) rerender(); }); }
   el.innerHTML = `<div class="rs-toolbar">
@@ -326,12 +329,19 @@ export function renderClientReport(el, clientName, issues){
         <button type="button" class="btn btn-secondary btn-sm" onclick="toggleClientReportAll()">${state.all ? 'Collapse lists' : 'Show all issues'}</button>
         <button type="button" class="btn btn-primary btn-sm" onclick="downloadClientReportPng()">Download image</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReportImage()">Copy image</button>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReport()">Copy text</button>
+        ${state.public ? '' : `<button type="button" class="btn btn-secondary btn-sm" onclick="copyClientReport()">Copy text</button>
         <button type="button" class="btn btn-secondary btn-sm" onclick="exportClientReport()">Export CSV</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="openReportShare()">Share link</button>`}
       </div>
     </div>
+    ${state.public ? '' : '<div id="reportSharePanel" class="rs-share hidden"></div>'}
     <div class="rs-scroll">${paper(m)}</div>`;
+  if(!state.public) afterRender();
 }
+let afterRender = () => {};
+/** report-share.js redraws its panel after each render (the toolbar is rebuilt). */
+export function setReportAfterRender(fn){ afterRender = typeof fn === 'function' ? fn : () => {}; }
+export const getReportMode = () => state.mode;
 
 function rerender(){
   const ctx = window.__clientReportCtx, host = $('clientReportBody');

@@ -39,7 +39,7 @@ function copy(src, dest) {
 }
 
 for (const f of [
-  'index.html', 'share.html', 'sw.js', 'manifest.json',
+  'index.html', 'share.html', 'report.html', 'sw.js', 'manifest.json',
   'icon.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'
 ]) {
   copy(join(root, f), join(dist, f));
@@ -57,7 +57,7 @@ if (!sw.includes('__APP_VERSION__')) {
 writeFileSync(swPath, sw.replaceAll('__APP_VERSION__', VERSION), 'utf8');
 
 // Cache-bust stylesheet links
-for (const page of ['index.html', 'share.html']) {
+for (const page of ['index.html', 'share.html', 'report.html']) {
   const p = join(dist, page);
   if (!existsSync(p)) continue;
   const html = readFileSync(p, 'utf8')
