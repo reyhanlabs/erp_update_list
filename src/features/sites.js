@@ -106,8 +106,11 @@ function isVisible(){ return !!document.getElementById('view-sites')?.classList.
 const PARTS = [
   { key: 'fe', label: 'Front-end', get: (s) => shownVersion(s) },
   { key: 'v2', label: 'API V2', get: (s) => s.v2 || '' },
-  { key: 'v3', label: 'API V3', get: (s) => s.v3 || '' }
+  { key: 'v3', label: 'API V3', get: (s) => s.v3 || '' },
+  { key: 'rpt', label: 'Report', get: (s) => s.rpt || '', ownPace: true }   // v4.72.0: /reports/version — released on its own schedule
 ];
+const partShort = (k) => ({ fe: 'FE', v2: 'V2', v3: 'V3', rpt: 'Report' }[k] || k.toUpperCase());
+const apiLabel = (k) => k === 'rpt' ? 'Report' : `API ${k.toUpperCase()}`;
 // v4.64.3: "latest" is the highest version on ANY site, test servers included
 // (ERP DEV carries the tester version clients should move to). Test servers
 // themselves are still not counted as behind or in the rollout.
@@ -144,7 +147,7 @@ const fmtBuild = (ms) => ms ? new Date(ms).toLocaleString('en-GB', { day: 'numer
 /* Parts built far apart on one site usually mean a half-finished deploy. */
 const MISMATCH_DAYS = 14;
 function mismatch(s){
-  const dated = PARTS.map(p => ({ p, v: p.get(s), at: buildDate(p.get(s)) })).filter(x => x.at);
+  const dated = PARTS.filter(p => !p.ownPace).map(p => ({ p, v: p.get(s), at: buildDate(p.get(s)) })).filter(x => x.at);
   if(dated.length < 2) return null;
   const min = Math.min(...dated.map(x => x.at)), max = Math.max(...dated.map(x => x.at));
   const days = Math.round((max - min) / 86400000);
@@ -170,7 +173,7 @@ const apiRelease = (s, k) => s[k + 'Release'] || releaseOf(s[k + 'Raw']);
 const fmtDay = (iso) => { const d = new Date(iso + 'T00:00:00'); return isNaN(d) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
 
 /* ---------------- version checks ---------------- */
-const API_KEYS = ['v2', 'v3'];                // backend versions: /api/v2/versions/dev and /api/v3/version
+const API_KEYS = ['v2', 'v3', 'rpt'];         // backend versions: /api/v2/versions/dev, /api/v3/version, /reports/version
 function backendPatch(site, backend, now){
   const patch = {};
   if(!backend) return patch;
@@ -191,7 +194,7 @@ function backendPatch(site, backend, now){
 /* ---------------- change notices (toast + optional Telegram) ---------------- */
 const TG_CHAT_KEY = 'erp_telegram_chat_id';           // shared with the briefing / RFT alerts
 const TG_VERSIONS_KEY = 'erp_telegram_versions_notif';
-const partLabel = (k) => ({ fe: 'FE', v2: 'V2', v3: 'V3' }[k] || k.toUpperCase());
+const partLabel = partShort;
 function isTelegramVersionsEnabled(){
   try { return !!(localStorage.getItem(TG_CHAT_KEY) || '').trim() && localStorage.getItem(TG_VERSIONS_KEY) === '1'; } catch(_){ return false; }
 }
@@ -290,7 +293,7 @@ async function checkSite(site, { quiet = false } = {}){
       if(!site.version) patch.versionChangedAt = now;
     }
     await ref().doc(site.id).set(withHistory(site, patch, now), { merge: true });
-    const api = API_KEYS.map(k => d.backend?.[k]?.version ? ` · ${k.toUpperCase()} ${d.backend[k].version}` : '').join('');
+    const api = API_KEYS.map(k => d.backend?.[k]?.version ? ` · ${partShort(k)} ${d.backend[k].version}` : '').join('');
     if(!quiet) toast(d.version ? `${site.name}: ${d.version}${api}` : `${site.name}: front-end version not found${api}`, d.version ? undefined : 'error');
   } catch(err){
     if(!quiet) toast(`${site.name}: ${err.message || err}`, 'error');
@@ -366,7 +369,7 @@ async function saveSite(ev){
     const before = id ? S.sites.find(x => x.id === id) : null;
     const docRef = id ? ref().doc(id) : ref().doc();
     if(!id) data.createdAt = now;
-    if(before && before.url !== url) Object.assign(data, { version: '', checkedAt: 0, checkError: '', prevVersion: '', candidates: [], v2: '', v3: '', history: [] });
+    if(before && before.url !== url) Object.assign(data, { version: '', checkedAt: 0, checkError: '', prevVersion: '', candidates: [], v2: '', v3: '', rpt: '', history: [] });
     await docRef.set(data, { merge: true });
     closeSiteForm();
     toast(id ? 'Client updated' : 'Client added');
@@ -421,8 +424,8 @@ async function saveBulk(){
 
 /* ---------------- export ---------------- */
 function exportSites(){
-  const rows = [['Client', 'URL', 'Front-end version', 'API V2', 'API V3', 'Parts out of step', 'Test server', 'Redmine client', 'Open issues', 'Pinned version', 'Detected version', 'Last checked', 'Last change', 'Notes']];
-  sorted(filtered()).forEach(s => { const mm = mismatch(s), lc = lastChange(s); rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', mm ? mm.text : '', s.isTest ? envOf(s) : '', redmineOf(s)?.name || '', redmineOf(s) ? redmineOf(s).open : '', s.pinnedVersion || '', s.version || '',
+  const rows = [['Client', 'URL', 'Front-end version', 'API V2', 'API V3', 'Report', 'Parts out of step', 'Test server', 'Redmine client', 'Open issues', 'Pinned version', 'Detected version', 'Last checked', 'Last change', 'Notes']];
+  sorted(filtered()).forEach(s => { const mm = mismatch(s), lc = lastChange(s); rows.push([s.name, s.url, shownVersion(s), s.v2 || '', s.v3 || '', s.rpt || '', mm ? mm.text : '', s.isTest ? envOf(s) : '', redmineOf(s)?.name || '', redmineOf(s) ? redmineOf(s).open : '', s.pinnedVersion || '', s.version || '',
     s.checkedAt ? new Date(s.checkedAt).toLocaleString() : '', lc ? new Date(lc).toLocaleString() : '', s.notes || '']); });
   const cell = (v) => { const t = String(v ?? ''); return /[",;\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
   const blob = new Blob(['﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -438,7 +441,7 @@ function filtered(){
   const q = S.query.trim().toLowerCase();
   const tops = latestAll();
   if(S.versionFilter === '__latest') S.versionFilter = '__latest_fe';
-  return S.sites.filter(s => !q || `${s.name} ${s.url} ${s.notes || ''} ${shownVersion(s)} ${s.v2 || ''} ${s.v3 || ''}`.toLowerCase().includes(q))
+  return S.sites.filter(s => !q || `${s.name} ${s.url} ${s.notes || ''} ${shownVersion(s)} ${s.v2 || ''} ${s.v3 || ''} ${s.rpt || ''}`.toLowerCase().includes(q))
     .filter(s => S.versionFilter === 'all' ? true
       : S.versionFilter === '__error' ? !!s.checkError && !s.pinnedVersion
       : S.versionFilter.startsWith('__latest_') ? onLatest(s, PARTS.find(p => '__latest_' + p.key === S.versionFilter), tops[S.versionFilter.slice(9)])
@@ -510,7 +513,7 @@ function renderNow(){
   const apiCell = (s, k) => {
     const v = s[k];
     const title = [builtTitle(v), v && apiRelease(s, k) ? `Released ${fmtDay(apiRelease(s, k))}` : '', s[k + 'Error'] ? `Last check: ${s[k + 'Error']}` : '', s[k + 'Prev'] ? `Previously ${s[k + 'Prev']}` : ''].filter(Boolean).join(' · ');
-    return `<div class="sv-api"><span class="sv-api-label">API ${k.toUpperCase()}</span><span class="sv-badge sv-badge-sm${tone(v, tops[k])}"${title ? ` title="${escapeHtml(title)}"` : ''}>${v ? escapeHtml(v) : '—'}</span></div>`;
+    return `<div class="sv-api"><span class="sv-api-label">${apiLabel(k)}</span><span class="sv-badge sv-badge-sm${tone(v, tops[k])}"${title ? ` title="${escapeHtml(title)}"` : ''}>${v ? escapeHtml(v) : '—'}</span></div>`;
   };
   const historyHtml = (s) => {
     const h = (s.history || []).slice().reverse();
@@ -543,7 +546,7 @@ function renderNow(){
         ${s.checkError ? `<p class="sv-err"><b>Last check:</b> ${escapeHtml(s.checkError)}${s.checkHint ? ` — ${escapeHtml(s.checkHint)}` : ''}</p>` : ''}
         ${s.tlsNote ? `<p class="sv-err"><b>Certificate:</b> ${escapeHtml(s.tlsNote)}</p>` : ''}
         ${s.versionSource ? `<p><b>Found in:</b> <code>${escapeHtml(s.versionSource)}</code> · confidence ${escapeHtml(s.confidence || '-')}</p>` : ''}
-        ${API_KEYS.map(k => `<p><b>API ${k.toUpperCase()}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k] && apiRelease(s, k) ? ` | Released ${escapeHtml(fmtDay(apiRelease(s, k)))}` : ''}${s[k + 'Error'] ? ` <span class="sv-err">| ${escapeHtml(s[k + 'Error'])}</span>` : ''}</p>`).join('')}
+        ${API_KEYS.map(k => `<p><b>${apiLabel(k)}:</b> ${s[k] ? escapeHtml(s[k]) : '—'}${s[k] && apiRelease(s, k) ? ` | Released ${escapeHtml(fmtDay(apiRelease(s, k)))}` : ''}${s[k + 'Error'] ? ` <span class="sv-err">| ${escapeHtml(s[k + 'Error'])}</span>` : ''}</p>`).join('')}
         ${(() => { const c = redmineOf(s); return c
           ? `<p><b>Redmine client:</b> ${escapeHtml(c.name)} | ${c.open} open of ${c.total} issue${c.total === 1 ? '' : 's'} <button type="button" class="btn btn-secondary btn-xs" onclick="openSiteClientIssues('${s.id}')">Open in By Client</button></p>`
           : `<p><b>Redmine client:</b> <span class="sv-muted">not linked — pick the Redmine client name in Edit</span></p>`; })()}
@@ -566,6 +569,7 @@ function renderNow(){
       </div>
       ${apiCell(s, 'v2')}
       ${apiCell(s, 'v3')}
+      ${apiCell(s, 'rpt')}
       <div class="sv-checked">${status}</div>
       <div class="sv-acts">
         ${hasLogin(s) ? `<button type="button" class="sv-icon" data-perm="edit" onclick="checkLoginSite('${s.id}')" title="Check login + open data now" aria-label="Check login of ${escapeHtml(s.name)}"${S.loginBusy.has(s.id) ? ' disabled' : ''}>
@@ -584,7 +588,7 @@ function renderNow(){
   // Test / internal servers sit in their own block on top (by name), whatever the
   // sort or version filter: they are the reference the clients are compared to.
   const q = S.query.trim().toLowerCase();
-  const matchesQuery = (x) => !q || `${x.name} ${x.url} ${x.notes || ''} ${shownVersion(x)} ${x.v2 || ''} ${x.v3 || ''}`.toLowerCase().includes(q);
+  const matchesQuery = (x) => !q || `${x.name} ${x.url} ${x.notes || ''} ${shownVersion(x)} ${x.v2 || ''} ${x.v3 || ''} ${x.rpt || ''}`.toLowerCase().includes(q);
   const testSites = S.sites.filter(x => x.isTest && matchesQuery(x)).sort((a, b) => a.name.localeCompare(b.name));
   const clientSites = sorted(filtered().filter(x => !x.isTest));
   const group = (label, n, cls) => `<div class="sv-group ${cls}"><span>${label}</span><b>${n}</b></div>`;
@@ -599,7 +603,7 @@ function renderNow(){
     ${recentChangesHtml()}
     <div class="sv-chips" role="group" aria-label="Filter by version">
       ${chip('all', 'All', S.sites.length)}
-      ${PARTS.map(p => tops[p.key] ? chip('__latest_' + p.key, `Latest ${p.key.toUpperCase()} <i>${escapeHtml(tops[p.key])}</i>`, S.sites.filter(x => onLatest(x, p, tops[p.key])).length, 'is-latest', `Sites on the highest ${p.label} version (test servers included)`) : '').join('')}
+      ${PARTS.map(p => tops[p.key] ? chip('__latest_' + p.key, `Latest ${partShort(p.key)} <i>${escapeHtml(tops[p.key])}</i>`, S.sites.filter(x => onLatest(x, p, tops[p.key])).length, 'is-latest', `Sites on the highest ${p.label} version (test servers included)`) : '').join('')}
       ${chip('__behind', 'Behind latest', behindAny, 'is-warn', 'Clients behind the highest version on front-end, API V2 or API V3')}
       ${mismatches ? chip('__mismatch', 'Parts out of step', mismatches, 'is-warn', `Front-end, API V2 and API V3 built more than ${MISMATCH_DAYS} days apart on the same site`) : ''}
       ${downCount ? chip('__down', 'Down', downCount, 'is-error', 'Not reachable for 2 or more checks in a row') : ''}
@@ -615,6 +619,7 @@ function renderNow(){
         <button type="button" class="sv-th" onclick="setSitesSort(${S.sort === 'versionDesc' ? "'version'" : "'versionDesc'"})">Front-end${S.sort === 'version' ? ' ↑' : S.sort === 'versionDesc' ? ' ↓' : ''}</button>
         <span class="sv-th">API V2</span>
         <span class="sv-th">API V3</span>
+        <span class="sv-th">Report</span>
         <button type="button" class="sv-th" onclick="setSitesSort('changed')">Checked${S.sort === 'changed' ? ' · recently changed' : ''}</button>
         <span></span>
       </div>

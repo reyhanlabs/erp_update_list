@@ -335,7 +335,7 @@ function clientVersionsLine(name){
     return sitesLoaded() > 0 ? `<div class="cl-versions is-empty"><span class="cl-versions-lbl">Zahir ERP versions</span>
       <span>Not linked to a site in Client Versions — open Client Versions, Edit the client's site and pick “${escapeHtml(name)}” as Redmine client name.</span></div>` : '';
   }
-  const parts = [['FE', s.pinnedVersion || s.version], ['V2', s.v2], ['V3', s.v3]].filter(x => x[1]);
+  const parts = [['FE', s.pinnedVersion || s.version], ['V2', s.v2], ['V3', s.v3], ['Report', s.rpt]].filter(x => x[1]);
   if(!parts.length) return '';
   const when = s.checkedAt ? new Date(s.checkedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
   return `<div class="cl-versions" title="From Client Versions">

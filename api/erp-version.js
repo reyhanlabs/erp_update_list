@@ -305,10 +305,11 @@ function sameSiteUrl(ref, base) {
 /* Backend (API) versions. Zahir ERP answers these without signing in:
      <origin>/api/v2/versions/dev   → V2 API
      <origin>/api/v3/version        → V3 API
+     <origin>/reports/version       → report service (v4.72.0)
    The body may be JSON or plain text; the version is taken from a version-like
    key (version, ver, app_version, build, tag, release…) or the first
    version-looking value. An HTML answer means the path does not exist there. */
-const BACKEND_PATHS = { v2: '/api/v2/versions/dev', v3: '/api/v3/version' };
+const BACKEND_PATHS = { v2: '/api/v2/versions/dev', v3: '/api/v3/version', rpt: '/reports/version' };   // rpt: report service (v4.72.0)
 const LOOSE_VER = /\bv?(\d+(?:\.\d+){1,4}(?:[-+][0-9A-Za-z.\-]{1,30})?)\b/i;
 
 function versionFromBody(body, type) {

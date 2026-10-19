@@ -32,8 +32,8 @@ const DOWN_AFTER = 2;            // consecutive failed checks before a site coun
 const HISTORY_MAX = 50;
 const PARALLEL = 8;
 const ROUNDS_MAX = 20;
-const API_KEYS = ['v2', 'v3'];
-const LABEL = { fe: 'FE', v2: 'V2', v3: 'V3' };
+const API_KEYS = ['v2', 'v3', 'rpt'];
+const LABEL = { fe: 'FE', v2: 'V2', v3: 'V3', rpt: 'Report' };
 
 function getSecret(req) {
   const auth = req.headers.authorization || '';

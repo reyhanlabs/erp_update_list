@@ -3439,7 +3439,7 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
 .sv-table{border:1px solid var(--line);border-radius:12px;overflow-x:auto;margin:0 4px}
 .sv-head,.sv-row{min-width:860px}
 @media(max-width:820px){.sv-head,.sv-row{min-width:0}}
-.sv-head,.sv-row{display:grid;grid-template-columns:minmax(150px,1.3fr) repeat(3,minmax(148px,1fr)) minmax(96px,.7fr) 104px;column-gap:16px;align-items:center;gap:12px;padding:0 14px}
+.sv-head,.sv-row{display:grid;grid-template-columns:minmax(150px,1.3fr) repeat(4,minmax(132px,1fr)) minmax(96px,.7fr) 104px;column-gap:16px;align-items:center;gap:12px;padding:0 14px}
 .sv-head{background:var(--bg-subtle);border-bottom:1px solid var(--line)}
 .sv-th{padding:9px 0;text-align:left;font-size:11.5px;font-weight:650;color:var(--text-secondary)}
 .sv-th:hover{color:var(--text)}
@@ -3572,7 +3572,7 @@ button.dash-kpi:hover{border-color:var(--line-strong);background:var(--bg-subtle
   .sv-api{grid-column:1;flex-direction:row;align-items:center;gap:8px}
   .sv-api-label{display:inline}
   .sv-recent li{grid-template-columns:1fr;gap:0}
-  .sv-rollout{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .sv-rollout{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
   .sv-roll{padding:8px}
   .sv-roll-top{flex-direction:column;gap:0}
   .sv-roll-top b{font-size:16px}
