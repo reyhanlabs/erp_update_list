@@ -4142,3 +4142,5 @@ body:not([data-role]) [data-perm]{display:none !important}
   .pr-top{padding:12px 16px}
   .pr-main{padding:14px 16px 8px}
 }
+/* v4.71.1 — the app locks html/body to the screen (it scrolls inside .main); the public report page scrolls normally */
+html.pr-html,html.pr-html body.pr-body{height:auto;min-height:100%;overflow:visible;overflow-x:hidden}

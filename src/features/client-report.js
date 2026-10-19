@@ -308,7 +308,7 @@ function paper(m){
           <div class="rs-card rs-list">${doneList(m)}</div>
         </section>
       </div>
-      <section class="rs-high"><h3>Highlights for the PM</h3><ul>${highlights(m).map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ul></section>
+      <section class="rs-high"><h3>${state.public ? 'Highlights' : 'Highlights for the PM'}</h3><ul>${highlights(m).map(h => `<li>${escapeHtml(h)}</li>`).join('')}</ul></section>
       <p class="rs-foot">Source: Redmine (pjm.zahironline.com) | Done = ${statusLine(m.doneStatus)} | In progress = ${statusLine(m.doingStatus)} | Not started = New ${todo.length}</p>
     </div>
   </div>`;
