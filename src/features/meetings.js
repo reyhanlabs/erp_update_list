@@ -27,7 +27,10 @@ import { fetchRedmine } from '../redmine/client.js';
 const M = {
   list: [], loaded: false, unsub: null, ws: null, error: '',
   q: '', client: 'all',       // filter on the Meeting notes page: all | none | <client>
-  open: new Set(),            // meeting ids expanded
+  open: new Set(),            // (kept for old calls)
+  sel: null,                  // v4.77.0: meeting shown in the detail pane
+  quick: 'all',               // v4.77.0: all | open | overdue | internal
+  pane: 'list',               // v4.77.0: on phones, list or detail
   form: null,                 // { id?, …fields, actions:[…] } while adding / editing
   inline: null,               // v4.76.0: { id, field: 'notes' | 'decisions' | 'act:<id>' } edited in place
   busy: false
@@ -187,19 +190,22 @@ const inlineKeys = (m, field) => `onkeydown="if(event.key==='Escape'){event.prev
 const inlineButtons = (m, field) => `<div class="mm-inline-acts"><span>${field === 'notes' || field === 'decisions' ? 'Ctrl+Enter to save · Esc to cancel' : 'Enter to save · Esc to cancel'}</span><button type="button" class="btn btn-secondary btn-xs" onclick="cancelMeetingInline()">Cancel</button><button type="button" class="btn btn-primary btn-xs" onclick="saveMeetingInline('${m.id}','${field}')">Save</button></div>`;
 const dbl = (m, field, edit) => edit ? ` ondblclick="editMeetingInline('${m.id}','${field}')" title="Double-click to edit"` : '';
 function notesSection(m, edit){
-  if(isInline(m, 'notes')) return `<section><h5>Discussion</h5><textarea class="input mm-inline" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" rows="6" maxlength="20000" ${inlineKeys(m, 'notes')}>${escapeHtml(m.notes || '')}</textarea>${inlineButtons(m, 'notes')}</section>`;
-  if(m.notes) return `<section><h5>Discussion</h5><div class="mm-notes mm-editable"${dbl(m, 'notes', edit)}>${linkify(m.notes)}</div></section>`;
-  return edit ? `<section><h5>Discussion</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','notes')">+ Add discussion notes</button></section>` : '';
+  if(isInline(m, 'notes')) return `<section class="mm-sec is-notes"><h5>Discussion</h5><textarea class="input mm-inline" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" rows="6" maxlength="20000" ${inlineKeys(m, 'notes')}>${escapeHtml(m.notes || '')}</textarea>${inlineButtons(m, 'notes')}</section>`;
+  if(m.notes) return `<section class="mm-sec is-notes"><h5>Discussion</h5><div class="mm-notes mm-editable"${dbl(m, 'notes', edit)}>${linkify(m.notes)}</div></section>`;
+  return edit ? `<section class="mm-sec is-notes"><h5>Discussion</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','notes')">+ Add discussion notes</button></section>` : '';
 }
 function decisionsSection(m, edit){
   const list = m.decisions || [];
-  if(isInline(m, 'decisions')) return `<section><h5>Decisions <small>one per line</small></h5><textarea class="input mm-inline" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" rows="${Math.max(3, list.length + 1)}" maxlength="5000" ${inlineKeys(m, 'decisions')}>${escapeHtml(list.join('\n'))}</textarea>${inlineButtons(m, 'decisions')}</section>`;
-  if(list.length) return `<section><h5>Decisions</h5><ul class="mm-decisions mm-editable"${dbl(m, 'decisions', edit)}>${list.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></section>`;
-  return edit ? `<section><h5>Decisions</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','decisions')">+ Add decisions</button></section>` : '';
+  if(isInline(m, 'decisions')) return `<section class="mm-sec is-dec"><h5>Decisions <small>one per line</small></h5><textarea class="input mm-inline" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" rows="${Math.max(3, list.length + 1)}" maxlength="5000" ${inlineKeys(m, 'decisions')}>${escapeHtml(list.join('\n'))}</textarea>${inlineButtons(m, 'decisions')}</section>`;
+  if(list.length) return `<section class="mm-sec is-dec"><h5>Decisions</h5><ul class="mm-decisions mm-editable"${dbl(m, 'decisions', edit)}>${list.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></section>`;
+  return edit ? `<section class="mm-sec is-dec"><h5>Decisions</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','decisions')">+ Add decisions</button></section>` : '';
 }
 function actionsSection(m, acts, edit){
   if(!acts.length && !edit) return '';
-  return `<section><h5>Action items</h5>${acts.length ? `<ul class="mm-actions">${acts.map(a => isInline(m, 'act:' + a.id)
+  const dn = acts.filter(a => a.done).length, pct = acts.length ? Math.round(dn * 100 / acts.length) : 0;
+  return `<section class="mm-sec is-acts"><h5>Action items ${acts.length ? `<small>${dn} of ${acts.length} done</small>` : ''}</h5>
+    ${acts.length ? `<div class="mm-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="Action items done"><i style="width:${pct}%"></i></div>` : ''}
+    ${acts.length ? `<ul class="mm-actions">${acts.map(a => isInline(m, 'act:' + a.id)
       ? `<li class="mm-act-inline"><div class="mm-act-row">
           <input class="input" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" maxlength="500" value="${escapeHtml(a.text || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Action">
           <input class="input" id="mmInlineOwner" data-keep data-k="${m.id}:${M.inline.field}" maxlength="80" value="${escapeHtml(a.owner || '')}" placeholder="Owner" ${inlineKeys(m, 'act:' + a.id)} aria-label="Owner">
@@ -208,7 +214,7 @@ function actionsSection(m, acts, edit){
         </div>${inlineButtons(m, 'act:' + a.id)}</li>`
       : `<li class="${a.done ? 'is-done' : ''}">
           <label><input type="checkbox" ${a.done ? 'checked' : ''} ${edit ? '' : 'disabled'} onchange="toggleMeetingAction('${m.id}','${a.id}',this.checked)"><span class="mm-editable"${dbl(m, 'act:' + a.id, edit)}>${linkify(a.text)}</span></label>
-          <span class="mm-act-meta">${a.owner ? `<span class="mm-owner">${escapeHtml(a.owner)}</span>` : ''}${dueChip(a)}</span>
+          <span class="mm-act-meta">${dueChip(a)}${a.owner ? `<span class="mm-owner" title="${escapeHtml(a.owner)}">${avatar(a.owner, 'sm')}<span>${escapeHtml(a.owner)}</span></span>` : ''}</span>
         </li>`).join('')}</ul>` : ''}
     ${edit ? `<div class="mm-quick"><input class="input" id="mmQa-${m.id}" data-keep maxlength="500" placeholder="+ Add an action item — e.g. Kirim build ke client @Reyhan" onkeydown="if(event.key==='Enter'){event.preventDefault();addMeetingQuickAction('${m.id}',this.value);}"></div>` : ''}
   </section>`;
@@ -218,57 +224,13 @@ function updatesSection(m, edit){
   const ups = m.updates || [];
   if(!ups.length && !edit) return '';
   const me = who();
-  return `<section class="mm-updates"><h5>Updates</h5>
+  return `<section class="mm-sec is-upd mm-updates"><h5>Updates ${ups.length ? `<small>${ups.length}</small>` : ''}</h5>
     ${ups.length ? `<ol class="mm-timeline">${ups.map(u => `<li>
-      <div class="mm-upd-head"><b>${escapeHtml(new Date(u.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</b><span>${escapeHtml(u.by || '')}</span>
+      <div class="mm-upd-head">${avatar(u.by || '?', 'xs')}<b>${escapeHtml(new Date(u.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</b><span>${escapeHtml(String(u.by || '').split('@')[0])}</span>
         ${edit && (u.by === me || canEdit()) ? `<button type="button" class="mm-upd-del" title="Delete this update" aria-label="Delete this update" onclick="deleteMeetingUpdate('${m.id}','${u.id}')">×</button>` : ''}</div>
       <div class="mm-upd-text">${linkify(u.text)}</div></li>`).join('')}</ol>` : ''}
-    ${edit ? `<div class="mm-quick mm-upd-add"><textarea class="input" id="mmUpd-${m.id}" data-keep rows="1" maxlength="3000" placeholder="Add an update — e.g. client confirmed go-live on 3 Nov (Enter to add, Shift+Enter for a new line)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,200)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addMeetingUpdate('${m.id}',this.value);}"></textarea><button type="button" class="btn btn-primary btn-xs" onclick="addMeetingUpdate('${m.id}',document.getElementById('mmUpd-${m.id}').value)">Add</button></div>` : ''}
+    ${edit ? `<div class="mm-quick mm-upd-add"><textarea class="input" id="mmUpd-${m.id}" data-keep rows="1" maxlength="3000" placeholder="Add an update… (Enter to add)" title="Enter to add · Shift+Enter for a new line" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,200)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addMeetingUpdate('${m.id}',this.value);}"></textarea><button type="button" class="btn btn-primary btn-xs" onclick="addMeetingUpdate('${m.id}',document.getElementById('mmUpd-${m.id}').value)">Add</button></div>` : ''}
   </section>`;
-}
-
-function card(m){
-  const open = M.open.has(m.id);
-  const acts = (m.actions || []).filter(a => String(a.text || '').trim());
-  const done = acts.filter(a => a.done).length;
-  const edit = canEdit();
-  const people = String(m.attendees || '').split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
-  return `<article class="mm-card${open ? ' is-open' : ''}">
-    <header class="mm-head" onclick="if(!event.target.closest('button,a,input'))toggleMeeting('${m.id}')">
-      <div class="mm-when"><b>${escapeHtml(fmtDate(m.date, m.time))}</b>${m.place ? `<span>${escapeHtml(m.place)}</span>` : ''}</div>
-      <div class="mm-title">
-        <b>${escapeHtml(m.title || 'Meeting')}</b>
-        <div class="mm-sub">
-          ${m.client && !fixedClient ? `<button type="button" class="mm-client" onclick="openMeetingClient(${escapeHtml(JSON.stringify(m.client))})" title="Open this client in By Client">${escapeHtml(m.client)}</button>` : ''}
-          ${!m.client && !fixedClient ? '<span class="mm-noclient">No client</span>' : ''}
-          ${people.length ? `<span>${people.length} attendee${people.length === 1 ? '' : 's'}</span>` : ''}
-          ${(m.decisions || []).length ? `<span>${m.decisions.length} decision${m.decisions.length === 1 ? '' : 's'}</span>` : ''}
-          ${(m.issueIds || []).length ? `<span>${m.issueIds.length} Redmine issue${m.issueIds.length === 1 ? '' : 's'}</span>` : ''}
-          ${(m.images || []).length ? `<span>${m.images.length} image${m.images.length === 1 ? '' : 's'}</span>` : ''}
-          ${(m.updates || []).length ? `<span class="mm-upd-count">${m.updates.length} update${m.updates.length === 1 ? '' : 's'}</span>` : ''}
-        </div>
-      </div>
-      <div class="mm-progress">${acts.length ? `<span class="mm-acts${done === acts.length ? ' is-done' : ''}">${done}/${acts.length} actions done</span>` : '<span class="mm-acts is-none">No action items</span>'}</div>
-      <button type="button" class="rq-toggle" aria-expanded="${open}" onclick="toggleMeeting('${m.id}')">${open ? 'Hide' : 'Show'}</button>
-    </header>
-    ${open ? `<div class="mm-body">
-      ${people.length ? `<section><h5>Attendees</h5><div class="mm-people">${people.map(p => `<span>${escapeHtml(p)}</span>`).join('')}</div></section>` : ''}
-      ${(m.issueIds || []).length ? `<section><h5>Redmine issues</h5><div class="mm-issues">${issueChips(m.issueIds)}</div></section>` : ''}
-      ${notesSection(m, edit)}
-      ${decisionsSection(m, edit)}
-      ${actionsSection(m, acts, edit)}
-      ${(m.images || []).length ? `<section><h5>Images</h5><div class="mm-gallery">${m.images.map((im, i) => `<button type="button" class="mm-thumb" onclick="openMeetingImage('${m.id}',${i})" title="${escapeHtml(im.name || 'Image')}"><img src="${escapeHtml(thumbOf(im.url))}" alt="${escapeHtml(im.name || 'Meeting image')}" loading="lazy"></button>`).join('')}</div></section>` : ''}
-      ${updatesSection(m, edit)}
-      <footer class="mm-foot">
-        <span class="mm-by">${m.updatedBy ? `Last edited by ${escapeHtml(m.updatedBy)}` : m.createdBy ? `Written by ${escapeHtml(m.createdBy)}` : ''}</span>
-        <span class="mm-foot-acts">
-          <button type="button" class="btn btn-secondary btn-xs" onclick="copyMeeting('${m.id}')">Copy text</button>
-          ${edit ? `<button type="button" class="btn btn-secondary btn-xs" onclick="editMeeting('${m.id}')">Edit</button>
-          <button type="button" class="btn btn-ghost btn-xs rq-danger" onclick="deleteMeeting('${m.id}')">Delete</button>` : ''}
-        </span>
-      </footer>
-    </div>` : ''}
-  </article>`;
 }
 
 function actionRow(a, n){
@@ -315,33 +277,142 @@ function formHtml(){
   </div>`;
 }
 
+/* ---------------- layout (v4.77.0) ----------------
+   Summary tiles (also filters) · toolbar · list on the left, the chosen meeting
+   on the right (on phones: list, then the meeting with a Back button). Each client
+   gets its own accent colour; internal meetings are slate. */
+const ACCENTS = ['#4f46e5', '#7c3aed', '#0284c7', '#c026d3', '#0d9488', '#db2777', '#ea580c', '#2563eb'];
+function hashOf(t){ let h = 0; for(const ch of String(t || '').toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; }
+const accentOf = (m) => m.client ? ACCENTS[hashOf(m.client) % ACCENTS.length] : '#64748b';
+const initials = (n) => { const w = String(n || '').replace(/\(.*?\)/g, '').split(/[\s@._-]+/).filter(Boolean); return ((w[0] || '?')[0] + (w[1] ? w[1][0] : '')).toUpperCase(); };
+const avatar = (name, size = '') => `<span class="mm-av${size ? ' is-' + size : ''}" style="--av:${ACCENTS[hashOf(name) % ACCENTS.length]}" aria-hidden="true">${escapeHtml(initials(name))}</span>`;
+const overdueOf = (m) => (m.actions || []).filter(a => !a.done && a.due && a.due < today() && String(a.text || '').trim());
+const peopleOf = (m) => String(m.attendees || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
+function quickOk(m){
+  if(M.quick === 'open') return openActions(m).length > 0;
+  if(M.quick === 'overdue') return overdueOf(m).length > 0;
+  if(M.quick === 'internal') return !m.client;
+  return true;
+}
+
+function statsHtml(all){
+  const month = today().slice(0, 7);
+  const thisMonth = all.filter(m => String(m.date || '').startsWith(month)).length;
+  const open = all.reduce((n, m) => n + openActions(m).length, 0);
+  const late = all.reduce((n, m) => n + overdueOf(m).length, 0);
+  const clients = new Set(all.filter(m => m.client && String(m.date || '').startsWith(month)).map(m => m.client.toLowerCase())).size;
+  const tile = (cls, label, n, sub, quick) => `<button type="button" class="mm-stat ${cls}${quick && M.quick === quick ? ' is-active' : ''}"${quick ? ` onclick="setMeetingQuick('${quick}')" aria-pressed="${M.quick === quick}"` : ' tabindex="-1"'}><span>${label}</span><b>${n}</b><small>${sub}</small></button>`;
+  return `<div class="mm-stats">
+    ${tile('is-month', 'This month', thisMonth, `meeting${thisMonth === 1 ? '' : 's'} in ${new Date().toLocaleDateString('en-GB', { month: 'long' })}`, '')}
+    ${tile('is-open', 'Open actions', open, open ? 'click to show those meetings' : 'nothing waiting', 'open')}
+    ${tile('is-late', 'Overdue', late, late ? 'past their due date' : 'all on time', 'overdue')}
+    ${fixedClient ? tile('is-total', 'All meetings', all.length, `with ${escapeHtml(fixedClient)}`, '') : tile('is-clients', 'Clients met', clients, 'this month', '')}
+  </div>`;
+}
+
+function itemHtml(m){
+  const d = new Date(String(m.date || '') + 'T00:00:00');
+  const acts = (m.actions || []).filter(a => String(a.text || '').trim()), done = acts.filter(a => a.done).length, late = overdueOf(m).length;
+  const sel = M.sel === m.id;
+  return `<button type="button" class="mm-item${sel ? ' is-sel' : ''}" style="--acc:${accentOf(m)}" onclick="selectMeeting('${m.id}')" aria-current="${sel}">
+    <span class="mm-cal"><small>${isNaN(d) ? '—' : d.toLocaleDateString('en-GB', { month: 'short' })}</small><b>${isNaN(d) ? '?' : d.getDate()}</b></span>
+    <span class="mm-item-main">
+      <b>${escapeHtml(m.title || 'Meeting')}</b>
+      <span class="mm-item-sub">${m.client && !fixedClient ? `<span class="mm-tag">${escapeHtml(m.client)}</span>` : !m.client ? '<span class="mm-tag is-internal">Internal</span>' : ''}<span>${isNaN(d) ? '' : d.toLocaleDateString('en-GB', { weekday: 'short' })}${m.time ? ' · ' + escapeHtml(m.time) : ''}</span></span>
+      <span class="mm-item-icons">
+        ${acts.length ? `<span class="${done === acts.length ? 'is-ok' : ''}" title="Action items done">✓ ${done}/${acts.length}</span>` : ''}
+        ${late ? `<span class="is-late" title="Overdue action items">⏰ ${late}</span>` : ''}
+        ${(m.issueIds || []).length ? `<span title="Redmine issues">#${m.issueIds.length}</span>` : ''}
+        ${(m.images || []).length ? `<span title="Images">▣ ${m.images.length}</span>` : ''}
+        ${(m.updates || []).length ? `<span title="Updates">↻ ${m.updates.length}</span>` : ''}
+      </span>
+    </span>
+  </button>`;
+}
+
+function detailHtml(m){
+  const edit = canEdit();
+  const acts = (m.actions || []).filter(a => String(a.text || '').trim());
+  const people = peopleOf(m);
+  const d = new Date(String(m.date || '') + 'T00:00:00');
+  const images = (m.images || []).length ? `<section class="mm-sec is-img"><h5>Images <small>${m.images.length}</small></h5><div class="mm-gallery">${m.images.map((im, i) => `<button type="button" class="mm-thumb" onclick="openMeetingImage('${m.id}',${i})" title="${escapeHtml(im.name || 'Image')}"><img src="${escapeHtml(thumbOf(im.url))}" alt="${escapeHtml(im.name || 'Meeting image')}" loading="lazy"></button>`).join('')}</div></section>` : '';
+  const issues = (m.issueIds || []).length ? `<section class="mm-sec is-iss"><h5>Redmine issues <small>${m.issueIds.length}</small></h5><div class="mm-issues">${issueChips(m.issueIds)}</div></section>` : '';
+  const ppl = people.length ? `<section class="mm-sec is-ppl"><h5>Attendees <small>${people.length}</small></h5><ul class="mm-people">${people.map(p => `<li>${avatar(p)}<span>${escapeHtml(p)}</span></li>`).join('')}</ul></section>` : '';
+  return `<article class="mm-detail" style="--acc:${accentOf(m)}">
+    <header class="mm-hero">
+      <button type="button" class="mm-back" onclick="meetingBackToList()">← All meetings</button>
+      <div class="mm-hero-top">
+        <span class="mm-hero-when">${isNaN(d) ? escapeHtml(m.date || '') : escapeHtml(d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}${m.time ? ` · ${escapeHtml(m.time)}` : ''}</span>
+        <span class="mm-hero-acts">
+          <button type="button" class="mm-hbtn" onclick="copyMeeting('${m.id}')" title="Copy as text for WhatsApp or e-mail">Copy text</button>
+          ${edit ? `<button type="button" class="mm-hbtn" onclick="editMeeting('${m.id}')">Edit</button><button type="button" class="mm-hbtn is-danger" onclick="deleteMeeting('${m.id}')" aria-label="Delete">Delete</button>` : ''}
+        </span>
+      </div>
+      <h3>${escapeHtml(m.title || 'Meeting')}</h3>
+      <div class="mm-hero-meta">
+        ${m.client ? (fixedClient ? `<span class="mm-hero-client">${escapeHtml(m.client)}</span>` : `<button type="button" class="mm-hero-client" onclick="openMeetingClient(${escapeHtml(JSON.stringify(m.client))})" title="Open this client in By Client">${escapeHtml(m.client)} ↗</button>`) : '<span class="mm-hero-client is-internal">Internal meeting</span>'}
+        ${m.place ? `<span class="mm-hero-place">📍 ${/^https?:\/\//.test(m.place) ? `<a href="${escapeHtml(m.place)}" target="_blank" rel="noopener">${escapeHtml(m.place.replace(/^https?:\/\//, '').slice(0, 40))}</a>` : escapeHtml(m.place)}</span>` : ''}
+        ${people.length ? `<span class="mm-stack" title="${escapeHtml(people.join(', '))}">${people.slice(0, 5).map(p => avatar(p, 'sm')).join('')}${people.length > 5 ? `<span class="mm-av is-sm is-more">+${people.length - 5}</span>` : ''}</span>` : ''}
+      </div>
+    </header>
+    <div class="mm-detail-grid">
+      <div class="mm-col">
+        ${notesSection(m, edit)}
+        ${decisionsSection(m, edit)}
+        ${updatesSection(m, edit)}
+      </div>
+      <div class="mm-col">
+        ${actionsSection(m, acts, edit)}
+        ${issues}
+        ${images}
+        ${ppl}
+      </div>
+    </div>
+    <footer class="mm-foot"><span class="mm-by">${m.createdBy ? `Written by ${escapeHtml(m.createdBy)}` : ''}${m.updatedBy ? ` · last edited by ${escapeHtml(m.updatedBy)}${m.updatedAt ? ' ' + escapeHtml(new Date(m.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : ''}` : ''}</span></footer>
+  </article>`;
+}
+
+function emptyHtml(kind){
+  const edit = canEdit();
+  const text = kind === 'filter' ? 'No meeting matches the search or filter.'
+    : fixedClient ? `No meeting notes with ${escapeHtml(fixedClient)} yet.` : 'No meeting notes yet.';
+  return `<div class="mm-emptybox"><div class="mm-empty-ic" aria-hidden="true">🗒️</div><b>${text}</b>
+    ${kind !== 'filter' ? '<p>Write the minutes right after a meeting: what was discussed, what was decided, and who does what by when.</p>' : ''}
+    ${kind === 'filter' ? `<button type="button" class="btn btn-secondary btn-sm" onclick="clearMeetingFilters()">Clear filters</button>` : edit ? `<button type="button" class="btn btn-primary btn-sm" onclick="openMeetingForm()">+ New meeting notes</button>` : ''}</div>`;
+}
+
 function paint(){
   const el = host;
   if(M.error){ el.innerHTML = `<div class="kb-state kb-state-sm"><p>${escapeHtml(M.error)}</p></div>`; return; }
   const edit = canEdit();
-  const shown = M.list.filter(matches);
+  const scope = fixedClient ? M.list.filter(m => sameClient(m.client, fixedClient)) : M.list;
+  const shown = M.list.filter(m => matches(m) && quickOk(m));
+  if(!M.sel || !shown.some(m => m.id === M.sel)) M.sel = shown.length ? shown[0].id : null;
+  const cur = shown.find(m => m.id === M.sel);
   const clients = clientNames();
   const usedClients = [...new Map(M.list.filter(m => m.client).map(m => [m.client.toLowerCase(), m.client])).values()].sort((a, b) => a.localeCompare(b));
-  const totalOpen = shown.reduce((s, m) => s + openActions(m).length, 0);
-  const head = fixedClient
-    ? `<div class="rq-head"><div><b>Meetings</b> <span class="rq-muted">${shown.length ? `${shown.length} meeting${shown.length === 1 ? '' : 's'} with ${escapeHtml(fixedClient)} · ${totalOpen} open action item${totalOpen === 1 ? '' : 's'}` : `minutes of meetings with ${escapeHtml(fixedClient)}`}</span></div>
-        ${edit && !M.form ? `<button type="button" class="btn btn-primary btn-sm" onclick="openMeetingForm()">+ New meeting notes</button>` : ''}</div>`
-    : `<div class="mm-toolbar">
-        <div class="mm-search"><input class="input" id="mmSearch" type="search" placeholder="Search title, client, notes, actions…" value="${escapeHtml(M.q)}" oninput="setMeetingSearch(this.value)"></div>
-        <select class="select" aria-label="Client" onchange="setMeetingClient(this.value)">
-          <option value="all"${M.client === 'all' ? ' selected' : ''}>All clients</option>
-          <option value="none"${M.client === 'none' ? ' selected' : ''}>No client (internal)</option>
-          ${usedClients.map(c => `<option value="${escapeHtml(c)}"${sameClient(M.client, c) ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}
-        </select>
-        <span class="rq-muted mm-count">${shown.length} meeting${shown.length === 1 ? '' : 's'} · ${totalOpen} open action item${totalOpen === 1 ? '' : 's'}</span>
-        ${edit && !M.form ? `<button type="button" class="btn btn-primary btn-sm" onclick="openMeetingForm()">+ New meeting notes</button>` : ''}
-      </div>`;
-  let body;
-  if(!M.loaded) body = '<div class="kb-state kb-state-sm"><p>Loading…</p></div>';
-  else if(!shown.length) body = M.form ? '' : `<div class="kb-state kb-state-sm"><p>${M.list.length && !fixedClient ? 'No meeting matches the search or filter.' : fixedClient ? `No meeting notes with ${escapeHtml(fixedClient)} yet.` : 'No meeting notes yet.'}${edit && !(M.list.length && !fixedClient) ? ' Write the minutes after a meeting — what was discussed, what was decided and who does what by when.' : ''}</p></div>`;
+  const chip = (v, label) => `<button type="button" class="mm-chip${M.quick === v ? ' is-active' : ''}" onclick="setMeetingQuick('${v}')" aria-pressed="${M.quick === v}">${label}</button>`;
+  const toolbar = `<div class="mm-toolbar">
+      ${fixedClient ? '' : `<div class="mm-search"><span aria-hidden="true">⌕</span><input class="input" id="mmSearch" type="search" placeholder="Search title, client, notes, actions, #issue…" value="${escapeHtml(M.q)}" oninput="setMeetingSearch(this.value)"></div>
+      <select class="select" aria-label="Client" onchange="setMeetingClient(this.value)">
+        <option value="all"${M.client === 'all' ? ' selected' : ''}>All clients</option>
+        <option value="none"${M.client === 'none' ? ' selected' : ''}>Internal (no client)</option>
+        ${usedClients.map(c => `<option value="${escapeHtml(c)}"${sameClient(M.client, c) ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('')}
+      </select>`}
+      <div class="mm-chips">${chip('all', 'All')}${chip('open', 'Open actions')}${chip('overdue', 'Overdue')}${fixedClient ? '' : chip('internal', 'Internal')}</div>
+      ${edit ? `<button type="button" class="btn btn-primary btn-sm mm-new" onclick="openMeetingForm()"${M.form && !M.form.id ? ' disabled' : ''}>+ New meeting notes</button>` : ''}
+    </div>`;
+  let main;
+  if(!M.loaded) main = '<div class="kb-state kb-state-sm"><p>Loading…</p></div>';
+  else if(!scope.length && !M.form) main = emptyHtml('none');
   else {
     let month = '';
-    body = shown.map(m => { const mo = monthOf(m.date); const sep = mo !== month ? `<div class="mm-month">${escapeHtml(mo)}</div>` : ''; month = mo; return sep + card(m); }).join('');
+    const list = shown.length ? shown.map(m => { const mo = monthOf(m.date); const sep = mo !== month ? `<div class="mm-month">${escapeHtml(mo)}</div>` : ''; month = mo; return sep + itemHtml(m); }).join('') : emptyHtml('filter');
+    const right = M.form ? formHtml() : cur ? detailHtml(cur) : '<div class="mm-emptybox is-pane"><b>Choose a meeting on the left</b></div>';
+    main = `<div class="mm-split${M.pane === 'detail' || M.form ? ' show-detail' : ''}">
+      <nav class="mm-rail" aria-label="Meetings">${list}</nav>
+      <div class="mm-pane">${right}</div>
+    </div>`;
   }
   // v4.76.1: a typed value only comes back into the SAME form / the same meeting's field —
   // never into another meeting's form opened in its place
@@ -352,7 +423,10 @@ function paint(){
   const actId = act && act.id, actRow = act && act.closest && act.closest('.mm-act-row'), actIdx = actRow ? [...actRow.querySelectorAll('input')].indexOf(act) : -1, rowI = actRow ? actRow.dataset.i : null;
   const sel = act && typeof act.selectionStart === 'number' ? [act.selectionStart, act.selectionEnd] : null;
   const y = window.scrollY;
-  el.innerHTML = head + (M.form ? formHtml() : '') + `<div class="mm-list">${body}</div><datalist id="mmClientList">${clients.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}</datalist>`;
+  const railTop = el.querySelector('.mm-rail')?.scrollTop || 0;
+  el.innerHTML = (M.loaded && (scope.length || M.form) ? statsHtml(scope) + toolbar : '') + main + `<datalist id="mmClientList">${clients.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}</datalist>`;
+  const rail = el.querySelector('.mm-rail'); if(rail) rail.scrollTop = railTop;
+  el.classList.toggle('is-detail', !!el.querySelector('.mm-split.show-detail'));   // phones: hide tiles + toolbar while a meeting is open
   keep.forEach(([id, v, k]) => { const x = document.getElementById(id); if(x && ownerKey(x) === k) x.value = v; });
   let back = actId ? document.getElementById(actId) : (rowI != null ? el.querySelectorAll(`.mm-act-row[data-i="${rowI}"] input`)[actIdx] : null);
   if(back){ back.focus(); if(sel && back.setSelectionRange) try { back.setSelectionRange(sel[0], sel[1]); } catch(_){} }
@@ -375,7 +449,7 @@ function openMeetingForm(id){
         images: (m.images || []).map(im => ({ ...im })), added: [], removed: [], uploading: 0, key: uid() }
     : { title: '', date: today(), time: '', client: fixedClient || '', place: '', issues: '', attendees: '', notes: '', decisions: '', actions: [{ id: uid(), text: '', owner: '', due: '', done: false }],
         images: [], added: [], removed: [], uploading: 0, key: uid() };
-  if(id) M.open.add(id);
+  if(id) M.sel = id;
   rerender();
   setTimeout(() => { const x = $('mmTitle'); if(x){ x.focus(); x.scrollIntoView({ block: 'nearest' }); } }, 30);
 }
@@ -411,7 +485,7 @@ async function saveMeetingForm(){
   M.busy = true; rerender();
   try {
     if(f.id) await ref().doc(f.id).set(doc, { merge: true });
-    else { const d = ref().doc(); await d.set({ ...doc, createdAt: Date.now(), createdBy: who() }); M.open.add(d.id); }
+    else { const d = ref().doc(); await d.set({ ...doc, createdAt: Date.now(), createdBy: who() }); M.sel = d.id; M.pane = 'detail'; }
     (f.removed || []).forEach(destroyImage);   // removed in the form → gone from storage too
     M.form = null;
     toast(f.id ? 'Meeting notes updated' : 'Meeting notes saved');
@@ -430,7 +504,7 @@ async function toggleMeetingAction(id, actionId, done){
 /* ---- v4.76.0: in-place edits, quick actions, updates ---- */
 function editMeetingInline(id, field){
   if(!canEdit()) return;
-  M.inline = { id, field }; M.open.add(id); rerender();
+  M.inline = { id, field }; M.sel = id; rerender();
   setTimeout(() => { const x = $('mmInline'); if(x){ x.focus(); const n = x.value.length; try { x.setSelectionRange(n, n); } catch(_){} } }, 30);
 }
 function cancelMeetingInline(){ M.inline = null; rerender(); }
@@ -489,7 +563,7 @@ async function deleteMeeting(id){
   const m = M.list.find(x => x.id === id); if(!m) return;
   const ok = await confirmDialog({ title: 'Delete these meeting notes?', message: `<b>${escapeHtml(m.title || '')}</b> (${escapeHtml(fmtDate(m.date))}) will be removed.`, okText: 'Delete', type: 'danger' });
   if(!ok) return;
-  try { await ref().doc(id).delete(); (m.images || []).forEach(destroyImage); M.open.delete(id); toast('Meeting notes deleted'); }
+  try { await ref().doc(id).delete(); (m.images || []).forEach(destroyImage); if(M.sel === id){ M.sel = null; M.pane = 'list'; } toast('Meeting notes deleted'); }
   catch(err){ toast(err.message || 'Could not delete', 'error'); }
 }
 
@@ -511,7 +585,15 @@ async function copyMeeting(id){
   catch(_){ toast('Could not copy', 'error'); }
 }
 
-function toggleMeeting(id){ if(M.open.has(id)) M.open.delete(id); else M.open.add(id); rerender(); }
+function toggleMeeting(id){ selectMeeting(id); }
+function selectMeeting(id){
+  if(M.form){ toast('Save or cancel the notes you are editing first', 'error'); return; }
+  M.sel = id; M.inline = null; M.pane = 'detail'; rerender();
+  if(window.innerWidth <= 980) host?.scrollIntoView({ block: 'start' });
+}
+function meetingBackToList(){ M.pane = 'list'; M.inline = null; rerender(); }
+function setMeetingQuick(v){ M.quick = ['open', 'overdue', 'internal'].includes(v) && M.quick !== v ? v : 'all'; rerender(); }
+function clearMeetingFilters(){ M.q = ''; M.client = 'all'; M.quick = 'all'; rerender(); }
 let searchTimer = null;
 function setMeetingSearch(v){ M.q = String(v || ''); clearTimeout(searchTimer); searchTimer = setTimeout(rerender, 150); }
 function setMeetingClient(v){ M.client = v || 'all'; rerender(); }
@@ -635,6 +717,7 @@ function stepMeetingImage(d){ if(!viewer) return; const n = viewer.m.images.leng
 function closeMeetingImage(){ viewer = null; const box = document.getElementById('mmViewer'); if(box){ box.classList.remove('is-open'); box.innerHTML = ''; } }
 
 export {
+  selectMeeting, meetingBackToList, setMeetingQuick, clearMeetingFilters,
   editMeetingInline, cancelMeetingInline, saveMeetingInline, deleteMeetingAction, addMeetingQuickAction, addMeetingUpdate, deleteMeetingUpdate,
   addMeetingImages, pasteMeetingImages, removeMeetingImage, openMeetingImage, stepMeetingImage, closeMeetingImage,
   openMeetingForm, editMeeting, closeMeetingForm, saveMeetingForm, setMeetingAction, addMeetingActionRow, removeMeetingActionRow,
