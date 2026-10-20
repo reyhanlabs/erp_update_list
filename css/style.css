@@ -4259,3 +4259,33 @@ button.mm-thumb:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .mm-issues{gap:0}
 .mm-ilink{color:var(--brand);font-weight:650;text-decoration:none}
 .mm-ilink:hover{text-decoration:underline}
+/* v4.76.0 — meeting notes: edit in place, quick action, updates */
+.mm-editable{border-radius:6px;transition:background var(--dur-fast)}
+.mm-editable[ondblclick]:hover{background:var(--brand-soft);cursor:text}
+.mm-notes.mm-editable,.mm-decisions.mm-editable{padding:4px 6px;margin:-4px -6px}
+.mm-decisions.mm-editable{padding-left:24px}
+.mm-body h5 small{font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px}
+.mm-inline{width:100%;font-size:13px;line-height:1.55;padding:8px 10px;height:auto;resize:vertical}
+textarea.mm-inline{min-height:84px}
+.mm-inline-acts{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px}
+.mm-inline-acts span{margin-right:auto;font-size:11.5px;color:var(--text-tertiary)}
+.mm-actions li.mm-act-inline{display:block;background:var(--brand-soft)}
+.mm-actions li.mm-act-inline .mm-act-row .input{background:var(--surface)}
+.mm-empty{border:1px dashed var(--line-strong);background:none;border-radius:8px;padding:6px 12px;font:inherit;font-size:12.5px;color:var(--text-tertiary);cursor:pointer}
+.mm-empty:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.mm-quick{margin-top:6px}
+.mm-quick .input{width:100%;height:34px;font-size:13px}
+.mm-updates{border-top:1px dashed var(--line);padding-top:12px}
+.mm-timeline{list-style:none;margin:0 0 8px;padding:0 0 0 14px;border-left:2px solid var(--brand-ring);display:flex;flex-direction:column;gap:10px}
+.mm-timeline li{position:relative}
+.mm-timeline li::before{content:'';position:absolute;left:-20px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--brand)}
+.mm-upd-head{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text-tertiary)}
+.mm-upd-head b{color:var(--text-secondary);font-weight:650;font-variant-numeric:tabular-nums}
+.mm-upd-del{margin-left:auto;border:none;background:none;color:var(--text-tertiary);cursor:pointer;font-size:15px;line-height:1;opacity:0;transition:opacity var(--dur-fast)}
+.mm-timeline li:hover .mm-upd-del,.mm-upd-del:focus-visible{opacity:1}
+.mm-upd-del:hover{color:var(--danger)}
+.mm-upd-text{font-size:13px;line-height:1.55;color:var(--text);white-space:pre-wrap;margin-top:2px}
+.mm-upd-add{display:flex;gap:6px;align-items:flex-end}
+.mm-upd-add textarea.input{flex:1;min-height:34px;height:34px;resize:none;padding:7px 10px;line-height:1.4;font-size:13px}
+.mm-upd-count{color:var(--brand);font-weight:650}
+@media (hover:none){ .mm-upd-del{opacity:1} }

@@ -9,6 +9,7 @@
  * Stored per workspace: workspaces/{ws}/meetings/{id}
  *   { title, date, time, client, place, attendees, notes, decisions:[text],
  *     actions:[{id,text,owner,due,done,doneAt}], images:[{url,publicId,w,h,name}],
+ *     updates:[{id,text,by,at}] (v4.76.0 follow-up log),
  *     createdAt, createdBy, updatedAt, updatedBy }
  * Images (v4.74.0) go to Cloudinary (signed by /api/cloudinary, kind 'meeting');
  * large photos are scaled down in the browser first.
@@ -28,6 +29,7 @@ const M = {
   q: '', client: 'all',       // filter on the Meeting notes page: all | none | <client>
   open: new Set(),            // meeting ids expanded
   form: null,                 // { id?, …fields, actions:[…] } while adding / editing
+  inline: null,               // v4.76.0: { id, field: 'notes' | 'decisions' | 'act:<id>' } edited in place
   busy: false
 };
 const ref = () => db.collection('workspaces').doc(CloudSync.workspaceId).collection('meetings');
@@ -175,8 +177,54 @@ function matches(m){
   if(M.client !== 'all' && M.client !== 'none' && !sameClient(m.client, M.client)) return false;
   const q = M.q.trim().toLowerCase();
   if(!q) return true;
-  const hay = [m.title, m.client, m.place, m.attendees, m.notes, (m.issueIds || []).map(id => '#' + id).join(' '), (m.decisions || []).join(' '), (m.actions || []).map(a => `${a.text} ${a.owner}`).join(' ')].join(' ').toLowerCase();
+  const hay = [m.title, m.client, m.place, m.attendees, m.notes, (m.updates || []).map(u => u.text).join(' '), (m.issueIds || []).map(id => '#' + id).join(' '), (m.decisions || []).join(' '), (m.actions || []).map(a => `${a.text} ${a.owner}`).join(' ')].join(' ').toLowerCase();
   return q.split(/\s+/).every(w => hay.includes(w));
+}
+
+/* ---- v4.76.0: edit one part in place (double-click) ---- */
+const isInline = (m, field) => M.inline && M.inline.id === m.id && M.inline.field === field;
+const inlineKeys = (m, field) => `onkeydown="if(event.key==='Escape'){event.preventDefault();cancelMeetingInline();}else if(event.key==='Enter'&&(event.ctrlKey||event.metaKey||this.tagName==='INPUT')){event.preventDefault();saveMeetingInline('${m.id}','${field}');}"`;
+const inlineButtons = (m, field) => `<div class="mm-inline-acts"><span>${field === 'notes' || field === 'decisions' ? 'Ctrl+Enter to save · Esc to cancel' : 'Enter to save · Esc to cancel'}</span><button type="button" class="btn btn-secondary btn-xs" onclick="cancelMeetingInline()">Cancel</button><button type="button" class="btn btn-primary btn-xs" onclick="saveMeetingInline('${m.id}','${field}')">Save</button></div>`;
+const dbl = (m, field, edit) => edit ? ` ondblclick="editMeetingInline('${m.id}','${field}')" title="Double-click to edit"` : '';
+function notesSection(m, edit){
+  if(isInline(m, 'notes')) return `<section><h5>Discussion</h5><textarea class="input mm-inline" id="mmInline" data-keep rows="6" maxlength="20000" ${inlineKeys(m, 'notes')}>${escapeHtml(m.notes || '')}</textarea>${inlineButtons(m, 'notes')}</section>`;
+  if(m.notes) return `<section><h5>Discussion</h5><div class="mm-notes mm-editable"${dbl(m, 'notes', edit)}>${linkify(m.notes)}</div></section>`;
+  return edit ? `<section><h5>Discussion</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','notes')">+ Add discussion notes</button></section>` : '';
+}
+function decisionsSection(m, edit){
+  const list = m.decisions || [];
+  if(isInline(m, 'decisions')) return `<section><h5>Decisions <small>one per line</small></h5><textarea class="input mm-inline" id="mmInline" data-keep rows="${Math.max(3, list.length + 1)}" maxlength="5000" ${inlineKeys(m, 'decisions')}>${escapeHtml(list.join('\n'))}</textarea>${inlineButtons(m, 'decisions')}</section>`;
+  if(list.length) return `<section><h5>Decisions</h5><ul class="mm-decisions mm-editable"${dbl(m, 'decisions', edit)}>${list.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></section>`;
+  return edit ? `<section><h5>Decisions</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','decisions')">+ Add decisions</button></section>` : '';
+}
+function actionsSection(m, acts, edit){
+  if(!acts.length && !edit) return '';
+  return `<section><h5>Action items</h5>${acts.length ? `<ul class="mm-actions">${acts.map(a => isInline(m, 'act:' + a.id)
+      ? `<li class="mm-act-inline"><div class="mm-act-row">
+          <input class="input" id="mmInline" data-keep maxlength="500" value="${escapeHtml(a.text || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Action">
+          <input class="input" id="mmInlineOwner" data-keep maxlength="80" value="${escapeHtml(a.owner || '')}" placeholder="Owner" ${inlineKeys(m, 'act:' + a.id)} aria-label="Owner">
+          <input class="input" type="date" id="mmInlineDue" data-keep value="${escapeHtml(a.due || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Due date">
+          <button type="button" class="rq-tool rq-del" title="Delete this action" aria-label="Delete this action" onclick="deleteMeetingAction('${m.id}','${a.id}')">×</button>
+        </div>${inlineButtons(m, 'act:' + a.id)}</li>`
+      : `<li class="${a.done ? 'is-done' : ''}">
+          <label><input type="checkbox" ${a.done ? 'checked' : ''} ${edit ? '' : 'disabled'} onchange="toggleMeetingAction('${m.id}','${a.id}',this.checked)"><span class="mm-editable"${dbl(m, 'act:' + a.id, edit)}>${linkify(a.text)}</span></label>
+          <span class="mm-act-meta">${a.owner ? `<span class="mm-owner">${escapeHtml(a.owner)}</span>` : ''}${dueChip(a)}</span>
+        </li>`).join('')}</ul>` : ''}
+    ${edit ? `<div class="mm-quick"><input class="input" id="mmQa-${m.id}" data-keep maxlength="500" placeholder="+ Add an action item — e.g. Kirim build ke client @Reyhan" onkeydown="if(event.key==='Enter'){event.preventDefault();addMeetingQuickAction('${m.id}',this.value);}"></div>` : ''}
+  </section>`;
+}
+/* ---- v4.76.0: follow-up updates, newest at the bottom ---- */
+function updatesSection(m, edit){
+  const ups = m.updates || [];
+  if(!ups.length && !edit) return '';
+  const me = who();
+  return `<section class="mm-updates"><h5>Updates</h5>
+    ${ups.length ? `<ol class="mm-timeline">${ups.map(u => `<li>
+      <div class="mm-upd-head"><b>${escapeHtml(new Date(u.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</b><span>${escapeHtml(u.by || '')}</span>
+        ${edit && (u.by === me || canEdit()) ? `<button type="button" class="mm-upd-del" title="Delete this update" aria-label="Delete this update" onclick="deleteMeetingUpdate('${m.id}','${u.id}')">×</button>` : ''}</div>
+      <div class="mm-upd-text">${linkify(u.text)}</div></li>`).join('')}</ol>` : ''}
+    ${edit ? `<div class="mm-quick mm-upd-add"><textarea class="input" id="mmUpd-${m.id}" data-keep rows="1" maxlength="3000" placeholder="Add an update — e.g. client confirmed go-live on 3 Nov (Enter to add, Shift+Enter for a new line)" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,200)+'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addMeetingUpdate('${m.id}',this.value);}"></textarea><button type="button" class="btn btn-primary btn-xs" onclick="addMeetingUpdate('${m.id}',document.getElementById('mmUpd-${m.id}').value)">Add</button></div>` : ''}
+  </section>`;
 }
 
 function card(m){
@@ -197,6 +245,7 @@ function card(m){
           ${(m.decisions || []).length ? `<span>${m.decisions.length} decision${m.decisions.length === 1 ? '' : 's'}</span>` : ''}
           ${(m.issueIds || []).length ? `<span>${m.issueIds.length} Redmine issue${m.issueIds.length === 1 ? '' : 's'}</span>` : ''}
           ${(m.images || []).length ? `<span>${m.images.length} image${m.images.length === 1 ? '' : 's'}</span>` : ''}
+          ${(m.updates || []).length ? `<span class="mm-upd-count">${m.updates.length} update${m.updates.length === 1 ? '' : 's'}</span>` : ''}
         </div>
       </div>
       <div class="mm-progress">${acts.length ? `<span class="mm-acts${done === acts.length ? ' is-done' : ''}">${done}/${acts.length} actions done</span>` : '<span class="mm-acts is-none">No action items</span>'}</div>
@@ -205,13 +254,11 @@ function card(m){
     ${open ? `<div class="mm-body">
       ${people.length ? `<section><h5>Attendees</h5><div class="mm-people">${people.map(p => `<span>${escapeHtml(p)}</span>`).join('')}</div></section>` : ''}
       ${(m.issueIds || []).length ? `<section><h5>Redmine issues</h5><div class="mm-issues">${issueChips(m.issueIds)}</div></section>` : ''}
-      ${m.notes ? `<section><h5>Discussion</h5><div class="mm-notes">${linkify(m.notes)}</div></section>` : ''}
-      ${(m.decisions || []).length ? `<section><h5>Decisions</h5><ul class="mm-decisions">${m.decisions.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></section>` : ''}
-      ${acts.length ? `<section><h5>Action items</h5><ul class="mm-actions">${acts.map(a => `<li class="${a.done ? 'is-done' : ''}">
-          <label><input type="checkbox" ${a.done ? 'checked' : ''} ${edit ? '' : 'disabled'} onchange="toggleMeetingAction('${m.id}','${a.id}',this.checked)"><span>${linkify(a.text)}</span></label>
-          <span class="mm-act-meta">${a.owner ? `<span class="mm-owner">${escapeHtml(a.owner)}</span>` : ''}${dueChip(a)}</span>
-        </li>`).join('')}</ul></section>` : ''}
+      ${notesSection(m, edit)}
+      ${decisionsSection(m, edit)}
+      ${actionsSection(m, acts, edit)}
       ${(m.images || []).length ? `<section><h5>Images</h5><div class="mm-gallery">${m.images.map((im, i) => `<button type="button" class="mm-thumb" onclick="openMeetingImage('${m.id}',${i})" title="${escapeHtml(im.name || 'Image')}"><img src="${escapeHtml(thumbOf(im.url))}" alt="${escapeHtml(im.name || 'Meeting image')}" loading="lazy"></button>`).join('')}</div></section>` : ''}
+      ${updatesSection(m, edit)}
       <footer class="mm-foot">
         <span class="mm-by">${m.updatedBy ? `Last edited by ${escapeHtml(m.updatedBy)}` : m.createdBy ? `Written by ${escapeHtml(m.createdBy)}` : ''}</span>
         <span class="mm-foot-acts">
@@ -296,7 +343,8 @@ function paint(){
     let month = '';
     body = shown.map(m => { const mo = monthOf(m.date); const sep = mo !== month ? `<div class="mm-month">${escapeHtml(mo)}</div>` : ''; month = mo; return sep + card(m); }).join('');
   }
-  const keep = KEEP_IDS.map(id => { const x = document.getElementById(id); return x && el.contains(x) ? [id, x.value] : null; }).filter(Boolean);
+  const keepIds = [...KEEP_IDS, ...[...el.querySelectorAll('[data-keep][id]')].map(x => x.id)];
+  const keep = keepIds.map(id => { const x = document.getElementById(id); return x && el.contains(x) ? [id, x.value] : null; }).filter(Boolean);
   const act = document.activeElement && el.contains(document.activeElement) ? document.activeElement : null;
   const actId = act && act.id, actRow = act && act.closest && act.closest('.mm-act-row'), actIdx = actRow ? [...actRow.querySelectorAll('input')].indexOf(act) : -1, rowI = actRow ? actRow.dataset.i : null;
   const sel = act && typeof act.selectionStart === 'number' ? [act.selectionStart, act.selectionEnd] : null;
@@ -374,6 +422,64 @@ async function toggleMeetingAction(id, actionId, done){
   catch(err){ toast(err.message || 'Could not update', 'error'); rerender(); }
 }
 
+/* ---- v4.76.0: in-place edits, quick actions, updates ---- */
+function editMeetingInline(id, field){
+  if(!canEdit()) return;
+  M.inline = { id, field }; M.open.add(id); rerender();
+  setTimeout(() => { const x = $('mmInline'); if(x){ x.focus(); const n = x.value.length; try { x.setSelectionRange(n, n); } catch(_){} } }, 30);
+}
+function cancelMeetingInline(){ M.inline = null; rerender(); }
+async function saveMeetingInline(id, field){
+  const m = M.list.find(x => x.id === id); if(!m) return;
+  const val = String($('mmInline')?.value || '');
+  let patch;
+  if(field === 'notes') patch = { notes: val.trim().slice(0, 20000) };
+  else if(field === 'decisions') patch = { decisions: val.split('\n').map(x => x.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim()).filter(Boolean).slice(0, 100).map(x => x.slice(0, 500)) };
+  else if(field.startsWith('act:')){
+    const aid = field.slice(4), text = val.trim();
+    if(!text){ toast('An action needs some text — use × to delete it', 'error'); return; }
+    const owner = String($('mmInlineOwner')?.value || '').trim().slice(0, 80), due = String($('mmInlineDue')?.value || '');
+    patch = { actions: (m.actions || []).map(a => a.id === aid ? { ...a, text: text.slice(0, 500), owner, due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : '' } : a) };
+  } else return;
+  M.inline = null;
+  try { await ref().doc(id).set({ ...patch, updatedAt: Date.now(), updatedBy: who() }, { merge: true }); }
+  catch(err){ toast(err.code === 'permission-denied' ? 'Not allowed: ask for editor access' : (err.message || 'Could not save'), 'error'); }
+  rerender();
+}
+async function deleteMeetingAction(id, aid){
+  const m = M.list.find(x => x.id === id); if(!m) return;
+  M.inline = null;
+  try { await ref().doc(id).set({ actions: (m.actions || []).filter(a => a.id !== aid), updatedAt: Date.now(), updatedBy: who() }, { merge: true }); }
+  catch(err){ toast(err.message || 'Could not delete', 'error'); }
+  rerender();
+}
+/* "Kirim build ke client @Reyhan" → owner Reyhan (the @name at the end is optional) */
+async function addMeetingQuickAction(id, raw){
+  const m = M.list.find(x => x.id === id); if(!m) return;
+  let text = String(raw || '').trim(), owner = '';
+  const at = text.match(/\s@([^@]{1,60})$/);
+  if(at){ owner = at[1].trim(); text = text.slice(0, at.index).trim(); }
+  if(!text) return;
+  const input = $('mmQa-' + id); if(input) input.value = '';
+  try { await ref().doc(id).set({ actions: [...(m.actions || []), { id: uid(), text: text.slice(0, 500), owner: owner.slice(0, 80), due: '', done: false, doneAt: null }], updatedAt: Date.now(), updatedBy: who() }, { merge: true }); }
+  catch(err){ if(input) input.value = raw; toast(err.message || 'Could not add', 'error'); }
+}
+async function addMeetingUpdate(id, raw){
+  const text = String(raw || '').trim();
+  if(!text) return;
+  const input = $('mmUpd-' + id); if(input){ input.value = ''; input.style.height = ''; }
+  const u = { id: uid(), text: text.slice(0, 3000), by: who(), at: Date.now() };
+  try { await ref().doc(id).set({ updates: firebase.firestore.FieldValue.arrayUnion(u), updatedAt: Date.now(), updatedBy: who() }, { merge: true }); }
+  catch(err){ if(input) input.value = raw; toast(err.code === 'permission-denied' ? 'Not allowed: ask for editor access' : (err.message || 'Could not add the update'), 'error'); }
+}
+async function deleteMeetingUpdate(id, uidv){
+  const m = M.list.find(x => x.id === id); if(!m) return;
+  const ok = await confirmDialog({ title: 'Delete this update?', message: escapeHtml(((m.updates || []).find(u => u.id === uidv) || {}).text || ''), okText: 'Delete', type: 'danger' });
+  if(!ok) return;
+  try { await ref().doc(id).set({ updates: (m.updates || []).filter(u => u.id !== uidv), updatedAt: Date.now(), updatedBy: who() }, { merge: true }); }
+  catch(err){ toast(err.message || 'Could not delete', 'error'); }
+}
+
 async function deleteMeeting(id){
   const m = M.list.find(x => x.id === id); if(!m) return;
   const ok = await confirmDialog({ title: 'Delete these meeting notes?', message: `<b>${escapeHtml(m.title || '')}</b> (${escapeHtml(fmtDate(m.date))}) will be removed.`, okText: 'Delete', type: 'danger' });
@@ -389,6 +495,7 @@ function meetingText(m){
   if((m.decisions || []).length) lines.push('', '*Decisions*', ...m.decisions.map(d => `• ${d}`));
   const acts = (m.actions || []).filter(a => String(a.text || '').trim());
   if(acts.length) lines.push('', '*Action items*', ...acts.map(a => `${a.done ? '✅' : '☐'} ${a.text}${a.owner ? ` — ${a.owner}` : ''}${a.due ? ` (due ${a.due})` : ''}`));
+  if((m.updates || []).length) lines.push('', '*Updates*', ...m.updates.map(u => `${new Date(u.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}${u.by ? ` (${u.by.split('@')[0]})` : ''}: ${u.text}`));
   if((m.issueIds || []).length) lines.push('', '*Redmine*', ...m.issueIds.map(id => { const i = knownIssue(id); return `${REDMINE}${id}${i && i.subject ? ` — ${i.subject}` : ''}`; }));
   if((m.images || []).length) lines.push('', '*Images*', ...m.images.map(im => im.url));
   return lines.join('\n');
@@ -523,6 +630,7 @@ function stepMeetingImage(d){ if(!viewer) return; const n = viewer.m.images.leng
 function closeMeetingImage(){ viewer = null; const box = document.getElementById('mmViewer'); if(box){ box.classList.remove('is-open'); box.innerHTML = ''; } }
 
 export {
+  editMeetingInline, cancelMeetingInline, saveMeetingInline, deleteMeetingAction, addMeetingQuickAction, addMeetingUpdate, deleteMeetingUpdate,
   addMeetingImages, pasteMeetingImages, removeMeetingImage, openMeetingImage, stepMeetingImage, closeMeetingImage,
   openMeetingForm, editMeeting, closeMeetingForm, saveMeetingForm, setMeetingAction, addMeetingActionRow, removeMeetingActionRow,
   toggleMeetingAction, deleteMeeting, copyMeeting, toggleMeeting, setMeetingSearch, setMeetingClient, openMeetingClient
