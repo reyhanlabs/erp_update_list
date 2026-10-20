@@ -29,6 +29,10 @@ const PRODUCTS = {
   one: { label: 'Zahir ERP One', short: 'ERP One' },
   mrp: { label: 'Zahir MRP', short: 'MRP' }
 };
+/* v4.78.0: one colour per product (list rows, cards, article header, step numbers) */
+const PC = { erp: '#4f46e5', one: '#0891b2', mfg: '#7c3aed', mrp: '#d97706' };
+const pcOf = (p) => PC[p] || '#64748b';
+const initialsOf = (t) => { const w = String(t || '').replace(/[&]/g, ' ').split(/\s+/).filter(Boolean); return ((w[0] || '?')[0] + (w[1] ? w[1][0] : (w[0] || '')[1] || '')).toUpperCase(); };
 const DEFAULT_MODULES = [
   'Sales', 'Purchase', 'Inventory', 'Cash & Bank', 'General Ledger', 'Fixed Assets',
   'Production', 'Master Data', 'Reports', 'Settings', 'Import & Export'
@@ -210,7 +214,7 @@ function renderNav(){
   for(const [p, prod] of tree.products){
     const open = S.product === p;
     const active = open && S.module === 'all';
-    html += row(`data-kb-product="${p}" aria-expanded="${open}"`,
+    html += row(`data-kb-product="${p}" aria-expanded="${open}" style="--pc:${pcOf(p)}"`,
       `<span class="kb-dot kb-dot-${p}" aria-hidden="true"></span>${escapeHtml(PRODUCTS[p].label)}`,
       prod.count, `kb-nav-product${active ? ' is-active' : ''}${prod.count || prod.modules.length ? '' : ' is-empty'}`);
     if(!open) continue;
@@ -218,7 +222,7 @@ function renderNav(){
       html += `<div class="kb-nav-mods"><button type="button" class="kb-nav-hint" data-perm="edit" data-kb-act="manage" data-kb-manage-product="${p}">+ Add modules</button></div>`;
       continue;
     }
-    html += '<div class="kb-nav-mods">' + prod.modules.map(m => {
+    html += `<div class="kb-nav-mods" style="--pc:${pcOf(p)}">` + prod.modules.map(m => {
       const modOpen = S.module.toLowerCase() === m.name.toLowerCase();
       let out = row(`data-kb-product="${p}" data-kb-module="${escapeHtml(m.name)}"${m.subs.length ? ` aria-expanded="${modOpen}"` : ''}`,
         escapeHtml(m.name), m.count,
@@ -311,7 +315,8 @@ function guideRow(a, { showProduct, showModule, showSubmenu }){
     where ? `<span class="kb-row-path" title="${escapeHtml([showModule ? moduleOf(a) : '', showSubmenu ? submenuOf(a) : ''].filter(Boolean).join(' › '))}">${ICON_FOLDER}<span>${where}</span></span>` : '',
     a.client ? `<span class="kb-row-client" title="Client: ${escapeHtml(a.client)}">${ICON_CLIENT}<span>${escapeHtml(a.client)}</span></span>` : ''
   ].filter(Boolean).join('');
-  return `<button type="button" class="kb-row" data-kb-open="${escapeHtml(a.id)}">
+  return `<button type="button" class="kb-row" data-kb-open="${escapeHtml(a.id)}" style="--pc:${pcOf(a.product)}">
+    <span class="kb-row-ic" aria-hidden="true" title="${escapeHtml(moduleOf(a))}">${escapeHtml(initialsOf(moduleOf(a)))}</span>
     <span class="kb-row-main">
       <span class="kb-row-title">${escapeHtml(a.title || 'Untitled')}</span>
       ${a.summary ? `<span class="kb-row-sum">${escapeHtml(a.summary)}</span>` : ''}
@@ -365,11 +370,53 @@ function renderList(el){
   } else {
     body = `<section class="kb-group">${list.map(a => guideRow(a, { showProduct: searching || S.product === 'all', showModule: searching || S.module === 'all', showSubmenu: searching || S.submenu === 'all' })).join('')}</section>`;
   }
-  el.innerHTML = `<header class="kb-list-head">
-      <div><h2>${head.title}</h2>${head.sub ? `<p>${head.sub}</p>` : ''}</div>
+  const home = !searching && S.product === 'all' ? homeHtml() : '';
+  const pc = S.product !== 'all' ? pcOf(S.product) : '';
+  el.innerHTML = `<header class="kb-list-head${pc ? ' has-pc' : ''}"${pc ? ` style="--pc:${pc}"` : ''}>
+      <div>${pc ? `<span class="kb-head-chip">${escapeHtml(PRODUCTS[S.product]?.label || '')}</span>` : ''}<h2>${head.title}</h2>${head.sub ? `<p>${head.sub}</p>` : ''}</div>
       <span class="kb-list-count">${list.length} ${list.length === 1 ? 'guide' : 'guides'}</span>
-    </header>${migrateBannerHtml()}${body}`;
+    </header>${migrateBannerHtml()}${home}${home && list.length ? '<h3 class="kb-home-title">All guides by product</h3>' : ''}${body}`;
   maybeCheckCloudinary();
+}
+
+/* v4.78.0: the "All guides" page opens with tiles, one card per product and the latest changes */
+function homeHtml(){
+  const all = S.articles;
+  if(!all.length) return '';
+  const tree = libraryTree();
+  const monthAgo = Date.now() - 30 * 86400000;
+  const recent = all.filter(a => (a.updatedAt || 0) >= monthAgo).length;
+  const clients = new Set(all.map(a => String(a.client || '').trim().toLowerCase()).filter(Boolean)).size;
+  const modules = new Set(all.map(a => `${a.product}|${moduleOf(a).toLowerCase()}`)).size;
+  const tile = (cls, label, n, sub) => `<div class="kb-stat ${cls}"><span>${label}</span><b>${n}</b><small>${sub}</small></div>`;
+  const cards = [...tree.products].map(([p, prod]) => {
+    const mods = prod.modules.filter(m => m.count).sort((a, b) => b.count - a.count).slice(0, 5);
+    return `<div class="kb-pcard" style="--pc:${pcOf(p)}">
+      <button type="button" class="kb-pcard-head" data-kb-product="${p}">
+        <span class="kb-pcard-ic" aria-hidden="true">${escapeHtml(({ erp: 'ERP', one: 'ONE', mfg: 'MFG', mrp: 'MRP' })[p] || String(p).slice(0, 3).toUpperCase())}</span>
+        <span class="kb-pcard-name"><b>${escapeHtml(PRODUCTS[p]?.label || p)}</b><small>${prod.count} guide${prod.count === 1 ? '' : 's'} · ${prod.modules.filter(m => m.count).length} module${prod.modules.filter(m => m.count).length === 1 ? '' : 's'}</small></span>
+        <span class="kb-pcard-go" aria-hidden="true">${ICONS.chevron}</span>
+      </button>
+      ${mods.length ? `<div class="kb-pcard-mods">${mods.map(m => `<button type="button" data-kb-product="${p}" data-kb-module="${escapeHtml(m.name)}">${escapeHtml(m.name)}<span>${m.count}</span></button>`).join('')}</div>` : '<p class="kb-pcard-empty">No guides yet</p>'}
+    </div>`;
+  }).join('');
+  const latest = all.slice().sort(byUpdated).slice(0, 5);
+  return `<div class="kb-home">
+    <div class="kb-stats">
+      ${tile('is-total', 'Guides', all.length, 'in the library')}
+      ${tile('is-recent', 'Updated', recent, 'in the last 30 days')}
+      ${tile('is-mods', 'Modules', modules, 'with at least one guide')}
+      ${tile('is-clients', 'Client guides', clients, `client${clients === 1 ? '' : 's'} with their own guide`)}
+    </div>
+    <div class="kb-pcards">${cards}</div>
+    <section class="kb-recent"><h3 class="kb-home-title">Recently updated</h3>
+      <div class="kb-recent-list">${latest.map(a => `<button type="button" class="kb-recent-item" data-kb-open="${escapeHtml(a.id)}" style="--pc:${pcOf(a.product)}">
+        <span class="kb-recent-dot" aria-hidden="true"></span>
+        <span class="kb-recent-main"><b>${escapeHtml(a.title || 'Untitled')}</b><small>${escapeHtml(PRODUCTS[a.product]?.short || '')} › ${escapeHtml(moduleOf(a))}${a.updatedBy ? ` · ${escapeHtml(String(a.updatedBy).split('@')[0])}` : ''}</small></span>
+        <span class="kb-recent-when">${escapeHtml(fmtDate(a.updatedAt))}</span>
+      </button>`).join('')}</div>
+    </section>
+  </div>`;
 }
 
 /* ---- one-time move of old in-database screenshots to Cloudinary ---- */
@@ -433,14 +480,16 @@ function renderArticle(el, a){
   ].filter(Boolean).join('');
 
   el.innerHTML = `
-    <div class="kb-article-wrap">
+    <div class="kb-article-wrap" style="--pc:${pcOf(a.product)}">
       <article class="kb-article">
         <button type="button" class="kb-back" data-kb-act="back">${ICONS.back}<span>${escapeHtml(backLabel)}</span></button>
+        <header class="kb-hero">
         <p class="kb-crumb">${productChip(a.product)}<span>${escapeHtml(p ? p.label : '')}</span><span class="md-path">›</span><span>${escapeHtml(moduleOf(a))}</span>${submenuOf(a) ? `<span class="md-path">›</span><span>${escapeHtml(submenuOf(a))}</span>` : ''}</p>
         <h1 class="kb-title">${escapeHtml(a.title || 'Untitled')}</h1>
         ${a.summary ? `<p class="kb-lede">${escapeHtml(a.summary)}</p>` : ''}
         <div class="kb-meta">${meta}</div>
         ${tags.length ? `<p class="kb-tags">${tags.map(t => `<span>${escapeHtml(t)}</span>`).join('')}</p>` : ''}
+        </header>
         <div class="kb-actions" role="toolbar" aria-label="Guide actions">
           <button type="button" class="kb-act kb-act-primary" data-perm="edit" data-kb-act="edit">${ICONS.edit}<span>Edit</span></button>
           <button type="button" class="kb-act" data-kb-act="copy-text" aria-label="Copy text" title="Copy text">${ICONS.copy}<span>Copy text</span></button>
