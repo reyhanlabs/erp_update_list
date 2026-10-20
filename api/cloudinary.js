@@ -7,7 +7,8 @@
  *
  *   GET  /api/cloudinary                → { configured, cloudName, folder }
  *   POST /api/cloudinary {action:'sign'}                 → upload signature
- *   POST /api/cloudinary {action:'destroy', public_id}   → delete one image ({kind:'file'} → one request attachment)
+ *   POST /api/cloudinary {action:'destroy', public_id}   → delete one image ({kind:'file'} → one request attachment,
+ *                                                         {kind:'meeting'} → one meeting-notes image)
  *
  * Env: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
  *      CLOUDINARY_FOLDER (optional, default "erp-update-list/kb")
@@ -56,9 +57,12 @@ export default async function handler(req, res) {
 
   // v4.69.0: kind 'file' = client request attachments (Excel, Word, PDF …) as raw files in their own folder
   const filesFolder = c.folder.replace(/\/kb$/, '') + '/requests';
+  // v4.74.0: kind 'meeting' = images attached to meeting notes, in their own folder
+  const meetingsFolder = c.folder.replace(/\/kb$/, '') + '/meetings';
+  const folderOf = (kind) => kind === 'file' ? filesFolder : kind === 'meeting' ? meetingsFolder : c.folder;
   if (body.action === 'sign') {
     const isFile = body.kind === 'file';
-    const folder = isFile ? filesFolder : c.folder;
+    const folder = folderOf(body.kind);
     const params = { folder, timestamp };
     return res.status(200).json({
       cloudName: c.cloudName,
@@ -74,7 +78,7 @@ export default async function handler(req, res) {
     const publicId = String(body.public_id || '');
     // only files in our own folders can be deleted: KB images, or (v4.70.0) client request attachments (raw)
     const isFile = body.kind === 'file';
-    const base = isFile ? filesFolder : c.folder;
+    const base = folderOf(body.kind);
     if (!publicId.startsWith(base + '/') || !/^[\w\-/.]+$/.test(publicId) || publicId.includes('..')) {
       return res.status(400).json({ error: 'Invalid public_id' });
     }
