@@ -716,6 +716,7 @@ function siteForClient(name){
 }
 function sitesLoaded(){ return S.loaded ? S.sites.length : -1; }
 function ensureSitesLoaded(){ if(!S.unsub) subscribe(true); }
+const siteNames = () => S.sites.map(s => s.name).filter(Boolean);   // meeting notes: client picker
 function openSiteClientIssues(id){
   const s = S.sites.find(x => x.id === id);
   const c = s && redmineOf(s);
@@ -1021,6 +1022,6 @@ export {
   checkAllSites, checkOneSite, deleteSite, exportSites, setSitesFilter, setSitesSort, toggleSiteDetails, siteRowClick,
   getAllSites, cmpVersion, setSitesRecentOpen, showAllSiteChanges,
   setTelegramVersionsEnabled, testTelegramVersions, initSitesSettings,
-  siteForClient, ensureSitesLoaded, openSiteClientIssues, sitesLoaded,
+  siteForClient, ensureSitesLoaded, openSiteClientIssues, sitesLoaded, siteNames,
   openSitesCompare, closeSitesCompare, setCompareSite, addCompareColumn, removeCompareColumn, moveCompareFirst, checkComparedSites, copyCompare
 };

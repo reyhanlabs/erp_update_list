@@ -7,6 +7,7 @@ import { $, escapeHtml, parseIssueLines } from '../core/helpers.js';
 import { formatAssignee } from './tester/queue.js';
 import { ISSUE_STATUS_DEFS } from './issue-status.js';
 import { getNotes } from './notes.js';
+import { getMeetings } from './meetings.js';
 import { getIssueClientName } from './clients.js';
 import { getKbArticles, KB_PRODUCTS } from './kb.js';
 
@@ -81,6 +82,12 @@ function renderGlobalSearchResults(q){
     if((n.title||'').toLowerCase().includes(q) || (n.body||'').toLowerCase().includes(q)){
       hits.push({ type: 'Note', label: n.title || 'Untitled', sub: (n.body||'').slice(0,80), action: `openNotesView();closeGlobalSearch();` });
     }
+  });
+
+  // Meeting notes (v4.73.0)
+  getMeetings().forEach(m => {
+    const hay = [m.title, m.client, m.attendees, m.notes, (m.decisions || []).join(' '), (m.actions || []).map(a => `${a.text} ${a.owner}`).join(' ')].join(' ').toLowerCase();
+    if(hay.includes(q)) hits.push({ type: 'Meeting', label: m.title || 'Meeting', sub: [m.date, m.client].filter(Boolean).join(' · '), action: `switchView('meetings');setMeetingSearch(${escapeHtml(JSON.stringify(m.title || ''))});closeGlobalSearch();` });
   });
 
   function pushIssueHit(type, i, subExtra){

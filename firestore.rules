@@ -85,6 +85,11 @@ service cloud.firestore {
         allow read: if isMember(ws);
         allow write: if canEdit(ws);
       }
+      // Meeting notes / minutes of meeting, optionally linked to a client (v4.73.0)
+      match /meetings/{meetingId} {
+        allow read: if isMember(ws);
+        allow write: if canEdit(ws);
+      }
       // Knowledge Base guides + their screenshots
       match /kb/{articleId} {
         allow read: if isMember(ws);

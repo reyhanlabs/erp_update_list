@@ -13,6 +13,7 @@ import { refreshCounts } from './dashboard.js';
 import { prefetchTesterCount } from './tester/queue.js';
 import { loadIssueNotes } from './issue-notes.js';
 import { ensureSitesLoaded } from './sites.js';
+import { ensureMeetingsLoaded } from './meetings.js';
 
 /* ============================================================
    INIT
@@ -251,6 +252,7 @@ function startAppForUser(user){
       watchMembers();
       // Client Versions in the background: sidebar count + login-check alerts on every screen
       try { ensureSitesLoaded(); } catch(e){ console.warn('sites', e); }
+      try { ensureMeetingsLoaded(); } catch(e){ console.warn('meetings', e); }   // sidebar: open action items
       try { loadIssueNotes(); } catch(e){ console.warn('loadIssueNotes', e); }
       if(overlay) overlay.classList.add('hidden');
       // Non-blocking prefetch

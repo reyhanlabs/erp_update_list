@@ -14,6 +14,7 @@ import { loadRedmineProjects } from '../redmine/projects.js';
 import { issueDescriptionCell, resolveNewIssueProjectIds } from './new-issues.js';
 import { renderClientReport, resetClientReport } from './client-report.js';
 import { renderClientRequests } from './client-requests.js';
+import { renderClientMeetings } from './meetings.js';
 import { siteForClient, ensureSitesLoaded, sitesLoaded } from './sites.js';
 
 /* ============================================================
@@ -501,7 +502,7 @@ function renderClientOverview(el){
 function rememberOverviewUi(){ /* state lives in window.__clientOvUi (v4.52.0) */ }
 
 function setClientTab(tab){
-  window.__clientTab = ['report', 'requests'].includes(tab) ? tab : 'issues';
+  window.__clientTab = ['report', 'requests', 'meetings'].includes(tab) ? tab : 'issues';
   renderClientIssues();
 }
 
@@ -574,9 +575,10 @@ function renderClientIssues(){
   if(filtersBar) filtersBar.classList.remove('hidden');
 
   const tabs = `<div class="cr-tabs" role="tablist" aria-label="Client view">
-      <button type="button" role="tab" class="cr-tab${!['report', 'requests'].includes(window.__clientTab) ? ' is-active' : ''}" aria-selected="${!['report', 'requests'].includes(window.__clientTab)}" onclick="setClientTab('issues')">Issues</button>
+      <button type="button" role="tab" class="cr-tab${!['report', 'requests', 'meetings'].includes(window.__clientTab) ? ' is-active' : ''}" aria-selected="${!['report', 'requests', 'meetings'].includes(window.__clientTab)}" onclick="setClientTab('issues')">Issues</button>
       <button type="button" role="tab" class="cr-tab${window.__clientTab === 'requests' ? ' is-active' : ''}" aria-selected="${window.__clientTab === 'requests'}" onclick="setClientTab('requests')">Requests</button>
       <button type="button" role="tab" class="cr-tab${window.__clientTab === 'report' ? ' is-active' : ''}" aria-selected="${window.__clientTab === 'report'}" onclick="setClientTab('report')">Report</button>
+      <button type="button" role="tab" class="cr-tab${window.__clientTab === 'meetings' ? ' is-active' : ''}" aria-selected="${window.__clientTab === 'meetings'}" onclick="setClientTab('meetings')">Meetings</button>
     </div>`;
   const backRow = `<div class="list-meta-row cl-ov-back-row" style="padding:4px 4px 10px">
       <button type="button" class="cl-ov-back" onclick="backToClientOverview()">← All clients</button>
@@ -588,6 +590,13 @@ function renderClientIssues(){
     // the client's own request list(s), point by point, linked to Redmine issues (v4.69.0)
     el.innerHTML = backRow + '<div id="clientRequestsBody" class="cr-body rq-body-wrap"></div>';
     renderClientRequests($('clientRequestsBody'), q);
+    if(filtersBar) filtersBar.classList.add('hidden');
+    return;
+  }
+  if(window.__clientTab === 'meetings'){
+    // minutes of meetings with this client (v4.73.0)
+    el.innerHTML = backRow + '<div id="clientMeetingsBody" class="cr-body mm-wrap"></div>';
+    renderClientMeetings($('clientMeetingsBody'), q);
     if(filtersBar) filtersBar.classList.add('hidden');
     return;
   }

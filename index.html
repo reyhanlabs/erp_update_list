@@ -147,6 +147,13 @@
       </svg>
       <span class="label">Knowledge Base</span>
     </button>
+    <button class="nav-item" data-view="meetings" title="Minutes of meetings, with or without a client">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/>
+      </svg>
+      <span class="label">Meeting Notes</span>
+      <span class="count" id="countMeetings" data-zero="1" title="Open action items">0</span>
+    </button>
     <div class="nav-section">Tester Queue</div>
     <button class="nav-item" data-view="tester" data-tester-cat="all" onclick="openTesterCategory('all')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -913,6 +920,13 @@
 
     <!-- WHAT NEXT — prioritized New issues -->
     
+    <section class="view" id="view-meetings">
+      <div class="card tester-card">
+        <div class="card-head"><h3><span class="mark"></span> Meeting Notes</h3></div>
+        <div class="card-body"><div id="meetingsBody" class="mm-wrap"></div></div>
+      </div>
+    </section>
+
     <section class="view" id="view-sites">
       <div class="card tester-card">
         <div class="card-head">
@@ -1497,6 +1511,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.73.0</span>
+                <span class="cl-note">New menu Meeting Notes (MoM): title, date, optional client, attendees, place, discussion, decisions and action items (owner, due date, done). Search, client filter, Copy text for WhatsApp, open action items on the sidebar; a client's meetings also show in By Client → Meetings. Needs the new firestore.rules</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.72.0</span>
                 <span class="cl-note">Client Versions: Report version (/reports/version) next to Front-end, API V2 and API V3 — table column, rollout card, Latest Report filter, details, Compare, CSV, history and Telegram alerts. Not counted in “Parts out of step”</span>
