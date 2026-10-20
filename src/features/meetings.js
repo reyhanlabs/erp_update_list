@@ -21,6 +21,7 @@ import { confirmDialog } from '../ui/confirm.js';
 import { canEdit } from '../core/team.js';
 import { siteNames } from './sites.js';
 import { apiFetch } from '../api.js';
+import { fetchRedmine } from '../redmine/client.js';
 
 const M = {
   list: [], loaded: false, unsub: null, ws: null, error: '',
@@ -39,7 +40,59 @@ const MAX_BYTES = 20 * 1024 * 1024;     // before scaling down
 const MAX_SIDE = 2400;                  // longest side kept, in px
 const isCloudinary = (u) => /^https:\/\/res\.cloudinary\.com\//.test(String(u || ''));
 const thumbOf = (u, w = 320, h = 220) => isCloudinary(u) ? u.replace('/upload/', `/upload/c_fill,w_${w},h_${h},q_auto,f_auto/`) : u;
-const KEEP_IDS = ['mmTitle', 'mmDate', 'mmTime', 'mmClient', 'mmPlace', 'mmAttendees', 'mmNotes', 'mmDecisions'];
+const KEEP_IDS = ['mmTitle', 'mmDate', 'mmTime', 'mmClient', 'mmPlace', 'mmIssues', 'mmAttendees', 'mmNotes', 'mmDecisions'];
+
+/* ---- Redmine links (v4.75.0) ---- */
+const REDMINE = 'https://pjm.zahironline.com/issues/';
+/** "#32312, 32315 https://pjm.zahironline.com/issues/32320" → ['32312','32315','32320'] */
+function parseIssueIds(text){
+  const out = [], t = String(text || '');
+  const add = (id) => { if(id && !out.includes(id)) out.push(id); };
+  t.replace(/issues\/(\d{1,7})|#?\b(\d{3,7})\b/g, (_, a, b) => { add(a || b); return ''; });   // in the order typed
+  return out.slice(0, 50);
+}
+/* #32312 and Redmine URLs in free text become links (text is escaped first) */
+function linkify(text){
+  return escapeHtml(text)
+    .replace(/https:\/\/pjm\.zahironline\.com\/issues\/(\d{1,7})[^\s<]*/g, (_, id) => `<a class="mm-ilink" href="${REDMINE}${id}" target="_blank" rel="noopener">#${id}</a>`)
+    .replace(/(^|[\s(\[,;])#(\d{3,7})\b/g, (_, pre, id) => `${pre}<a class="mm-ilink" href="${REDMINE}${id}" target="_blank" rel="noopener">#${id}</a>`);
+}
+/* subject + status of linked issues: the client's issues if loaded, else fetched once per id */
+const issueInfo = new Map();
+const pendingIds = new Set();
+function knownIssue(id){
+  if(issueInfo.has(id)) return issueInfo.get(id);
+  const all = [...(window.__clientIssues || []), ...(window.__clientParents || [])];
+  const i = all.find(x => String(x.id) === String(id));
+  if(i){ issueInfo.set(id, { subject: i.subject, status: i.status?.name || '' }); return issueInfo.get(id); }
+  return null;
+}
+let fetchTimer = null;
+function wantIssues(ids){
+  ids.filter(id => !knownIssue(id) && !pendingIds.has(id)).forEach(id => pendingIds.add(id));
+  if(!pendingIds.size || fetchTimer) return;
+  fetchTimer = setTimeout(async () => {
+    fetchTimer = null;
+    const batch = [...pendingIds].slice(0, 50);
+    try {
+      const { data } = await fetchRedmine(`/api/redmine?issue_id=${batch.join(',')}&status_id=*&limit=100`);
+      (data.issues || []).forEach(i => issueInfo.set(String(i.id), { subject: i.subject, status: i.status?.name || '' }));
+      batch.forEach(id => { if(!issueInfo.has(id)) issueInfo.set(id, { missing: true }); });
+    } catch(_){ batch.forEach(id => issueInfo.set(id, { missing: true })); }
+    batch.forEach(id => pendingIds.delete(id));
+    rerender();
+    if(pendingIds.size) wantIssues([]);
+  }, 60);
+}
+function issueChips(ids){
+  wantIssues(ids);
+  return ids.map(id => {
+    const i = knownIssue(id);
+    const closed = i && /closed|resolved|rejected|done|finish|selesai|cancel/i.test(i.status || '');
+    return `<a class="mm-issue${closed ? ' is-closed' : ''}" href="${REDMINE}${id}" target="_blank" rel="noopener" title="${escapeHtml(i && i.subject ? `${i.subject} — ${i.status}` : 'Open in Redmine')}">
+      <b>#${escapeHtml(id)}</b>${i && i.subject ? `<span class="mm-issue-subj">${escapeHtml(i.subject)}</span><span class="mm-issue-st">${escapeHtml(i.status)}</span>` : i && i.missing ? '' : '<span class="mm-issue-subj is-loading">…</span>'}</a>`;
+  }).join('');
+}
 
 /* ---------------- data ---------------- */
 function listen(){
@@ -122,7 +175,7 @@ function matches(m){
   if(M.client !== 'all' && M.client !== 'none' && !sameClient(m.client, M.client)) return false;
   const q = M.q.trim().toLowerCase();
   if(!q) return true;
-  const hay = [m.title, m.client, m.place, m.attendees, m.notes, (m.decisions || []).join(' '), (m.actions || []).map(a => `${a.text} ${a.owner}`).join(' ')].join(' ').toLowerCase();
+  const hay = [m.title, m.client, m.place, m.attendees, m.notes, (m.issueIds || []).map(id => '#' + id).join(' '), (m.decisions || []).join(' '), (m.actions || []).map(a => `${a.text} ${a.owner}`).join(' ')].join(' ').toLowerCase();
   return q.split(/\s+/).every(w => hay.includes(w));
 }
 
@@ -142,6 +195,7 @@ function card(m){
           ${!m.client && !fixedClient ? '<span class="mm-noclient">No client</span>' : ''}
           ${people.length ? `<span>${people.length} attendee${people.length === 1 ? '' : 's'}</span>` : ''}
           ${(m.decisions || []).length ? `<span>${m.decisions.length} decision${m.decisions.length === 1 ? '' : 's'}</span>` : ''}
+          ${(m.issueIds || []).length ? `<span>${m.issueIds.length} Redmine issue${m.issueIds.length === 1 ? '' : 's'}</span>` : ''}
           ${(m.images || []).length ? `<span>${m.images.length} image${m.images.length === 1 ? '' : 's'}</span>` : ''}
         </div>
       </div>
@@ -150,10 +204,11 @@ function card(m){
     </header>
     ${open ? `<div class="mm-body">
       ${people.length ? `<section><h5>Attendees</h5><div class="mm-people">${people.map(p => `<span>${escapeHtml(p)}</span>`).join('')}</div></section>` : ''}
-      ${m.notes ? `<section><h5>Discussion</h5><div class="mm-notes">${escapeHtml(m.notes)}</div></section>` : ''}
-      ${(m.decisions || []).length ? `<section><h5>Decisions</h5><ul class="mm-decisions">${m.decisions.map(d => `<li>${escapeHtml(d)}</li>`).join('')}</ul></section>` : ''}
+      ${(m.issueIds || []).length ? `<section><h5>Redmine issues</h5><div class="mm-issues">${issueChips(m.issueIds)}</div></section>` : ''}
+      ${m.notes ? `<section><h5>Discussion</h5><div class="mm-notes">${linkify(m.notes)}</div></section>` : ''}
+      ${(m.decisions || []).length ? `<section><h5>Decisions</h5><ul class="mm-decisions">${m.decisions.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></section>` : ''}
       ${acts.length ? `<section><h5>Action items</h5><ul class="mm-actions">${acts.map(a => `<li class="${a.done ? 'is-done' : ''}">
-          <label><input type="checkbox" ${a.done ? 'checked' : ''} ${edit ? '' : 'disabled'} onchange="toggleMeetingAction('${m.id}','${a.id}',this.checked)"><span>${escapeHtml(a.text)}</span></label>
+          <label><input type="checkbox" ${a.done ? 'checked' : ''} ${edit ? '' : 'disabled'} onchange="toggleMeetingAction('${m.id}','${a.id}',this.checked)"><span>${linkify(a.text)}</span></label>
           <span class="mm-act-meta">${a.owner ? `<span class="mm-owner">${escapeHtml(a.owner)}</span>` : ''}${dueChip(a)}</span>
         </li>`).join('')}</ul></section>` : ''}
       ${(m.images || []).length ? `<section><h5>Images</h5><div class="mm-gallery">${m.images.map((im, i) => `<button type="button" class="mm-thumb" onclick="openMeetingImage('${m.id}',${i})" title="${escapeHtml(im.name || 'Image')}"><img src="${escapeHtml(thumbOf(im.url))}" alt="${escapeHtml(im.name || 'Meeting image')}" loading="lazy"></button>`).join('')}</div></section>` : ''}
@@ -188,6 +243,7 @@ function formHtml(){
       <label class="field"><span>Time (optional)</span><input class="input" type="time" id="mmTime" value="${escapeHtml(f.time || '')}"></label>
       <label class="field mm-span-2"><span>Client (optional)</span><input class="input" id="mmClient" list="mmClientList" maxlength="120" value="${escapeHtml(f.client || '')}" placeholder="Leave empty for an internal meeting"${fixedClient && !f.id ? ' readonly' : ''}></label>
       <label class="field mm-span-2"><span>Place / link (optional)</span><input class="input" id="mmPlace" maxlength="200" value="${escapeHtml(f.place || '')}" placeholder="Office, client site, Google Meet link …"></label>
+      <label class="field mm-span-4"><span>Redmine issues (optional)</span><input class="input" id="mmIssues" maxlength="2000" value="${escapeHtml(f.issues || '')}" placeholder="#32312, #32315 — or paste Redmine links"></label>
       <label class="field mm-span-4"><span>Attendees</span><input class="input" id="mmAttendees" maxlength="600" value="${escapeHtml(f.attendees || '')}" placeholder="Names, separated by commas"></label>
       <label class="field mm-span-4"><span>Discussion</span><textarea class="input" id="mmNotes" rows="6" maxlength="20000" placeholder="What was discussed — paste from WhatsApp or your notes">${escapeHtml(f.notes || '')}</textarea></label>
       <label class="field mm-span-4"><span>Decisions (one per line)</span><textarea class="input" id="mmDecisions" rows="3" maxlength="5000" placeholder="Go-live moved to 3 Nov&#10;Use the new invoice layout">${escapeHtml(f.decisions || '')}</textarea></label>
@@ -261,10 +317,10 @@ function openMeetingForm(id){
   if(!canEdit()) return;
   const m = id ? M.list.find(x => x.id === id) : null;
   M.form = m
-    ? { id: m.id, title: m.title || '', date: m.date || '', time: m.time || '', client: m.client || '', place: m.place || '', attendees: m.attendees || '', notes: m.notes || '', decisions: (m.decisions || []).join('\n'),
+    ? { id: m.id, title: m.title || '', date: m.date || '', time: m.time || '', client: m.client || '', place: m.place || '', issues: (m.issueIds || []).map(id => '#' + id).join(', '), attendees: m.attendees || '', notes: m.notes || '', decisions: (m.decisions || []).join('\n'),
         actions: (m.actions || []).map(a => ({ ...a })).concat([{ id: uid(), text: '', owner: '', due: '', done: false }]),
         images: (m.images || []).map(im => ({ ...im })), added: [], removed: [], uploading: 0 }
-    : { title: '', date: today(), time: '', client: fixedClient || '', place: '', attendees: '', notes: '', decisions: '', actions: [{ id: uid(), text: '', owner: '', due: '', done: false }],
+    : { title: '', date: today(), time: '', client: fixedClient || '', place: '', issues: '', attendees: '', notes: '', decisions: '', actions: [{ id: uid(), text: '', owner: '', due: '', done: false }],
         images: [], added: [], removed: [], uploading: 0 };
   if(id) M.open.add(id);
   rerender();
@@ -294,6 +350,7 @@ async function saveMeetingForm(){
     decisions: String(f.decisions || '').split('\n').map(s => s.replace(/^\s*(?:[-•*]|\d+[.)])\s*/, '').trim()).filter(Boolean).slice(0, 100).map(s => s.slice(0, 500)),
     actions: f.actions.filter(a => String(a.text || '').trim()).slice(0, 100).map(a => ({ id: a.id || uid(), text: String(a.text).trim().slice(0, 500), owner: String(a.owner || '').trim().slice(0, 80),
       due: /^\d{4}-\d{2}-\d{2}$/.test(a.due || '') ? a.due : '', done: !!a.done, doneAt: a.done ? (a.doneAt || Date.now()) : null })),
+    issueIds: parseIssueIds(f.issues),
     images: (f.images || []).slice(0, MAX_IMAGES).map(im => ({ url: im.url, publicId: im.publicId || '', w: im.w || 0, h: im.h || 0, name: String(im.name || '').slice(0, 120) })),
     updatedAt: Date.now(), updatedBy: who()
   };
@@ -332,6 +389,7 @@ function meetingText(m){
   if((m.decisions || []).length) lines.push('', '*Decisions*', ...m.decisions.map(d => `• ${d}`));
   const acts = (m.actions || []).filter(a => String(a.text || '').trim());
   if(acts.length) lines.push('', '*Action items*', ...acts.map(a => `${a.done ? '✅' : '☐'} ${a.text}${a.owner ? ` — ${a.owner}` : ''}${a.due ? ` (due ${a.due})` : ''}`));
+  if((m.issueIds || []).length) lines.push('', '*Redmine*', ...m.issueIds.map(id => { const i = knownIssue(id); return `${REDMINE}${id}${i && i.subject ? ` — ${i.subject}` : ''}`; }));
   if((m.images || []).length) lines.push('', '*Images*', ...m.images.map(im => im.url));
   return lines.join('\n');
 }

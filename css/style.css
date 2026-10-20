@@ -4246,3 +4246,16 @@ button.mm-thumb:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
   .mm-viewer{padding:10px}
   .mm-viewer-nav{width:38px;height:38px}
 }
+/* v4.75.0 — meeting notes: Redmine issues */
+.mm-issues{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mm-issue{display:flex;align-items:center;gap:10px;padding:7px 12px;font-size:13px;color:var(--text);text-decoration:none;border-top:1px solid var(--line)}
+.mm-issue:first-child{border-top:none}
+.mm-issue:hover{background:var(--brand-soft)}
+.mm-issue b{color:var(--brand);font-variant-numeric:tabular-nums;flex-shrink:0}
+.mm-issue-subj{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-issue-subj.is-loading{color:var(--text-tertiary)}
+.mm-issue-st{flex-shrink:0;font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:999px;background:var(--violet-soft);color:var(--violet)}
+.mm-issue.is-closed .mm-issue-st{background:var(--success-soft);color:var(--success)}
+.mm-issues{gap:0}
+.mm-ilink{color:var(--brand);font-weight:650;text-decoration:none}
+.mm-ilink:hover{text-decoration:underline}
