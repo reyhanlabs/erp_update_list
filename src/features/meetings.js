@@ -187,13 +187,13 @@ const inlineKeys = (m, field) => `onkeydown="if(event.key==='Escape'){event.prev
 const inlineButtons = (m, field) => `<div class="mm-inline-acts"><span>${field === 'notes' || field === 'decisions' ? 'Ctrl+Enter to save · Esc to cancel' : 'Enter to save · Esc to cancel'}</span><button type="button" class="btn btn-secondary btn-xs" onclick="cancelMeetingInline()">Cancel</button><button type="button" class="btn btn-primary btn-xs" onclick="saveMeetingInline('${m.id}','${field}')">Save</button></div>`;
 const dbl = (m, field, edit) => edit ? ` ondblclick="editMeetingInline('${m.id}','${field}')" title="Double-click to edit"` : '';
 function notesSection(m, edit){
-  if(isInline(m, 'notes')) return `<section><h5>Discussion</h5><textarea class="input mm-inline" id="mmInline" data-keep rows="6" maxlength="20000" ${inlineKeys(m, 'notes')}>${escapeHtml(m.notes || '')}</textarea>${inlineButtons(m, 'notes')}</section>`;
+  if(isInline(m, 'notes')) return `<section><h5>Discussion</h5><textarea class="input mm-inline" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" rows="6" maxlength="20000" ${inlineKeys(m, 'notes')}>${escapeHtml(m.notes || '')}</textarea>${inlineButtons(m, 'notes')}</section>`;
   if(m.notes) return `<section><h5>Discussion</h5><div class="mm-notes mm-editable"${dbl(m, 'notes', edit)}>${linkify(m.notes)}</div></section>`;
   return edit ? `<section><h5>Discussion</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','notes')">+ Add discussion notes</button></section>` : '';
 }
 function decisionsSection(m, edit){
   const list = m.decisions || [];
-  if(isInline(m, 'decisions')) return `<section><h5>Decisions <small>one per line</small></h5><textarea class="input mm-inline" id="mmInline" data-keep rows="${Math.max(3, list.length + 1)}" maxlength="5000" ${inlineKeys(m, 'decisions')}>${escapeHtml(list.join('\n'))}</textarea>${inlineButtons(m, 'decisions')}</section>`;
+  if(isInline(m, 'decisions')) return `<section><h5>Decisions <small>one per line</small></h5><textarea class="input mm-inline" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" rows="${Math.max(3, list.length + 1)}" maxlength="5000" ${inlineKeys(m, 'decisions')}>${escapeHtml(list.join('\n'))}</textarea>${inlineButtons(m, 'decisions')}</section>`;
   if(list.length) return `<section><h5>Decisions</h5><ul class="mm-decisions mm-editable"${dbl(m, 'decisions', edit)}>${list.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></section>`;
   return edit ? `<section><h5>Decisions</h5><button type="button" class="mm-empty" onclick="editMeetingInline('${m.id}','decisions')">+ Add decisions</button></section>` : '';
 }
@@ -201,9 +201,9 @@ function actionsSection(m, acts, edit){
   if(!acts.length && !edit) return '';
   return `<section><h5>Action items</h5>${acts.length ? `<ul class="mm-actions">${acts.map(a => isInline(m, 'act:' + a.id)
       ? `<li class="mm-act-inline"><div class="mm-act-row">
-          <input class="input" id="mmInline" data-keep maxlength="500" value="${escapeHtml(a.text || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Action">
-          <input class="input" id="mmInlineOwner" data-keep maxlength="80" value="${escapeHtml(a.owner || '')}" placeholder="Owner" ${inlineKeys(m, 'act:' + a.id)} aria-label="Owner">
-          <input class="input" type="date" id="mmInlineDue" data-keep value="${escapeHtml(a.due || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Due date">
+          <input class="input" id="mmInline" data-keep data-k="${m.id}:${M.inline.field}" maxlength="500" value="${escapeHtml(a.text || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Action">
+          <input class="input" id="mmInlineOwner" data-keep data-k="${m.id}:${M.inline.field}" maxlength="80" value="${escapeHtml(a.owner || '')}" placeholder="Owner" ${inlineKeys(m, 'act:' + a.id)} aria-label="Owner">
+          <input class="input" type="date" id="mmInlineDue" data-keep data-k="${m.id}:${M.inline.field}" value="${escapeHtml(a.due || '')}" ${inlineKeys(m, 'act:' + a.id)} aria-label="Due date">
           <button type="button" class="rq-tool rq-del" title="Delete this action" aria-label="Delete this action" onclick="deleteMeetingAction('${m.id}','${a.id}')">×</button>
         </div>${inlineButtons(m, 'act:' + a.id)}</li>`
       : `<li class="${a.done ? 'is-done' : ''}">
@@ -282,7 +282,7 @@ function actionRow(a, n){
 
 function formHtml(){
   const f = M.form;
-  return `<div class="rq-form mm-form" onpaste="pasteMeetingImages(event)" onkeydown="if(event.key==='Escape'){event.preventDefault();closeMeetingForm();}">
+  return `<div class="rq-form mm-form" data-k="${f.key}" onpaste="pasteMeetingImages(event)" onkeydown="if(event.key==='Escape'){event.preventDefault();closeMeetingForm();}">
     <h4>${f.id ? 'Edit meeting notes' : 'New meeting notes'}</h4>
     <div class="mm-form-grid">
       <label class="field mm-span-2"><span>Title</span><input class="input" id="mmTitle" maxlength="160" value="${escapeHtml(f.title || '')}" placeholder="e.g. Weekly sync, UAT review, Kick-off"></label>
@@ -343,14 +343,17 @@ function paint(){
     let month = '';
     body = shown.map(m => { const mo = monthOf(m.date); const sep = mo !== month ? `<div class="mm-month">${escapeHtml(mo)}</div>` : ''; month = mo; return sep + card(m); }).join('');
   }
+  // v4.76.1: a typed value only comes back into the SAME form / the same meeting's field —
+  // never into another meeting's form opened in its place
+  const ownerKey = (x) => x.dataset.k || (x.closest('.mm-form') && x.closest('.mm-form').dataset.k) || '';
   const keepIds = [...KEEP_IDS, ...[...el.querySelectorAll('[data-keep][id]')].map(x => x.id)];
-  const keep = keepIds.map(id => { const x = document.getElementById(id); return x && el.contains(x) ? [id, x.value] : null; }).filter(Boolean);
+  const keep = keepIds.map(id => { const x = document.getElementById(id); return x && el.contains(x) ? [id, x.value, ownerKey(x)] : null; }).filter(Boolean);
   const act = document.activeElement && el.contains(document.activeElement) ? document.activeElement : null;
   const actId = act && act.id, actRow = act && act.closest && act.closest('.mm-act-row'), actIdx = actRow ? [...actRow.querySelectorAll('input')].indexOf(act) : -1, rowI = actRow ? actRow.dataset.i : null;
   const sel = act && typeof act.selectionStart === 'number' ? [act.selectionStart, act.selectionEnd] : null;
   const y = window.scrollY;
   el.innerHTML = head + (M.form ? formHtml() : '') + `<div class="mm-list">${body}</div><datalist id="mmClientList">${clients.map(c => `<option value="${escapeHtml(c)}"></option>`).join('')}</datalist>`;
-  keep.forEach(([id, v]) => { const x = document.getElementById(id); if(x) x.value = v; });
+  keep.forEach(([id, v, k]) => { const x = document.getElementById(id); if(x && ownerKey(x) === k) x.value = v; });
   let back = actId ? document.getElementById(actId) : (rowI != null ? el.querySelectorAll(`.mm-act-row[data-i="${rowI}"] input`)[actIdx] : null);
   if(back){ back.focus(); if(sel && back.setSelectionRange) try { back.setSelectionRange(sel[0], sel[1]); } catch(_){} }
   window.scrollTo(0, y);
@@ -364,12 +367,14 @@ function readForm(){
 function openMeetingForm(id){
   if(!canEdit()) return;
   const m = id ? M.list.find(x => x.id === id) : null;
+  if(M.form) (M.form.added || []).forEach(destroyImage);   // another form was open: its unsaved uploads go
+  M.inline = null;
   M.form = m
     ? { id: m.id, title: m.title || '', date: m.date || '', time: m.time || '', client: m.client || '', place: m.place || '', issues: (m.issueIds || []).map(id => '#' + id).join(', '), attendees: m.attendees || '', notes: m.notes || '', decisions: (m.decisions || []).join('\n'),
         actions: (m.actions || []).map(a => ({ ...a })).concat([{ id: uid(), text: '', owner: '', due: '', done: false }]),
-        images: (m.images || []).map(im => ({ ...im })), added: [], removed: [], uploading: 0 }
+        images: (m.images || []).map(im => ({ ...im })), added: [], removed: [], uploading: 0, key: uid() }
     : { title: '', date: today(), time: '', client: fixedClient || '', place: '', issues: '', attendees: '', notes: '', decisions: '', actions: [{ id: uid(), text: '', owner: '', due: '', done: false }],
-        images: [], added: [], removed: [], uploading: 0 };
+        images: [], added: [], removed: [], uploading: 0, key: uid() };
   if(id) M.open.add(id);
   rerender();
   setTimeout(() => { const x = $('mmTitle'); if(x){ x.focus(); x.scrollIntoView({ block: 'nearest' }); } }, 30);
