@@ -4504,3 +4504,9 @@ span.mm-hero-client{cursor:default}
   .kb-hero{padding:14px 14px 12px 18px}
   .kb-hero .kb-title{font-size:22px}
 }
+/* v4.78.1 — long links / words (WhatsApp pastes) wrap inside their card instead of running into the next column */
+.mm-detail,.mm-sec,.mm-col{min-width:0}
+.mm-detail .mm-notes,.mm-detail .mm-decisions li,.mm-detail .mm-actions label span,.mm-detail .mm-upd-text,.mm-hero h3,.mm-hero-meta,.mm-detail .mm-people li span,.mm-item-main > b{overflow-wrap:anywhere;word-break:break-word}
+.mm-detail .mm-notes{max-width:100%}
+.mm-detail .mm-actions label{min-width:0;flex:1}
+.mm-detail .mm-notes a,.mm-detail .mm-upd-text a{word-break:break-all}
