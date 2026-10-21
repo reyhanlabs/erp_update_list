@@ -1,5 +1,5 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.78.1';
+export const APP_VERSION = '4.78.2';
 export const APP_VERSION_DATE = '2026-10-20';
 export const APP_VERSION_NOTE = 'Knowledge Base refresh';
 

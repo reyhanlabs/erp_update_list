@@ -337,7 +337,7 @@ function detailHtml(m){
   const d = new Date(String(m.date || '') + 'T00:00:00');
   const images = (m.images || []).length ? `<section class="mm-sec is-img"><h5>Images <small>${m.images.length}</small></h5><div class="mm-gallery">${m.images.map((im, i) => `<button type="button" class="mm-thumb" onclick="openMeetingImage('${m.id}',${i})" title="${escapeHtml(im.name || 'Image')}"><img src="${escapeHtml(thumbOf(im.url))}" alt="${escapeHtml(im.name || 'Meeting image')}" loading="lazy"></button>`).join('')}</div></section>` : '';
   const issues = (m.issueIds || []).length ? `<section class="mm-sec is-iss"><h5>Redmine issues <small>${m.issueIds.length}</small></h5><div class="mm-issues">${issueChips(m.issueIds)}</div></section>` : '';
-  const ppl = people.length ? `<section class="mm-sec is-ppl"><h5>Attendees <small>${people.length}</small></h5><ul class="mm-people">${people.map(p => `<li>${avatar(p)}<span>${escapeHtml(p)}</span></li>`).join('')}</ul></section>` : '';
+  const ppl = people.length ? `<section class="mm-sec is-ppl"><h5>Attendees <small>${people.length}</small></h5><ul class="mm-people">${people.map(p => `<li>${avatar(p)}<span class="mm-person">${escapeHtml(p)}</span></li>`).join('')}</ul></section>` : '';
   return `<article class="mm-detail" style="--acc:${accentOf(m)}">
     <header class="mm-hero">
       <button type="button" class="mm-back" onclick="meetingBackToList()">← All meetings</button>
