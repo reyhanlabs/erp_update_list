@@ -12,6 +12,15 @@
  * tracker, category, project, assignee name, dates, parent id — and the request
  * lists (number, text, note, linked issue ids, manual status). No descriptions,
  * custom fields, e-mails, files or Redmine URLs.
+ *
+ * v4.79.0 — Update history link, /u/<token> (one per workspace, for the team):
+ *   GET  /api/report-share?u=<token>              public — every Update Summary with its versions
+ *                                                 and the issues of its Update Plan
+ *   GET  /api/report-share?u=<token>&ids=1,2,3    public — current Redmine status of those issues
+ *                                                 (only issues that are in this history)
+ *   GET  /api/report-share?updates=1              member — the workspace's link (or null)
+ *   POST {action:'create-updates'} / {action:'revoke-updates', token}   editor / admin / owner
+ *   Stored in updateShares/{token}: { ws, createdAt, createdBy, views, lastViewedAt }
  */
 import { randomBytes } from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -28,6 +37,7 @@ const TOKEN_RE = /^[A-Za-z0-9_-]{20,64}$/;
 const cache = new Map();         // token → { at, body }
 
 const shares = () => adminDb().collection('reportShares');
+const updShares = () => adminDb().collection('updateShares');
 const newToken = () => randomBytes(18).toString('base64url');   // 24 chars, 144 bits
 
 function shareView(id, d){
@@ -123,9 +133,94 @@ async function publicReport(req, res, token){
   }
 }
 
+/* ---------------- v4.79.0: update history ---------------- */
+const updCache = new Map();      // token → { at, body, ids:Set }
+const statusCache = new Map();   // issue id → { at, s:{ status, closed } }
+const STATUS_MS = 5 * 60 * 1000;
+
+/* same rule as getPlanProjectKey() in the app */
+function projectOf(plan){
+  if(!plan) return '';
+  if(plan.projectKey) return plan.projectKey;
+  const t = String(plan.title || '').toLowerCase();
+  if(/erp\s*one|\bone\b/.test(t) && /zahir|erp|one/.test(t)) return 'erp-one';
+  if(/manufactur|\bmfg\b/.test(t)) return 'mfg';
+  if(/\bmrp\b/.test(t)) return 'mrp';
+  return '';
+}
+/* plan.issues: one line per issue — "url | subject | category | tracker" or just the url */
+function parsePlanIssues(text){
+  const seen = new Set();
+  return String(text || '').split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+    const parts = line.split('|').map(x => x.trim());
+    const url = parts[0] || '';
+    const m = url.match(/issues\/(\d+)/) || url.match(/^#?(\d{3,7})$/);
+    return { id: m ? m[1] : '', subject: (parts[1] || '').slice(0, 300), category: (parts[2] || '').slice(0, 60), tracker: (parts[3] || '').slice(0, 40) };
+  }).filter(i => i.id && !seen.has(i.id) && seen.add(i.id));
+}
+
+async function updatesData(ws){
+  const db = adminDb();
+  const [sumSnap, planSnap] = await Promise.all([
+    db.collection(`workspaces/${ws}/summaries`).get(),
+    db.collection(`workspaces/${ws}/plans`).get()
+  ]);
+  const plans = new Map(planSnap.docs.map(d => [d.id, d.data() || {}]));
+  const ids = new Set();
+  const updates = sumSnap.docs.map(d => {
+    const x = d.data() || {}, plan = plans.get(x.planId) || null;
+    const issues = parsePlanIssues(plan && plan.issues);
+    issues.forEach(i => ids.add(i.id));
+    return { id: d.id, date: x.date || '', fe: x.fe || '', v2: x.v2 || '', v3: x.v3 || '',
+      project: projectOf(plan), plan: plan ? String(plan.title || '').slice(0, 160) : '', issues };
+  }).filter(u => u.fe || u.v2 || u.issues.length)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.fe).localeCompare(String(a.fe)));
+  return { updates, ids };
+}
+
+async function publicUpdates(req, res, token){
+  if(!TOKEN_RE.test(token)) return res.status(404).json({ error: 'This link is not valid.' });
+  let doc;
+  try { doc = await updShares().doc(token).get(); }
+  catch(err){ return res.status(500).json({ error: 'The page is not available right now.', detail: err.message }); }
+  if(!doc.exists) return res.status(404).json({ error: 'This link has been switched off or does not exist.' });
+  const share = doc.data();
+  let hit = updCache.get(token);
+  if(!hit || Date.now() - hit.at > CACHE_MS){
+    try {
+      const { updates, ids } = await updatesData(share.ws);
+      hit = { at: Date.now(), ids, body: { generatedAt: Date.now(), updates } };
+      updCache.set(token, hit);
+    } catch(err){
+      if(!hit) return res.status(500).json({ error: 'The page is not available right now.', detail: err.message });
+    }
+  }
+  // statuses for the issues the page is showing (only ids that belong to this history)
+  const want = String(req.query.ids || '');
+  if(want){
+    const list = [...new Set(want.split(',').map(x => x.trim()).filter(x => /^\d{1,7}$/.test(x) && hit.ids.has(x)))].slice(0, 100);
+    const apiKey = process.env.REDMINE_API_KEY;
+    const out = {}, todo = [];
+    list.forEach(id => { const c = statusCache.get(id); if(c && Date.now() - c.at < STATUS_MS) out[id] = c.s; else todo.push(id); });
+    if(todo.length && apiKey){
+      try {
+        const d = await redmine(apiKey, `/issues.json?status_id=*&limit=100&issue_id=${todo.join(',')}`);
+        (d.issues || []).forEach(i => { const s = { status: i.status ? i.status.name : '', closed: !!(i.status && i.status.is_closed) }; out[String(i.id)] = s; statusCache.set(String(i.id), { at: Date.now(), s }); });
+      } catch(_){ /* statuses are a bonus — the history still shows */ }
+    }
+    if(statusCache.size > 5000) statusCache.clear();
+    return res.status(200).json({ statuses: out });
+  }
+  updShares().doc(token).update({ views: FieldValue.increment(1), lastViewedAt: Date.now() }).catch(() => {});
+  return res.status(200).json(hit.body);
+}
+const updView = (id, d) => ({ token: id, createdAt: d.createdAt || 0, createdBy: d.createdBy || '', views: d.views || 0, lastViewedAt: d.lastViewedAt || 0 });
+
 export default async function handler(req, res){
   const token = String((req.query && req.query.t) || '');
   if(req.method === 'GET' && token) return publicReport(req, res, token);
+  const utoken = String((req.query && req.query.u) || '');
+  if(req.method === 'GET' && utoken) return publicUpdates(req, res, utoken);
 
   const user = await requireUser(req, res);
   if(!user) return;
@@ -133,6 +228,10 @@ export default async function handler(req, res){
   if(!ws) return res.status(403).json({ error: 'Only team members can share reports', hint: 'Ask an admin to add you in Settings → Team & access.' });
 
   try {
+    if(req.method === 'GET' && req.query.updates){
+      const snap = await updShares().where('ws', '==', ws).limit(1).get();
+      return res.status(200).json({ share: snap.empty ? null : updView(snap.docs[0].id, snap.docs[0].data()) });
+    }
     if(req.method === 'GET'){
       const client = String(req.query.client || '').trim();
       if(!client) return res.status(400).json({ error: 'client is required' });
@@ -142,6 +241,23 @@ export default async function handler(req, res){
     if(req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
     if(!EDIT_ROLES.includes(user.member.role)) return res.status(403).json({ error: 'Viewers cannot share reports', hint: 'Ask an admin for editor access.' });
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+
+    if(body.action === 'create-updates'){
+      const existing = await updShares().where('ws', '==', ws).limit(1).get();
+      if(!existing.empty) return res.status(200).json({ share: updView(existing.docs[0].id, existing.docs[0].data()) });
+      const t = newToken();
+      const doc = { ws, createdAt: Date.now(), createdBy: user.email, views: 0, lastViewedAt: 0 };
+      await updShares().doc(t).set(doc);
+      return res.status(200).json({ share: updView(t, doc) });
+    }
+    if(body.action === 'revoke-updates'){
+      const t = String(body.token || '');
+      if(!TOKEN_RE.test(t)) return res.status(400).json({ error: 'Invalid link' });
+      const ref = updShares().doc(t), d = await ref.get();
+      if(!d.exists || d.data().ws !== ws) return res.status(404).json({ error: 'Link not found' });
+      await ref.delete(); updCache.delete(t);
+      return res.status(200).json({ ok: true });
+    }
 
     if(body.action === 'create'){
       const client = String(body.client || '').trim().slice(0, 200);

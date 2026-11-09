@@ -677,7 +677,9 @@
           <option value="desc">Newest first</option>
           <option value="asc">Oldest first</option>
         </select>
+        <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="openUpdatesShare()" title="A read-only page with every update, its versions and issues — no sign-in">Share link</button>
       </div>
+      <div id="updatesSharePanel" class="rs-share hidden"></div>
       <div id="summaryList"></div>
     </section>
 
@@ -1511,6 +1513,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v4.79.0</span>
+                <span class="cl-note">Update Summaries → “Share link”: a read-only page (/u/…, no sign-in) with every update, newest first — FE / V2 / V3 versions, the issues of its Update Plan grouped by kind with live Redmine status, latest version per product, product filter, and search an issue number to see which FE version it went out in; a link per update too</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.78.2</span>
                 <span class="cl-note">Fix Meeting Notes attendees: initials no longer break over two lines; each attendee is a tidy card (coloured initials + name) in a grid, and the avatars in the header overlap less</span>

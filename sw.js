@@ -61,7 +61,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.css') ||
     url.pathname.endsWith('.json') ||
     url.pathname.startsWith('/share') ||
-    url.pathname.startsWith('/r/')
+    url.pathname.startsWith('/r/') ||
+    url.pathname.startsWith('/u/')
   );
 
   if (isAppCode) {

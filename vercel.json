@@ -19,6 +19,10 @@
       "destination": "/report.html"
     },
     {
+      "source": "/u/:token",
+      "destination": "/updates.html"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }
