@@ -4618,3 +4618,29 @@ span.mm-hero-client{cursor:default}
   .up-subj{flex-basis:calc(100% - 70px)}
   .up-toolbar{position:static}
 }
+/* v4.79.1 — Update history: a colour per version part and per category */
+.up-ver{--vc:#7c3aed;display:inline-flex;align-items:center;gap:6px;padding:2px 9px 2px 3px;border-radius:999px;background:color-mix(in srgb,var(--vc) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--vc) 28%,transparent);font-size:11.5px;line-height:1.5;vertical-align:middle}
+.up-ver b{font-size:10px;font-weight:800;letter-spacing:.04em;color:#fff;background:var(--vc);padding:1px 7px;border-radius:999px}
+.up-ver code{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;font-weight:700;color:color-mix(in srgb,var(--vc) 70%,var(--text));background:none;padding:0;overflow-wrap:anywhere}
+.up-ver.is-big{padding:3px 12px 3px 4px}
+.up-ver.is-big b{font-size:11px;padding:2px 8px}
+.up-ver.is-big code{font-size:15px;font-weight:800}
+.up-ver.is-fe{--vc:#7c3aed}
+.up-ver.is-v2{--vc:#0891b2}
+.up-ver.is-v3{--vc:#ea580c}
+[data-theme="dark"] .up-ver code{color:color-mix(in srgb,var(--vc) 45%,#fff)}
+.up-vers{align-items:center;gap:6px}
+.up-lcard-fe,.up-lcard-be{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.up-answer p .up-ver{margin:0 2px}
+.up-cat.is-fe{background:color-mix(in srgb,#2563eb 13%,transparent);color:#2563eb;font-weight:700}
+.up-cat.is-be{background:color-mix(in srgb,#16a34a 14%,transparent);color:#15803d;font-weight:700}
+.up-cat.is-de{background:color-mix(in srgb,#db2777 13%,transparent);color:#db2777;font-weight:700}
+[data-theme="dark"] .up-cat.is-fe{color:#93c5fd}[data-theme="dark"] .up-cat.is-be{color:#86efac}[data-theme="dark"] .up-cat.is-de{color:#f9a8d4}
+/* categories as solid chips so they never read as a status */
+.up-cat.is-fe,.up-cat.is-be,.up-cat.is-de,[data-theme="dark"] .up-cat.is-fe,[data-theme="dark"] .up-cat.is-be,[data-theme="dark"] .up-cat.is-de{color:#fff;font-weight:700;border-radius:6px;padding:2px 8px}
+.up-cat.is-fe{background:#2563eb}
+.up-cat.is-be{background:#047857}
+.up-cat.is-de{background:#db2777}
+.up-cat.is-fe::before{content:'◧ '}
+.up-cat.is-be::before{content:'⚙ '}
+.up-cat.is-de::before{content:'✎ '}

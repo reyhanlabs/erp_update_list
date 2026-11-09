@@ -16,6 +16,9 @@ const PRODUCTS = {
 };
 const prodOf = (k) => PRODUCTS[k] || { label: k, short: String(k).slice(0, 3).toUpperCase(), color: '#64748b' };
 const KIND_ORDER = ['feature', 'enhancement', 'optimization', 'bug', 'other'];
+/* v4.79.1: each version part and each category has its own colour */
+const ver = (kind, label, v, big) => v ? `<span class="up-ver is-${kind}${big ? ' is-big' : ''}"><b>${label}</b><code>${escapeHtml(v)}</code></span>` : '';
+const catClass = (c) => /front|^fe\b/i.test(c) ? 'is-fe' : /back|^be\b|api/i.test(c) ? 'is-be' : /design|ui|ux/i.test(c) ? 'is-de' : '';
 
 const host = document.getElementById('updBody');
 const token = (location.pathname.match(/^\/u\/([A-Za-z0-9_-]+)/) || [])[1] || new URLSearchParams(location.search).get('u') || '';
@@ -51,8 +54,8 @@ function latestCards(){
   const list = [...seen.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
   return `<div class="up-latest">${list.map(([k, u]) => { const p = prodOf(k); return `<button type="button" class="up-lcard${U.product === k ? ' is-active' : ''}" style="--pc:${p.color}" onclick="upProduct('${k}')">
       <span class="up-lcard-top"><span class="up-ic">${escapeHtml(p.short)}</span><span><b>${escapeHtml(p.label)}</b><small>Latest · ${escapeHtml(fmtDate(u.date))}</small></span></span>
-      <span class="up-lcard-fe"><small>FE</small><code>${escapeHtml(u.fe || '—')}</code></span>
-      <span class="up-lcard-be">${u.v2 ? `<span>V2 <code>${escapeHtml(u.v2)}</code></span>` : ''}${u.v3 ? `<span>V3 <code>${escapeHtml(u.v3)}</code></span>` : ''}</span>
+      <span class="up-lcard-fe">${ver('fe', 'FE', u.fe || '—', true)}</span>
+      <span class="up-lcard-be">${ver('v2', 'V2', u.v2)}${ver('v3', 'V3', u.v3)}</span>
       <span class="up-lcard-n">${u.issues.length} issue${u.issues.length === 1 ? '' : 's'} in this update</span>
     </button>`; }).join('')}</div>`;
 }
@@ -75,7 +78,7 @@ function answerBanner(list){
   return `<div class="up-answer" style="--pc:${prodOf(first.project).color}">
     <span class="up-answer-ic" aria-hidden="true">✓</span>
     <div><b><a href="${REDMINE}${no}" target="_blank" rel="noopener">#${escapeHtml(no)}</a>${it && it.subject ? ` ${escapeHtml(it.subject)}` : ''}</b>
-    <p>Went out in <b>FE <code>${escapeHtml(first.fe || '—')}</code></b>${first.v2 ? ` · V2 <code>${escapeHtml(first.v2)}</code>` : ''} — ${escapeHtml(prodOf(first.project).label)}, ${escapeHtml(fmtDate(first.date, true))}${list.length > 1 ? ` <span class="up-muted">(also in ${list.length - 1} later update${list.length - 1 === 1 ? '' : 's'})</span>` : ''}</p></div>
+    <p>Went out in ${ver('fe', 'FE', first.fe || '—')} ${ver('v2', 'V2', first.v2)} — ${escapeHtml(prodOf(first.project).label)}, ${escapeHtml(fmtDate(first.date, true))}${list.length > 1 ? ` <span class="up-muted">(also in ${list.length - 1} later update${list.length - 1 === 1 ? '' : 's'})</span>` : ''}</p></div>
   </div>`;
 }
 
@@ -95,7 +98,7 @@ function updateCard(u, idx){
       <span class="up-date"><small>${escapeHtml(new Date(u.date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short' }))}</small><b>${escapeHtml(String(new Date(u.date + 'T00:00:00').getDate() || '?'))}</b></span>
       <span class="up-head-main">
         <span class="up-head-top"><span class="up-prod">${escapeHtml(p.label)}</span><span class="up-when">${escapeHtml(fmtDate(u.date, true))}</span></span>
-        <span class="up-vers"><span class="up-fe">FE <code>${escapeHtml(u.fe || '—')}</code></span>${u.v2 ? `<span class="up-be">V2 <code>${escapeHtml(u.v2)}</code></span>` : ''}${u.v3 ? `<span class="up-be">V3 <code>${escapeHtml(u.v3)}</code></span>` : ''}</span>
+        <span class="up-vers">${ver('fe', 'FE', u.fe || '—', true)}${ver('v2', 'V2', u.v2)}${ver('v3', 'V3', u.v3)}</span>
         <span class="up-kinds">${kinds.map(k => `<span class="up-kind is-${k}">${ISSUE_KIND_META[k].emoji} ${groups[k].length} ${escapeHtml(ISSUE_KIND_META[k].title)}</span>`).join('')}${!u.issues.length ? '<span class="up-muted">No issues listed</span>' : ''}</span>
       </span>
       <span class="up-head-acts">
@@ -105,7 +108,7 @@ function updateCard(u, idx){
       </span>
     </header>
     ${open && u.issues.length ? `<div class="up-body">${kinds.map(k => `<section class="up-group is-${k}"><h4>${ISSUE_KIND_META[k].emoji} ${escapeHtml(ISSUE_KIND_META[k].title)} <span>${groups[k].length}</span></h4>
-        <ul>${groups[k].map(i => `<li class="${issueMatches(i) ? 'is-hit' : ''}"><a class="up-id" href="${REDMINE}${escapeHtml(i.id)}" target="_blank" rel="noopener">#${escapeHtml(i.id)}</a><span class="up-subj">${escapeHtml(i.subject || 'Issue ' + i.id)}</span>${i.category ? `<span class="up-cat">${escapeHtml(i.category)}</span>` : ''}<span class="up-stw" data-st="${escapeHtml(i.id)}">${statusChip(i.id)}</span></li>`).join('')}</ul>
+        <ul>${groups[k].map(i => `<li class="${issueMatches(i) ? 'is-hit' : ''}"><a class="up-id" href="${REDMINE}${escapeHtml(i.id)}" target="_blank" rel="noopener">#${escapeHtml(i.id)}</a><span class="up-subj">${escapeHtml(i.subject || 'Issue ' + i.id)}</span>${i.category ? `<span class="up-cat ${catClass(i.category)}">${escapeHtml(i.category)}</span>` : ''}<span class="up-stw" data-st="${escapeHtml(i.id)}">${statusChip(i.id)}</span></li>`).join('')}</ul>
       </section>`).join('')}${u.plan ? `<p class="up-plan">Update plan: ${escapeHtml(u.plan)}</p>` : ''}</div>` : ''}
   </article>`;
 }
