@@ -104,12 +104,21 @@ function parseIssueLines(text){
 }
 
 /** Cache Redmine category + tracker by issue id */
+/** v4.80.0: value of the "Client Name" custom field of a Redmine issue ('' when empty) */
+function issueClientName(issue){
+  const f = (issue && issue.custom_fields || []).find(c => /^(client|customer)( name)?$/i.test(String(c.name || '').trim()));
+  if(!f) return '';
+  const v = Array.isArray(f.value) ? f.value.filter(Boolean).join(', ') : f.value;
+  return String(v || '').trim();
+}
 function rememberIssueMeta(issues){
   if(!window.__issueCategoryById) window.__issueCategoryById = {};
   if(!window.__issueTrackerById) window.__issueTrackerById = {};
+  if(!window.__issueClientById) window.__issueClientById = {};
   (issues || []).forEach(i => {
     if(!i || i.id == null) return;
     const id = String(i.id);
+    window.__issueClientById[id] = issueClientName(i);   // v4.80.0 ('' = issue has no client)
     const cat = i.category?.name;
     if(cat && String(cat).trim()) window.__issueCategoryById[id] = String(cat).trim();
     const tr = i.tracker?.name;
@@ -211,6 +220,7 @@ export {
   formatGroupedIssueSections,
   groupIssuesByKind,
   ISSUE_KIND_META,
+  issueClientName,
   parseIssueLine,
   parseIssueLines,
   rememberIssueCategories,

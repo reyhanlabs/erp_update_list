@@ -4614,8 +4614,6 @@ span.mm-hero-client{cursor:default}
   .up-copy{opacity:1}
   .up-n{flex-direction:row;gap:4px;align-items:baseline;font-size:14px}
   .up-body{padding:10px 12px}
-  .up-group li{flex-wrap:wrap;row-gap:4px}
-  .up-subj{flex-basis:calc(100% - 70px)}
   .up-toolbar{position:static}
 }
 /* v4.79.1 — Update history: a colour per version part and per category */
@@ -4644,3 +4642,42 @@ span.mm-hero-client{cursor:default}
 .up-cat.is-fe::before{content:'◧ '}
 .up-cat.is-be::before{content:'⚙ '}
 .up-cat.is-de::before{content:'✎ '}
+/* v4.80.0 — client names (Redmine "Client Name") on Update Plan and Update history */
+.pi-client,.up-client{display:inline-flex;align-items:center;gap:4px;flex-shrink:0;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:color-mix(in srgb,#0d9488 12%,transparent);color:#0f766e;border:1px solid color-mix(in srgb,#0d9488 25%,transparent)}
+.pi-client b,.up-client b{font-weight:800;padding:0 5px;border-radius:999px;background:color-mix(in srgb,#0d9488 18%,transparent)}
+.pi-client.is-more,.up-client.is-more{background:var(--bg-subtle);color:var(--text-tertiary);border-color:var(--line)}
+[data-theme="dark"] .pi-client,[data-theme="dark"] .up-client{color:#5eead4}
+.pi-clients{display:inline-flex;flex-wrap:wrap;gap:4px;margin-left:auto}
+.up-clients{display:flex;flex-wrap:wrap;gap:5px}
+.up-client.is-active{background:#0d9488;color:#fff;border-color:#0d9488}
+.up-client.is-row{font-weight:650}
+.up-client-sel{height:42px;border-radius:12px;max-width:240px;background:var(--surface)}
+.up-linkbtn{border:none;background:none;padding:0;font:inherit;color:var(--brand);cursor:pointer;text-decoration:underline}
+@media (max-width:760px){ .up-client-sel{flex:1 1 100%;max-width:none} }
+.issues-block-head{flex-wrap:wrap}
+/* v4.80.0 — issue rows as aligned columns: No. | Description | Client | Category | Status */
+.up-cols,.up-group li{display:grid;grid-template-columns:64px minmax(0,1fr) 150px 112px 128px;gap:12px;align-items:center}
+.up-cols{padding:0 13px 2px;font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary)}
+.up-group li{padding:7px 12px}
+.up-cl,.up-catc,.up-stw{min-width:0;display:flex}
+.up-stw{justify-content:flex-end}
+.up-cols span:last-child{text-align:right}
+.up-group .up-client.is-row{max-width:100%;font-size:11px;padding:1px 8px}
+.up-none,.pi-none{color:var(--text-tertiary);font-size:12px}
+.issues-block .plan-issue-row{grid-template-columns:62px minmax(0,1fr) 150px 110px 18px !important}
+.plan-issue-row .pi-cl{min-width:0;display:flex}
+.plan-issue-row .pi-client{max-width:100%;font-size:10.5px;padding:1px 8px}
+.plan-issue-row .pi-cat{justify-self:start}
+.plan-issue-row.pi-cols{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);padding-top:2px;padding-bottom:2px}
+.plan-issue-row.pi-cols:hover{background:none}
+@media (max-width:760px){
+  .up-cols{display:none}
+  .up-group li{display:flex;flex-wrap:wrap;gap:6px 8px}
+  .up-group li .up-id{width:58px}
+  .up-group li .up-subj{flex:1 1 calc(100% - 70px)}
+  .up-group li .up-cl{margin-left:66px}
+  .up-group li .up-catc:empty{display:none}
+  .issues-block .plan-issue-row{grid-template-columns:56px minmax(0,1fr) 18px !important}
+  .issues-block .plan-issue-row .pi-cl,.issues-block .plan-issue-row .pi-cat{grid-column:2}
+  .plan-issue-row.pi-cols{display:none}
+}

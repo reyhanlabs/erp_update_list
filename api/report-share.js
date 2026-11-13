@@ -178,6 +178,36 @@ async function updatesData(ws){
   return { updates, ids };
 }
 
+/* v4.80.0: status + client (Redmine "Client Name" field) for every issue in the history,
+   100 ids per Redmine call, 4 calls at a time, each id cached for 5 minutes */
+const clientOf = (i) => {
+  const f = (i.custom_fields || []).find(c => /^(client|customer)( name)?$/i.test(String(c.name || '').trim()));
+  const v = f ? (Array.isArray(f.value) ? f.value.filter(Boolean).join(', ') : f.value) : '';
+  return String(v || '').trim().slice(0, 120);
+};
+async function issueFacts(ids){
+  const apiKey = process.env.REDMINE_API_KEY;
+  const todo = [...ids].filter(id => { const c = statusCache.get(id); return !(c && Date.now() - c.at < STATUS_MS); });
+  if(apiKey && todo.length){
+    const batches = [];
+    for(let n = 0; n < todo.length; n += 100) batches.push(todo.slice(n, n + 100));
+    for(let n = 0; n < batches.length; n += 4){
+      await Promise.all(batches.slice(n, n + 4).map(async (b) => {
+        try {
+          const d = await redmine(apiKey, `/issues.json?status_id=*&limit=100&issue_id=${b.join(',')}`);
+          const got = new Set();
+          (d.issues || []).forEach(i => { got.add(String(i.id)); statusCache.set(String(i.id), { at: Date.now(), s: { status: i.status ? i.status.name : '', closed: !!(i.status && i.status.is_closed), client: clientOf(i) } }); });
+          b.filter(id => !got.has(id)).forEach(id => statusCache.set(id, { at: Date.now(), s: { status: '', closed: false, client: '' } }));
+        } catch(_){ /* status + client are a bonus — the history still shows */ }
+      }));
+    }
+    if(statusCache.size > 8000) statusCache.clear();
+  }
+  const out = {};
+  ids.forEach(id => { const c = statusCache.get(id); if(c) out[id] = c.s; });
+  return out;
+}
+
 async function publicUpdates(req, res, token){
   if(!TOKEN_RE.test(token)) return res.status(404).json({ error: 'This link is not valid.' });
   let doc;
@@ -189,6 +219,8 @@ async function publicUpdates(req, res, token){
   if(!hit || Date.now() - hit.at > CACHE_MS){
     try {
       const { updates, ids } = await updatesData(share.ws);
+      const facts = await issueFacts(ids);
+      updates.forEach(u => u.issues.forEach(i => { const f = facts[i.id]; if(f){ i.status = f.status; i.closed = f.closed; i.client = f.client; } }));
       hit = { at: Date.now(), ids, body: { generatedAt: Date.now(), updates } };
       updCache.set(token, hit);
     } catch(err){
@@ -205,7 +237,7 @@ async function publicUpdates(req, res, token){
     if(todo.length && apiKey){
       try {
         const d = await redmine(apiKey, `/issues.json?status_id=*&limit=100&issue_id=${todo.join(',')}`);
-        (d.issues || []).forEach(i => { const s = { status: i.status ? i.status.name : '', closed: !!(i.status && i.status.is_closed) }; out[String(i.id)] = s; statusCache.set(String(i.id), { at: Date.now(), s }); });
+        (d.issues || []).forEach(i => { const s = { status: i.status ? i.status.name : '', closed: !!(i.status && i.status.is_closed), client: clientOf(i) }; out[String(i.id)] = s; statusCache.set(String(i.id), { at: Date.now(), s }); });
       } catch(_){ /* statuses are a bonus — the history still shows */ }
     }
     if(statusCache.size > 5000) statusCache.clear();

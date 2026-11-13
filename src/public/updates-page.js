@@ -22,7 +22,7 @@ const catClass = (c) => /front|^fe\b/i.test(c) ? 'is-fe' : /back|^be\b|api/i.tes
 
 const host = document.getElementById('updBody');
 const token = (location.pathname.match(/^\/u\/([A-Za-z0-9_-]+)/) || [])[1] || new URLSearchParams(location.search).get('u') || '';
-const U = { data: null, q: '', product: 'all', open: new Set(), statuses: {}, asked: new Set(), showAll: false };
+const U = { data: null, q: '', product: 'all', client: '', open: new Set(), statuses: {}, asked: new Set(), showAll: false };
 const PAGE = 15;
 
 const fmtDate = (iso, long) => { const d = new Date(String(iso || '') + 'T00:00:00'); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('en-GB', long ? { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' }); };
@@ -38,13 +38,21 @@ function visible(){
   const q = U.q.trim().toLowerCase(), no = issueNo(U.q);
   return U.data.updates.filter(u => {
     if(U.product !== 'all' && u.project !== U.product) return false;
+    if(U.client && !u.issues.some(i => sameClient(i.client, U.client))) return false;
     if(!q) return true;
     if(no) return u.issues.some(i => i.id === no);
-    const hay = [u.fe, u.v2, u.v3, u.plan, u.date, prodOf(u.project).label, ...u.issues.map(i => `#${i.id} ${i.subject}`)].join(' ').toLowerCase();
+    const hay = [u.fe, u.v2, u.v3, u.plan, u.date, prodOf(u.project).label, ...u.issues.map(i => `#${i.id} ${i.subject} ${i.client || ''}`)].join(' ').toLowerCase();
     return q.split(/\s+/).every(w => hay.includes(w));
   });
 }
-const issueMatches = (i) => { const q = U.q.trim().toLowerCase(); if(!q) return false; const no = issueNo(U.q); return no ? i.id === no : `#${i.id} ${i.subject}`.toLowerCase().includes(q); };
+const issueMatches = (i) => { const q = U.q.trim().toLowerCase(); if(!q) return false; const no = issueNo(U.q); return no ? i.id === no : `#${i.id} ${i.subject} ${i.client || ''}`.toLowerCase().includes(q); };
+/* v4.80.0: clients (Redmine "Client Name" field) */
+const sameClient = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+function clientsOf(issues){
+  const m = new Map();
+  issues.forEach(i => { if(i.client) m.set(i.client.toLowerCase(), { name: i.client, n: ((m.get(i.client.toLowerCase()) || {}).n || 0) + 1 }); });
+  return [...m.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+}
 
 /* ---------- pieces ---------- */
 function latestCards(){
@@ -66,9 +74,12 @@ function toolbar(){
   const chips = [['all', 'All', U.data.updates.length], ...Object.keys(PRODUCTS).filter(k => counts[k]).map(k => [k, prodOf(k).label, counts[k]])];
   return `<div class="up-toolbar">
     <div class="up-search"><span aria-hidden="true">⌕</span><input class="input" id="upSearch" type="search" value="${escapeHtml(U.q)}" placeholder="Search issue number (e.g. 32312), subject or version…" oninput="upSearch(this.value)" autocomplete="off"></div>
+    ${allClients().length ? `<select class="select up-client-sel" aria-label="Client" onchange="upClient(this.value)"><option value="">All clients</option>${allClients().map(c => `<option value="${escapeHtml(c.name)}"${sameClient(c.name, U.client) ? ' selected' : ''}>${escapeHtml(c.name)} (${c.n})</option>`).join('')}</select>` : ''}
     <div class="up-chips">${chips.map(([k, l, n]) => `<button type="button" class="up-chip${U.product === k ? ' is-active' : ''}" style="--pc:${k === 'all' ? 'var(--brand)' : prodOf(k).color}" onclick="upProduct('${k}')">${escapeHtml(l)}<span>${n}</span></button>`).join('')}</div>
   </div>`;
 }
+
+function allClients(){ return clientsOf(U.data.updates.flatMap(u => u.issues)); }
 
 function answerBanner(list){
   const no = issueNo(U.q);
@@ -91,7 +102,8 @@ function statusChip(id){
 function updateCard(u, idx){
   const p = prodOf(u.project);
   const open = U.open.has(u.id) || (!U.q && idx < 3 && !U.closedTop?.has(u.id)) || (U.q && u.issues.some(issueMatches));
-  const groups = groupIssuesByKind(u.issues.map(i => ({ ...i, desc: i.subject, description: i.subject })));
+  const rows = U.client ? u.issues.filter(i => sameClient(i.client, U.client)) : u.issues;
+  const groups = groupIssuesByKind(rows.map(i => ({ ...i, desc: i.subject, description: i.subject })));
   const kinds = KIND_ORDER.filter(k => groups[k] && groups[k].length);
   return `<article class="up-card${open ? ' is-open' : ''}" id="u-${escapeHtml(u.id)}" style="--pc:${p.color}">
     <header class="up-head" onclick="if(!event.target.closest('a,button.up-copy'))upToggle('${u.id}')">
@@ -107,9 +119,9 @@ function updateCard(u, idx){
         <span class="up-caret" aria-hidden="true">▾</span>
       </span>
     </header>
-    ${open && u.issues.length ? `<div class="up-body">${kinds.map(k => `<section class="up-group is-${k}"><h4>${ISSUE_KIND_META[k].emoji} ${escapeHtml(ISSUE_KIND_META[k].title)} <span>${groups[k].length}</span></h4>
-        <ul>${groups[k].map(i => `<li class="${issueMatches(i) ? 'is-hit' : ''}"><a class="up-id" href="${REDMINE}${escapeHtml(i.id)}" target="_blank" rel="noopener">#${escapeHtml(i.id)}</a><span class="up-subj">${escapeHtml(i.subject || 'Issue ' + i.id)}</span>${i.category ? `<span class="up-cat ${catClass(i.category)}">${escapeHtml(i.category)}</span>` : ''}<span class="up-stw" data-st="${escapeHtml(i.id)}">${statusChip(i.id)}</span></li>`).join('')}</ul>
-      </section>`).join('')}${u.plan ? `<p class="up-plan">Update plan: ${escapeHtml(u.plan)}</p>` : ''}</div>` : ''}
+    ${open && u.issues.length ? `<div class="up-body"><div class="up-cols" aria-hidden="true"><span>No.</span><span>Description</span><span>Client</span><span>Category</span><span>Status</span></div>${kinds.map(k => `<section class="up-group is-${k}"><h4>${ISSUE_KIND_META[k].emoji} ${escapeHtml(ISSUE_KIND_META[k].title)} <span>${groups[k].length}</span></h4>
+        <ul>${groups[k].map(i => `<li class="${issueMatches(i) ? 'is-hit' : ''}"><a class="up-id" href="${REDMINE}${escapeHtml(i.id)}" target="_blank" rel="noopener">#${escapeHtml(i.id)}</a><span class="up-subj">${escapeHtml(i.subject || 'Issue ' + i.id)}</span><span class="up-cl">${i.client ? `<span class="up-client is-row" title="${escapeHtml(i.client)}">${escapeHtml(i.client)}</span>` : '<span class="up-none">—</span>'}</span><span class="up-catc">${i.category ? `<span class="up-cat ${catClass(i.category)}">${escapeHtml(i.category)}</span>` : ''}</span><span class="up-stw" data-st="${escapeHtml(i.id)}">${statusChip(i.id)}</span></li>`).join('')}</ul>
+      </section>`).join('')}${U.client && rows.length < u.issues.length ? `<p class="up-plan">Showing ${rows.length} of ${u.issues.length} issues — only ${escapeHtml(U.client)}. <button type="button" class="up-linkbtn" onclick="upClient('')">Show all clients</button></p>` : ''}${u.plan ? `<p class="up-plan">Update plan: ${escapeHtml(u.plan)}</p>` : ''}</div>` : ''}
   </article>`;
 }
 
@@ -151,6 +163,7 @@ let searchTimer = null;
 Object.assign(window, {
   upSearch(v){ U.q = String(v || ''); clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); },
   upProduct(k){ U.product = U.product === k && k !== 'all' ? 'all' : k; render(); },
+  upClient(c){ U.client = String(c || ''); render(); },
   upToggle(id){
     const idx = visible().findIndex(u => u.id === id);
     const isOpen = U.open.has(id) || (!U.q && idx < 3 && !(U.closedTop && U.closedTop.has(id)));
@@ -175,6 +188,7 @@ async function load(){
     U.data = d;
   } catch(_){ fail('The page could not be loaded. Check your connection and refresh.'); return; }
   document.getElementById('prMeta').innerHTML = `<span class="pr-live"><i></i>Live</span><span>Updated ${escapeHtml(new Date(U.data.generatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span><button type="button" class="btn btn-secondary btn-sm" onclick="location.reload()">Refresh</button>`;
+  U.data.updates.forEach(u => u.issues.forEach(i => { if(i.status !== undefined){ U.statuses[i.id] = { status: i.status, closed: i.closed }; U.asked.add(i.id); } }));
   if(!U.data.updates.length){ host.innerHTML = '<div class="pr-state"><p><b>No updates yet.</b></p></div>'; return; }
   render();
   goToHash();

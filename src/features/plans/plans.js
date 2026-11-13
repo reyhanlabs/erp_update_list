@@ -245,8 +245,8 @@ async function enrichPlanIssueCategories(plan){
   const ids = [...new Set(parsed.map(p => p.number).filter(Boolean).map(String))];
   if(!ids.length) return false;
 
-  // Skip fetch if every id already has tracker in cache
-  const missing = ids.filter(id => !(window.__issueTrackerById && window.__issueTrackerById[id]));
+  // Skip fetch if every id already has tracker in cache (and, v4.80.0, a known client — '' counts)
+  const missing = ids.filter(id => !(window.__issueTrackerById && window.__issueTrackerById[id]) || !(window.__issueClientById && id in window.__issueClientById));
   if(!missing.length && ids.every(id => window.__issueCategoryById && window.__issueCategoryById[id])){
     return true;
   }
@@ -291,9 +291,11 @@ function renderPlanCard(d){
     const catHtml = cat
       ? `<span class="pi-cat pi-cat-${catKey || 'other'}" title="${escapeHtml(cat)}">${escapeHtml(cat)}</span>`
       : `<span class="pi-cat pi-cat-none">—</span>`;
+    const client = (window.__issueClientById || {})[String(num)] || '';
     return `<div class="plan-issue-row">
       <a class="pi-num" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open in Redmine">#${escapeHtml(num)}</a>
       <span class="pi-desc">${escapeHtml(desc || url)}</span>
+      <span class="pi-cl">${client ? `<span class="pi-client" title="${escapeHtml(client)}">${escapeHtml(client)}</span>` : '<span class="pi-none">—</span>'}</span>
       ${catHtml}
       <a class="pi-open" href="${escapeHtml(url)}" target="_blank" rel="noopener" title="Open in Redmine">${ICON.externalLink}</a>
     </div>`;
@@ -310,7 +312,7 @@ function renderPlanCard(d){
             <span>Issue List</span>
             <span class="count-pill">${totalIssue}</span>
           </div>
-          <div class="plan-issue-list">${issueRows}</div>
+          <div class="plan-issue-list"><div class="plan-issue-row pi-cols" aria-hidden="true"><span>No.</span><span>Description</span><span>Client</span><span>Category</span><span></span></div>${issueRows}</div>
         </div>
       </div>`
     : '';
