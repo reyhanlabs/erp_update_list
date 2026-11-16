@@ -6,20 +6,23 @@
   <meta name="robots" content="noindex,nofollow" />
   <title>Shared Update Plan · Zahir ERP</title>
   <link rel="icon" href="/icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f4f6fb; --card: #fff; --text: #0f172a; --muted: #64748b;
-      --line: #e2e8f0; --brand: #2563eb; --brand-soft: rgba(37,99,235,.1);
+      --bg: #F2F2F3; --card: #fff; --text: #060A1C; --muted: #5F6470;
+      --line: #E4E5E8; --brand: #265196; --brand-soft: #EAF0FA;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0b1220; --card: #111827; --text: #f1f5f9; --muted: #94a3b8;
-        --line: #1e293b; --brand: #60a5fa; --brand-soft: rgba(96,165,250,.12);
+        --bg: #050814; --card: #0C1226; --text: #EEF2FA; --muted: #9AA5BE;
+        --line: #1A2342; --brand: #8FB8F5; --brand-soft: rgba(91,155,239,.14);
       }
     }
     * { box-sizing: border-box; }
     body {
-      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       background: var(--bg); color: var(--text); line-height: 1.45; min-height: 100vh;
     }
     .wrap { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; }
@@ -31,7 +34,7 @@
     .brand img { width: 28px; height: 28px; border-radius: 8px; }
     .badge {
       font-size: 12px; font-weight: 600; color: var(--brand);
-      background: var(--brand-soft); border: 1px solid rgba(37,99,235,.25);
+      background: var(--brand-soft); border: 1px solid transparent;
       padding: 6px 10px; border-radius: 999px;
     }
     .card {
@@ -47,11 +50,11 @@
     .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
     button {
       border: 1px solid var(--line); background: var(--bg); color: var(--text);
-      border-radius: 10px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+      border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
     }
     button:hover { border-color: var(--brand); color: var(--brand); }
-    button.primary { background: var(--brand); color: #fff; border-color: transparent; }
-    button.primary:hover { filter: brightness(1.05); color: #fff; }
+    button.primary { background: var(--text); color: var(--card); border-color: transparent; }
+    button.primary:hover { opacity: .88; color: var(--card); }
     .table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th {
