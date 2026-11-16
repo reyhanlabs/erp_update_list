@@ -1,0 +1,197 @@
+From 441fe9d23c4384dbd671446b8332b3d289688506 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 16 Nov 2026 20:52:19 +0700
+Subject: [PATCH] =?UTF-8?q?v4.81.0:=20faster=20start=20=E2=80=94=20shared?=
+ =?UTF-8?q?=20Redmine=20requests,=20top-bar=20Add=20button=20fix?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- identical Redmine requests still in flight share one network call
+- sidebar counts (limit=1) reuse a status list that is already loaded or loading
+- the project list is requested once, however many views ask for it
+- .btn-add.hidden had no CSS rule, so the Add button showed on every page
+- client login checks skip while the tab is in the background
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01H4HCoUKXxT2FPRsVf3Hb2Z
+---
+ css/style.css           |  2 ++
+ index.html              |  4 ++++
+ package-lock.json       |  4 ++--
+ package.json            |  2 +-
+ src/config.js           |  6 +++---
+ src/features/sites.js   |  2 +-
+ src/redmine/client.js   | 37 +++++++++++++++++++++++++++++++++++++
+ src/redmine/projects.js | 11 +++++++++--
+ 8 files changed, 59 insertions(+), 9 deletions(-)
+
+diff --git a/css/style.css b/css/style.css
+index 266f3f5..ee196c2 100644
+--- a/css/style.css
++++ b/css/style.css
+@@ -1348,6 +1348,8 @@ kbd{
+   display:block;padding:16px;text-align:center;color:var(--text-tertiary);font-size:12.5px;
+ }
+ .issue-editor-foot{padding:10px 12px;border-top:1px solid var(--line);background:var(--bg-subtle);}
++/* v4.81.0: the top-bar Add button was never hidden on pages without one (there was no rule for .hidden) */
++.btn-add.hidden{display:none !important}
+ .btn-add-issue{
+   display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:40px;
+   border-radius:10px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;
+diff --git a/index.html b/index.html
+index 1a98092..246e9ce 100644
+--- a/index.html
++++ b/index.html
+@@ -1513,6 +1513,10 @@
+           </div>
+           <div class="card-body">
+             <div class="changelog changelog-scroll" id="changelogList">
++              <div class="changelog-item">
++                <span class="cl-ver">v4.81.0</span>
++                <span class="cl-note">Faster start: about half the Redmine calls when the app opens (identical requests are shared, sidebar counts reuse lists that are already loading). Fixed the top-bar “Add New” button showing on pages that have nothing to add. Login checks pause while the tab is in the background</span>
++              </div>
+               <div class="changelog-item">
+                 <span class="cl-ver">v4.80.0</span>
+                 <span class="cl-note">Issue lists on Update Plan and the Update history page now use tidy columns: No. · Description · Client · Category · Status, with the client from Redmine “Client Name”; the history page can also filter and search by client</span>
+diff --git a/package-lock.json b/package-lock.json
+index 6271ce7..c3a440c 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "erp-update-list",
+-  "version": "4.80.0",
++  "version": "4.81.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "erp-update-list",
+-      "version": "4.80.0",
++      "version": "4.81.0",
+       "dependencies": {
+         "firebase-admin": "^12.7.0"
+       },
+diff --git a/package.json b/package.json
+index 13046f0..bcb3cdf 100644
+--- a/package.json
++++ b/package.json
+@@ -1,7 +1,7 @@
+ {
+   "name": "erp-update-list",
+   "private": true,
+-  "version": "4.80.0",
++  "version": "4.81.0",
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+diff --git a/src/config.js b/src/config.js
+index 3b6d746..9decfdd 100644
+--- a/src/config.js
++++ b/src/config.js
+@@ -1,7 +1,7 @@
+ /** App version & shared constants */
+-export const APP_VERSION = '4.80.0';
+-export const APP_VERSION_DATE = '2026-11-13';
+-export const APP_VERSION_NOTE = 'Client names on updates';
++export const APP_VERSION = '4.81.0';
++export const APP_VERSION_DATE = '2026-11-16';
++export const APP_VERSION_NOTE = 'Faster start, fewer Redmine calls';
+ 
+ export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
+ export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';
+diff --git a/src/features/sites.js b/src/features/sites.js
+index d1b1acd..ce1d734 100644
+--- a/src/features/sites.js
++++ b/src/features/sites.js
+@@ -1000,7 +1000,7 @@ async function autoCheckLogins(){
+   const had = !!S.loginHosts;
+   await loadLoginHosts();
+   if(!had && S.loginHosts) render();
+-  if(!loginTimer) loginTimer = setInterval(() => autoCheckLogins(), 10 * 60 * 1000);
++  if(!loginTimer) loginTimer = setInterval(() => { if(!document.hidden) autoCheckLogins(); }, 10 * 60 * 1000);   // v4.81.0: no checks while the tab is in the background
+   if(!canEdit() || !S.loginHosts) return;
+   S.sites.filter(s => hasLogin(s) && !S.loginBusy.has(s.id) && Date.now() - (s.login?.at || 0) > LOGIN_STALE)
+     .forEach(s => checkLoginSite(s.id, { quiet: true }));
+diff --git a/src/redmine/client.js b/src/redmine/client.js
+index 5a22fb0..28583a7 100644
+--- a/src/redmine/client.js
++++ b/src/redmine/client.js
+@@ -120,6 +120,10 @@ function friendlyRedmineError(status, data){
+   };
+ }
+ 
++/* v4.81.0: identical requests that are still in flight share one network call —
++   the dashboard, the sidebar counts and the bell all ask for the same lists at boot */
++const inflight = new Map();
++
+ async function fetchRedmine(pathAndQuery, { force = false } = {}){
+   const url = pathAndQuery.startsWith('/') ? pathAndQuery : '/' + pathAndQuery;
+ 
+@@ -127,7 +131,40 @@ async function fetchRedmine(pathAndQuery, { force = false } = {}){
+     const cached = RedmineCache.get(url);
+     if(cached) return { data: cached, fromCache: true, status: 200 };
+   }
++  if(inflight.has(url)) return inflight.get(url);
++
++  // a sidebar count (limit=1) for a status + project whose list is already loaded or loading
++  const ck = listKey(url);
++  if(!force && ck && ck.count && firstPages.has(ck.key)){
++    const listUrl = firstPages.get(ck.key);
++    const cached = RedmineCache.get(listUrl);
++    const src = cached ? { data: cached } : (inflight.has(listUrl) ? await inflight.get(listUrl).catch(() => null) : null);
++    if(src && src.data && typeof src.data.total_count === 'number'){
++      return { data: { ...src.data, issues: (src.data.issues || []).slice(0, 1) }, fromCache: true, status: 200 };
++    }
++  }
++  if(ck && !ck.count) firstPages.set(ck.key, url);
++
++  const run = requestRedmine(url).finally(() => inflight.delete(url));
++  inflight.set(url, run);
++  return run;
++}
++
++/* which status + project a plain list request is for: { key, count } — count is true for the
++   limit=1 badge requests, false for the first page of the full list; null for anything else */
++const firstPages = new Map();
++function listKey(url){
++  const q = url.indexOf('?');
++  if(q < 0 || url.slice(0, q) !== '/api/redmine') return null;
++  const p = new URLSearchParams(url.slice(q + 1));
++  for(const k of p.keys()) if(!['status_name', 'project_id', 'sort', 'limit', 'offset'].includes(k)) return null;
++  if(!p.get('status_name') || !p.get('project_id')) return null;
++  const count = p.get('limit') === '1';
++  if(!count && (p.get('offset') || '0') !== '0') return null;
++  return { key: p.get('status_name').toLowerCase() + '|' + p.get('project_id'), count };
++}
+ 
++async function requestRedmine(url){
+   let r;
+   try {
+     r = await apiFetch(url);
+diff --git a/src/redmine/projects.js b/src/redmine/projects.js
+index 8903307..ac2f5eb 100644
+--- a/src/redmine/projects.js
++++ b/src/redmine/projects.js
+@@ -13,8 +13,15 @@ import { showSyncResult } from '../features/redmine-sync.js';
+ /* ============================================================
+    REDMINE — PROJECT LOADER
+    ============================================================ */
+-async function loadRedmineProjects(){
+-  if(RedmineState.loaded && RedmineState.projects.length) return;
++/* v4.81.0: every view asks for the project list on open; callers that arrive while it is
++   still loading wait for the same request instead of starting their own */
++let projectsLoading = null;
++function loadRedmineProjects(){
++  if(RedmineState.loaded && RedmineState.projects.length) return Promise.resolve();
++  if(!projectsLoading) projectsLoading = fetchRedmineProjects().finally(() => { projectsLoading = null; });
++  return projectsLoading;
++}
++async function fetchRedmineProjects(){
+ 
+   const sel = $('syncProject');
+   if(sel){
+-- 
+2.43.0
+
