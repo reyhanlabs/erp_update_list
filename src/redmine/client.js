@@ -120,6 +120,10 @@ function friendlyRedmineError(status, data){
   };
 }
 
+/* v4.81.0: identical requests that are still in flight share one network call —
+   the dashboard, the sidebar counts and the bell all ask for the same lists at boot */
+const inflight = new Map();
+
 async function fetchRedmine(pathAndQuery, { force = false } = {}){
   const url = pathAndQuery.startsWith('/') ? pathAndQuery : '/' + pathAndQuery;
 
@@ -127,7 +131,40 @@ async function fetchRedmine(pathAndQuery, { force = false } = {}){
     const cached = RedmineCache.get(url);
     if(cached) return { data: cached, fromCache: true, status: 200 };
   }
+  if(inflight.has(url)) return inflight.get(url);
 
+  // a sidebar count (limit=1) for a status + project whose list is already loaded or loading
+  const ck = listKey(url);
+  if(!force && ck && ck.count && firstPages.has(ck.key)){
+    const listUrl = firstPages.get(ck.key);
+    const cached = RedmineCache.get(listUrl);
+    const src = cached ? { data: cached } : (inflight.has(listUrl) ? await inflight.get(listUrl).catch(() => null) : null);
+    if(src && src.data && typeof src.data.total_count === 'number'){
+      return { data: { ...src.data, issues: (src.data.issues || []).slice(0, 1) }, fromCache: true, status: 200 };
+    }
+  }
+  if(ck && !ck.count) firstPages.set(ck.key, url);
+
+  const run = requestRedmine(url).finally(() => inflight.delete(url));
+  inflight.set(url, run);
+  return run;
+}
+
+/* which status + project a plain list request is for: { key, count } — count is true for the
+   limit=1 badge requests, false for the first page of the full list; null for anything else */
+const firstPages = new Map();
+function listKey(url){
+  const q = url.indexOf('?');
+  if(q < 0 || url.slice(0, q) !== '/api/redmine') return null;
+  const p = new URLSearchParams(url.slice(q + 1));
+  for(const k of p.keys()) if(!['status_name', 'project_id', 'sort', 'limit', 'offset'].includes(k)) return null;
+  if(!p.get('status_name') || !p.get('project_id')) return null;
+  const count = p.get('limit') === '1';
+  if(!count && (p.get('offset') || '0') !== '0') return null;
+  return { key: p.get('status_name').toLowerCase() + '|' + p.get('project_id'), count };
+}
+
+async function requestRedmine(url){
   let r;
   try {
     r = await apiFetch(url);

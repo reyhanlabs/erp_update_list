@@ -1000,7 +1000,7 @@ async function autoCheckLogins(){
   const had = !!S.loginHosts;
   await loadLoginHosts();
   if(!had && S.loginHosts) render();
-  if(!loginTimer) loginTimer = setInterval(() => autoCheckLogins(), 10 * 60 * 1000);
+  if(!loginTimer) loginTimer = setInterval(() => { if(!document.hidden) autoCheckLogins(); }, 10 * 60 * 1000);   // v4.81.0: no checks while the tab is in the background
   if(!canEdit() || !S.loginHosts) return;
   S.sites.filter(s => hasLogin(s) && !S.loginBusy.has(s.id) && Date.now() - (s.login?.at || 0) > LOGIN_STALE)
     .forEach(s => checkLoginSite(s.id, { quiet: true }));

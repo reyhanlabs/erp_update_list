@@ -13,8 +13,15 @@ import { showSyncResult } from '../features/redmine-sync.js';
 /* ============================================================
    REDMINE — PROJECT LOADER
    ============================================================ */
-async function loadRedmineProjects(){
-  if(RedmineState.loaded && RedmineState.projects.length) return;
+/* v4.81.0: every view asks for the project list on open; callers that arrive while it is
+   still loading wait for the same request instead of starting their own */
+let projectsLoading = null;
+function loadRedmineProjects(){
+  if(RedmineState.loaded && RedmineState.projects.length) return Promise.resolve();
+  if(!projectsLoading) projectsLoading = fetchRedmineProjects().finally(() => { projectsLoading = null; });
+  return projectsLoading;
+}
+async function fetchRedmineProjects(){
 
   const sel = $('syncProject');
   if(sel){
