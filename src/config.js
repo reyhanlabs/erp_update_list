@@ -1,7 +1,7 @@
 /** App version & shared constants */
-export const APP_VERSION = '4.82.0';
+export const APP_VERSION = '4.82.1';
 export const APP_VERSION_DATE = '2026-11-16';
-export const APP_VERSION_NOTE = 'Ready for update';
+export const APP_VERSION_NOTE = 'Cleaner cards';
 
 export const RFT_STATUS_CACHE_KEY = 'erp_rft_status_id';
 export const MIGRATE_SNAP_KEY = 'erp_migrate_snapshot_v1';
