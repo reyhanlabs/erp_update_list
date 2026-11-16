@@ -241,3 +241,46 @@ body.sidebar-collapsed .view-tabs .nav-item .label,body.sidebar-collapsed .view-
 @media (max-width:760px){
   .topbar .theme-switch button:not(.active){display:none}
 }
+
+/* ============================================================
+   v5.1.0 — list pages: Update Plans, Update Summaries, Issue Board, Tester Queue, By Client
+   ============================================================ */
+/* stage of an update plan */
+.stage-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.stage-chip.is-waiting{background:var(--warning-soft);color:var(--warning)}
+.stage-chip.is-released{background:var(--bg-subtle);color:var(--text-secondary)}
+
+/* cards: a hairline all round instead of a coloured bar on the left */
+.plan-card::before{display:none}
+.plan-card{border-radius:18px}
+.up-card,.kb-row,.mm-item,.cr-card{border-left-width:1px;border-left-color:var(--line)}
+.tester-mcard.is-immediate{border-left:1px solid var(--line)}
+.tester-tr.is-immediate td:first-child{box-shadow:none}
+
+/* quiet badges: one neutral style, colour only where it means something */
+.badge{border-radius:999px}
+.badge-brand,.badge-violet,.badge-cyan,[data-theme="dark"] .badge-brand,[data-theme="dark"] .badge-violet,[data-theme="dark"] .badge-cyan{background:var(--bg);color:var(--text-secondary);border-color:var(--line)}
+.badge-click:hover{border-color:var(--brand);color:var(--brand)}
+.meta-chip{border-radius:999px}
+
+/* summaries: product name + coloured version pills as the title */
+.summary-card{border-radius:20px}
+.summary-card-title{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.summary-prod{font-size:16px;font-weight:650;letter-spacing:-.01em;margin-right:4px}
+.summary-card-title .up-ver code{font-size:13px}
+.btn-success,.btn-success:hover{background:#0E7A53;box-shadow:none;border-color:transparent;color:#fff}
+.btn-success:hover{background:#0A6645}
+
+/* tables: lighter header band, calmer rows */
+.tester-table thead th{background:var(--surface-elev);color:var(--text-tertiary);border-bottom:1px solid var(--line);letter-spacing:.06em}
+.tester-group-head{background:var(--surface);border-bottom:1px solid var(--line)}
+.tester-tr{transition:background .15s}
+
+/* By Client: summary tiles with a dot instead of a coloured top edge */
+.cl-sum{border-top:1px solid var(--line);border-radius:16px;padding:14px 16px;position:relative}
+.cl-sum::after{content:'';position:absolute;right:14px;top:16px;width:8px;height:8px;border-radius:50%;background:var(--text-tertiary)}
+.cl-sum-new::after{background:#2563eb}.cl-sum-progress::after{background:#B45309}.cl-sum-rft::after{background:#7c3aed}.cl-sum-resolved::after{background:#0E7A53}
+
+/* the small coloured square before a card title */
+.card-head h3 .mark{background:var(--brand) !important;border-radius:50%;width:8px;height:8px;box-shadow:none}
+.plan-card-meta .badge-cyan,.plan-card-meta .badge-violet,[data-theme="dark"] .plan-card-meta .badge-cyan,[data-theme="dark"] .plan-card-meta .badge-violet{background:var(--bg);color:var(--text-secondary);border-color:var(--line)}

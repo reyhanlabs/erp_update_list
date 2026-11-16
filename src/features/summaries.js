@@ -19,7 +19,7 @@ import { CloudSync } from '../core/cloud-sync.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { switchView } from '../ui/navigation.js';
 import { closeModal, openModal } from '../ui/modal.js';
-import { renderDashReady } from '../ui/v5.js';
+import { renderDashReady, readySummaryIds, versionPill } from '../ui/v5.js';
 import { enrichPlanIssueCategories, getPlanProjectKey, projectKeyLabel } from './plans/plans.js';
 import { emptyState } from '../ui/list-controls.js';
 import { writeClipboard } from '../core/clipboard.js';
@@ -275,25 +275,17 @@ function renderSummaries(){
     return;
   }
 
-  /* v4.82.0: the newest summary of each product = its installer is built → "Ready for update"
-     (same rule as the public Update history page) */
-  const readyIds = new Set();
-  { const seen = new Set();
-    [...State.summaries.all()]
-      .sort((x, y) => String(y.date || '').localeCompare(String(x.date || '')) || String(y.fe || '').localeCompare(String(x.fe || '')))
-      .forEach(x => { const pk = getPlanProjectKey(State.plans.get(x.planId)) || ''; if(!seen.has(pk)){ seen.add(pk); readyIds.add(x.id); } }); }
+  const readyIds = readySummaryIds();   // newest summary of each product = "Ready for update"
 
   el.innerHTML = `<div class="summary-list">` + list.map(d=>{
     const plan = d.planId ? State.plans.get(d.planId) : null;
-    const v3Html = d.v3 ? `<span class="arrow">→</span><span>${escapeHtml(d.v3)}</span>` : '';
+    const prod = projectKeyLabel(getPlanProjectKey(plan));
     return `
       <div class="summary-card">
         <div class="summary-card-head">
           <div class="summary-card-title">
-            <span>${escapeHtml(d.fe)}</span>
-            <span class="arrow">→</span>
-            <span>${escapeHtml(d.v2)}</span>
-            ${v3Html}
+            ${plan && prod ? `<span class="summary-prod">${escapeHtml(prod)}</span>` : ''}
+            ${versionPill('fe', 'FE', d.fe)}${versionPill('v2', 'V2', d.v2)}${versionPill('v3', 'V3', d.v3)}
           </div>
           <div class="summary-card-meta">
             <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>

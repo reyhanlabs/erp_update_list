@@ -2,7 +2,7 @@
  * Plans CRUD + rendering
  * (split from the former monolithic src/app.js — v4.40.0)
  */
-import { renderDashReady } from '../../ui/v5.js';
+import { renderDashReady, planStage, stageChip } from '../../ui/v5.js';
 import { ICON } from '../../icons.js';
 import { State } from '../../core/state.js';
 import {
@@ -425,10 +425,11 @@ function renderPlanCard(d){
             <span class="meta-divider"></span>
             <span class="badge badge-cyan">${escapeHtml(projectKeyLabel(getPlanProjectKey(d)))}</span>
             <span class="badge badge-cyan">${ICON.hash}${totalIssue} issues</span>
+            ${stageChip(planStage(d.id))}
             ${isRedmineSynced ? `<span class="badge badge-redmine">🔴 Redmine</span>` : ''}
             ${linkedSummaries
               ? `<span class="badge badge-violet badge-click" onclick="event.stopPropagation(); viewPlanSummaries('${d.id}')" title="View summaries">${ICON.fileText}${linkedSummaries} summaries</span>`
-              : `<span class="badge badge-neutral badge-click" onclick="event.stopPropagation(); quickSummary('${d.id}')" title="Create summary">No summary</span>`}
+              : `<span class="badge badge-neutral badge-click" onclick="event.stopPropagation(); quickSummary('${d.id}')" title="Create the summary for this plan">Create summary</span>`}
           </div>
         </div>
         <div class="plan-card-chevron">${ICON.chevronDown}</div>

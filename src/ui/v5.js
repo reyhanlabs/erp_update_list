@@ -54,7 +54,21 @@ function readySummaries(){
     });
   return out;
 }
-const pill = (kind, label, v) => v ? `<span class="up-ver is-${kind}"><b>${label}</b><code>${escapeHtml(v)}</code></span>` : '';
+/* which stage an Update Plan is in: no summary yet → waiting; its summary is the newest of the
+   product → ready (installer built, users can be updated); otherwise → released earlier */
+function readySummaryIds(){ return new Set(readySummaries().map(x => x.s.id)); }
+function planStage(planId){
+  const sums = State.summaries.all().filter(x => x.planId === planId);
+  if(!sums.length) return 'waiting';
+  const ready = readySummaryIds();
+  return sums.some(x => ready.has(x.id)) ? 'ready' : 'released';
+}
+function stageChip(stage){
+  if(stage === 'ready') return '<span class="summary-ready" title="The installer for this update is built and can be installed for users"><i aria-hidden="true"></i>Ready for update</span>';
+  if(stage === 'released') return '<span class="stage-chip is-released" title="A newer installer has replaced this one">Released</span>';
+  return '<span class="stage-chip is-waiting" title="No summary yet — the installer is not announced">Waiting for summary</span>';
+}
+const versionPill = (kind, label, v) => v ? `<span class="up-ver is-${kind}"><b>${label}</b><code>${escapeHtml(v)}</code></span>` : '';
 
 function renderDashReady(){
   const box = $('dashReady');
@@ -76,7 +90,7 @@ function renderDashReady(){
       const n = plan ? parseIssueLines(plan.issues || '').length : 0;
       return `<article class="dash-ready-item">
         <div class="dash-ready-top"><b>${escapeHtml(label)}</b><span>Installer built ${escapeHtml(formatDate(s.date))}</span></div>
-        <div class="dash-ready-vers">${pill('fe', 'FE', s.fe)}${pill('v2', 'V2', s.v2)}${pill('v3', 'V3', s.v3)}</div>
+        <div class="dash-ready-vers">${versionPill('fe', 'FE', s.fe)}${versionPill('v2', 'V2', s.v2)}${versionPill('v3', 'V3', s.v3)}</div>
         <div class="dash-ready-foot">
           <span>${n ? `${n} issue${n === 1 ? '' : 's'} in this update` : 'No issues listed'}</span>
           <button type="button" class="btn btn-primary btn-sm" onclick="copySummary('${escapeHtml(s.id)}')">Copy for WhatsApp</button>
@@ -93,4 +107,4 @@ function initV5(){
   if(sites) new MutationObserver(() => { try { renderDashReady(); } catch(_){} }).observe(sites, { childList: true, characterData: true, subtree: true });
 }
 
-export { initV5, renderDashReady };
+export { initV5, renderDashReady, readySummaryIds, planStage, stageChip, versionPill };
