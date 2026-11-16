@@ -273,6 +273,14 @@ function renderSummaries(){
     return;
   }
 
+  /* v4.82.0: the newest summary of each product = its installer is built → "Ready for update"
+     (same rule as the public Update history page) */
+  const readyIds = new Set();
+  { const seen = new Set();
+    [...State.summaries.all()]
+      .sort((x, y) => String(y.date || '').localeCompare(String(x.date || '')) || String(y.fe || '').localeCompare(String(x.fe || '')))
+      .forEach(x => { const pk = getPlanProjectKey(State.plans.get(x.planId)) || ''; if(!seen.has(pk)){ seen.add(pk); readyIds.add(x.id); } }); }
+
   el.innerHTML = `<div class="summary-list">` + list.map(d=>{
     const plan = d.planId ? State.plans.get(d.planId) : null;
     const v3Html = d.v3 ? `<span class="arrow">→</span><span>${escapeHtml(d.v3)}</span>` : '';
@@ -287,6 +295,7 @@ function renderSummaries(){
           </div>
           <div class="summary-card-meta">
             <span class="meta-chip">${ICON.calendar}${escapeHtml(formatDate(d.date))}</span>
+            ${readyIds.has(d.id) ? '<span class="summary-ready" title="The installer for this update is built and can be installed for users"><i aria-hidden="true"></i>Ready for update</span>' : ''}
             ${plan
               ? `<span class="meta-divider"></span><span class="badge badge-brand">${ICON.fileText}${escapeHtml(plan.title)}</span>`
               : `<span class="meta-divider"></span><span class="badge badge-neutral">No plan</span>`}

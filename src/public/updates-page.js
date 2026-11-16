@@ -22,8 +22,12 @@ const catClass = (c) => /front|^fe\b/i.test(c) ? 'is-fe' : /back|^be\b|api/i.tes
 
 const host = document.getElementById('updBody');
 const token = (location.pathname.match(/^\/u\/([A-Za-z0-9_-]+)/) || [])[1] || new URLSearchParams(location.search).get('u') || '';
-const U = { data: null, q: '', product: 'all', client: '', open: new Set(), statuses: {}, asked: new Set(), showAll: false };
+const U = { data: null, q: '', product: 'all', stage: 'all', client: '', open: new Set(), statuses: {}, asked: new Set(), showAll: false };
 const PAGE = 15;
+/* v4.82.0: "Ready for update" — a summary means the installer for that update is built, so the
+   newest update of each product is the one users can be updated to now */
+const isReady = (u) => !!(U.ready && U.ready.has(u.id));
+const readyBadge = (u) => isReady(u) ? '<span class="up-ready"><i aria-hidden="true"></i>Ready for update</span>' : '<span class="up-earlier">Earlier update</span>';
 
 const fmtDate = (iso, long) => { const d = new Date(String(iso || '') + 'T00:00:00'); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('en-GB', long ? { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' }); };
 const monthOf = (iso) => { const d = new Date(String(iso || '') + 'T00:00:00'); return isNaN(d) ? 'No date' : d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
@@ -38,6 +42,8 @@ function visible(){
   const q = U.q.trim().toLowerCase(), no = issueNo(U.q);
   return U.data.updates.filter(u => {
     if(U.product !== 'all' && u.project !== U.product) return false;
+    if(U.stage === 'ready' && !isReady(u)) return false;
+    if(U.stage === 'earlier' && isReady(u)) return false;
     if(U.client && !u.issues.some(i => sameClient(i.client, U.client))) return false;
     if(!q) return true;
     if(no) return u.issues.some(i => i.id === no);
@@ -61,7 +67,7 @@ function latestCards(){
   const order = ['erp', 'erp-one', 'mrp', 'mfg', ''];
   const list = [...seen.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
   return `<div class="up-latest">${list.map(([k, u]) => { const p = prodOf(k); return `<button type="button" class="up-lcard${U.product === k ? ' is-active' : ''}" style="--pc:${p.color}" onclick="upProduct('${k}')">
-      <span class="up-lcard-top"><span class="up-ic">${escapeHtml(p.short)}</span><span><b>${escapeHtml(p.label)}</b><small>Latest · ${escapeHtml(fmtDate(u.date))}</small></span></span>
+      <span class="up-lcard-top"><span class="up-ic">${escapeHtml(p.short)}</span><span><span class="up-ready is-sm"><i aria-hidden="true"></i>Ready for update</span><b>${escapeHtml(p.label)}</b><small>Installer ready · ${escapeHtml(fmtDate(u.date))}</small></span></span>
       <span class="up-lcard-fe">${ver('fe', 'FE', u.fe || '—', true)}</span>
       <span class="up-lcard-be">${ver('v2', 'V2', u.v2)}${ver('v3', 'V3', u.v3)}</span>
       <span class="up-lcard-n">${u.issues.length} issue${u.issues.length === 1 ? '' : 's'} in this update</span>
@@ -75,6 +81,7 @@ function toolbar(){
   return `<div class="up-toolbar">
     <div class="up-search"><span aria-hidden="true">⌕</span><input class="input" id="upSearch" type="search" value="${escapeHtml(U.q)}" placeholder="Search issue number (e.g. 32312), subject or version…" oninput="upSearch(this.value)" autocomplete="off"></div>
     ${allClients().length ? `<select class="select up-client-sel" aria-label="Client" onchange="upClient(this.value)"><option value="">All clients</option>${allClients().map(c => `<option value="${escapeHtml(c.name)}"${sameClient(c.name, U.client) ? ' selected' : ''}>${escapeHtml(c.name)} (${c.n})</option>`).join('')}</select>` : ''}
+    <div class="up-stage" role="group" aria-label="Show">${[['all', 'All'], ['ready', `Ready for update · ${U.ready.size}`], ['earlier', 'Earlier updates']].map(([k, l]) => `<button type="button" class="up-stage-btn${U.stage === k ? ' is-active' : ''}" aria-pressed="${U.stage === k}" onclick="upStage('${k}')">${escapeHtml(l)}</button>`).join('')}</div>
     <div class="up-chips">${chips.map(([k, l, n]) => `<button type="button" class="up-chip${U.product === k ? ' is-active' : ''}" style="--pc:${k === 'all' ? 'var(--brand)' : prodOf(k).color}" onclick="upProduct('${k}')">${escapeHtml(l)}<span>${n}</span></button>`).join('')}</div>
   </div>`;
 }
@@ -89,8 +96,16 @@ function answerBanner(list){
   return `<div class="up-answer" style="--pc:${prodOf(first.project).color}">
     <span class="up-answer-ic" aria-hidden="true">✓</span>
     <div><b><a href="${REDMINE}${no}" target="_blank" rel="noopener">#${escapeHtml(no)}</a>${it && it.subject ? ` ${escapeHtml(it.subject)}` : ''}</b>
-    <p>Went out in ${ver('fe', 'FE', first.fe || '—')} ${ver('v2', 'V2', first.v2)} — ${escapeHtml(prodOf(first.project).label)}, ${escapeHtml(fmtDate(first.date, true))}${list.length > 1 ? ` <span class="up-muted">(also in ${list.length - 1} later update${list.length - 1 === 1 ? '' : 's'})</span>` : ''}</p></div>
+    <p>Went out in ${ver('fe', 'FE', first.fe || '—')} ${ver('v2', 'V2', first.v2)} — ${escapeHtml(prodOf(first.project).label)}, ${escapeHtml(fmtDate(first.date, true))}${list.length > 1 ? ` <span class="up-muted">(also in ${list.length - 1} later update${list.length - 1 === 1 ? '' : 's'})</span>` : ''}</p>
+    ${readyLine(first)}</div>
   </div>`;
+}
+
+/* the installer users can get now for that product already contains every earlier update */
+function readyLine(u){
+  const now = U.data.updates.find(x => x.project === u.project && isReady(x));
+  if(!now) return '';
+  return `<p class="up-answer-ready"><span class="up-ready"><i aria-hidden="true"></i>Ready for update</span> The installer is built${now.id !== u.id ? ` — the current one is ${ver('fe', 'FE', now.fe || '—')} ${ver('v2', 'V2', now.v2)}` : ''} and can be installed for users.</p>`;
 }
 
 function statusChip(id){
@@ -109,7 +124,7 @@ function updateCard(u, idx){
     <header class="up-head" onclick="if(!event.target.closest('a,button.up-copy'))upToggle('${u.id}')">
       <span class="up-date"><small>${escapeHtml(new Date(u.date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short' }))}</small><b>${escapeHtml(String(new Date(u.date + 'T00:00:00').getDate() || '?'))}</b></span>
       <span class="up-head-main">
-        <span class="up-head-top"><span class="up-prod">${escapeHtml(p.label)}</span><span class="up-when">${escapeHtml(fmtDate(u.date, true))}</span></span>
+        <span class="up-head-top"><span class="up-prod">${escapeHtml(p.label)}</span><span class="up-when">${escapeHtml(fmtDate(u.date, true))}</span>${readyBadge(u)}</span>
         <span class="up-vers">${ver('fe', 'FE', u.fe || '—', true)}${ver('v2', 'V2', u.v2)}${ver('v3', 'V3', u.v3)}</span>
         <span class="up-kinds">${kinds.map(k => `<span class="up-kind is-${k}">${ISSUE_KIND_META[k].emoji} ${groups[k].length} ${escapeHtml(ISSUE_KIND_META[k].title)}</span>`).join('')}${!u.issues.length ? '<span class="up-muted">No issues listed</span>' : ''}</span>
       </span>
@@ -119,7 +134,7 @@ function updateCard(u, idx){
         <span class="up-caret" aria-hidden="true">▾</span>
       </span>
     </header>
-    ${open && u.issues.length ? `<div class="up-body"><div class="up-cols" aria-hidden="true"><span>No.</span><span>Description</span><span>Client</span><span>Category</span><span>Status</span></div>${kinds.map(k => `<section class="up-group is-${k}"><h4>${ISSUE_KIND_META[k].emoji} ${escapeHtml(ISSUE_KIND_META[k].title)} <span>${groups[k].length}</span></h4>
+    ${open && u.issues.length ? `<div class="up-body">${isReady(u) ? '<p class="up-ready-note">The installer for this update is built and can be installed for users now.</p>' : ''}<div class="up-cols" aria-hidden="true"><span>No.</span><span>Description</span><span>Client</span><span>Category</span><span>Status</span></div>${kinds.map(k => `<section class="up-group is-${k}"><h4>${ISSUE_KIND_META[k].emoji} ${escapeHtml(ISSUE_KIND_META[k].title)} <span>${groups[k].length}</span></h4>
         <ul>${groups[k].map(i => `<li class="${issueMatches(i) ? 'is-hit' : ''}"><a class="up-id" href="${REDMINE}${escapeHtml(i.id)}" target="_blank" rel="noopener">#${escapeHtml(i.id)}</a><span class="up-subj">${escapeHtml(i.subject || 'Issue ' + i.id)}</span><span class="up-cl">${i.client ? `<span class="up-client is-row" title="${escapeHtml(i.client)}">${escapeHtml(i.client)}</span>` : '<span class="up-none">—</span>'}</span><span class="up-catc">${i.category ? `<span class="up-cat ${catClass(i.category)}">${escapeHtml(i.category)}</span>` : ''}</span><span class="up-stw" data-st="${escapeHtml(i.id)}">${statusChip(i.id)}</span></li>`).join('')}</ul>
       </section>`).join('')}${U.client && rows.length < u.issues.length ? `<p class="up-plan">Showing ${rows.length} of ${u.issues.length} issues — only ${escapeHtml(U.client)}. <button type="button" class="up-linkbtn" onclick="upClient('')">Show all clients</button></p>` : ''}${u.plan ? `<p class="up-plan">Update plan: ${escapeHtml(u.plan)}</p>` : ''}</div>` : ''}
   </article>`;
@@ -164,6 +179,7 @@ Object.assign(window, {
   upSearch(v){ U.q = String(v || ''); clearTimeout(searchTimer); searchTimer = setTimeout(render, 150); },
   upProduct(k){ U.product = U.product === k && k !== 'all' ? 'all' : k; render(); },
   upClient(c){ U.client = String(c || ''); render(); },
+  upStage(k){ U.stage = k; U.showAll = false; render(); },
   upToggle(id){
     const idx = visible().findIndex(u => u.id === id);
     const isOpen = U.open.has(id) || (!U.q && idx < 3 && !(U.closedTop && U.closedTop.has(id)));
@@ -189,6 +205,8 @@ async function load(){
   } catch(_){ fail('The page could not be loaded. Check your connection and refresh.'); return; }
   document.getElementById('prMeta').innerHTML = `<span class="pr-live"><i></i>Live</span><span>Updated ${escapeHtml(new Date(U.data.generatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span><button type="button" class="btn btn-secondary btn-sm" onclick="location.reload()">Refresh</button>`;
   U.data.updates.forEach(u => u.issues.forEach(i => { if(i.status !== undefined){ U.statuses[i.id] = { status: i.status, closed: i.closed }; U.asked.add(i.id); } }));
+  U.ready = new Set();
+  { const seen = new Set(); U.data.updates.forEach(u => { if(!seen.has(u.project)){ seen.add(u.project); U.ready.add(u.id); } }); }
   if(!U.data.updates.length){ host.innerHTML = '<div class="pr-state"><p><b>No updates yet.</b></p></div>'; return; }
   render();
   goToHash();
@@ -198,7 +216,7 @@ async function load(){
 function goToHash(){
   const id = decodeURIComponent((location.hash.match(/^#u-(.+)$/) || [])[1] || '');
   if(!id || !U.data) return;
-  U.q = ''; U.product = 'all'; U.showAll = true; U.open.add(id); if(U.closedTop) U.closedTop.delete(id);
+  U.q = ''; U.product = 'all'; U.stage = 'all'; U.showAll = true; U.open.add(id); if(U.closedTop) U.closedTop.delete(id);
   render();
   const el = document.getElementById('u-' + id);
   if(el){ el.scrollIntoView({ block: 'start' }); el.classList.add('is-flash'); }
