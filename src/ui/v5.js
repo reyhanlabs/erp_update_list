@@ -99,6 +99,19 @@ function renderDashReady(){
     ${behind > 0 ? `<p class="dash-ready-sites"><span>${behind} client site${behind === 1 ? ' is' : 's are'} still behind the latest version.</span><button type="button" class="dash-link" onclick="switchView('sites')">Client Versions</button></p>` : ''}`;
 }
 
+/* Settings → What's New: older entries live in /changelog-older.html and load on first open */
+let olderAsked = false;
+async function loadOlderChangelog(){
+  const box = $('changelogOlder');
+  if(!box || olderAsked) return;
+  olderAsked = true;
+  try {
+    const r = await fetch(box.dataset.src, { cache: 'no-cache' });
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    box.outerHTML = await r.text();
+  } catch(_){ olderAsked = false; }
+}
+
 function initV5(){
   mirror('countTesterAll', 'hubTesterCount');
   mirror('countStatusNew', 'hubIssueCount');
@@ -107,4 +120,4 @@ function initV5(){
   if(sites) new MutationObserver(() => { try { renderDashReady(); } catch(_){} }).observe(sites, { childList: true, characterData: true, subtree: true });
 }
 
-export { initV5, renderDashReady, readySummaryIds, planStage, stageChip, versionPill };
+export { initV5, loadOlderChangelog, renderDashReady, readySummaryIds, planStage, stageChip, versionPill };

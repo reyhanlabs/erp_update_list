@@ -208,6 +208,24 @@ async function issueFacts(ids){
   return out;
 }
 
+/* the update history of one workspace, cached for a minute under `key`
+   (the share token for the public page, "ws:<id>" for the in-app page — v5.3.0) */
+async function historyFor(key, ws){
+  let hit = updCache.get(key);
+  if(!hit || Date.now() - hit.at > CACHE_MS){
+    try {
+      const { updates, ids } = await updatesData(ws);
+      const facts = await issueFacts(ids);
+      updates.forEach(u => u.issues.forEach(i => { const f = facts[i.id]; if(f){ i.status = f.status; i.closed = f.closed; i.client = f.client; } }));
+      hit = { at: Date.now(), ids, body: { generatedAt: Date.now(), updates } };
+      updCache.set(key, hit);
+    } catch(err){
+      if(!hit) throw err;
+    }
+  }
+  return hit;
+}
+
 async function publicUpdates(req, res, token){
   if(!TOKEN_RE.test(token)) return res.status(404).json({ error: 'This link is not valid.' });
   let doc;
@@ -215,18 +233,9 @@ async function publicUpdates(req, res, token){
   catch(err){ return res.status(500).json({ error: 'The page is not available right now.', detail: err.message }); }
   if(!doc.exists) return res.status(404).json({ error: 'This link has been switched off or does not exist.' });
   const share = doc.data();
-  let hit = updCache.get(token);
-  if(!hit || Date.now() - hit.at > CACHE_MS){
-    try {
-      const { updates, ids } = await updatesData(share.ws);
-      const facts = await issueFacts(ids);
-      updates.forEach(u => u.issues.forEach(i => { const f = facts[i.id]; if(f){ i.status = f.status; i.closed = f.closed; i.client = f.client; } }));
-      hit = { at: Date.now(), ids, body: { generatedAt: Date.now(), updates } };
-      updCache.set(token, hit);
-    } catch(err){
-      if(!hit) return res.status(500).json({ error: 'The page is not available right now.', detail: err.message });
-    }
-  }
+  let hit;
+  try { hit = await historyFor(token, share.ws); }
+  catch(err){ return res.status(500).json({ error: 'The page is not available right now.', detail: err.message }); }
   // statuses for the issues the page is showing (only ids that belong to this history)
   const want = String(req.query.ids || '');
   if(want){
@@ -260,6 +269,19 @@ export default async function handler(req, res){
   if(!ws) return res.status(403).json({ error: 'Only team members can share reports', hint: 'Ask an admin to add you in Settings → Team & access.' });
 
   try {
+    // v5.3.0: the same history for signed-in team members (Update History menu), no public link needed
+    if(req.method === 'GET' && req.query.history){
+      const hit = await historyFor('ws:' + ws, ws);
+      return res.status(200).json(hit.body);
+    }
+    // v5.3.0: every public link of the workspace (Share Links menu)
+    if(req.method === 'GET' && req.query.links){
+      const [u, r] = await Promise.all([updShares().where('ws', '==', ws).limit(1).get(), shares().where('ws', '==', ws).get()]);
+      return res.status(200).json({
+        updates: u.empty ? null : updView(u.docs[0].id, u.docs[0].data()),
+        reports: r.docs.map(d => shareView(d.id, d.data())).sort((x, y) => String(x.client || '').localeCompare(String(y.client || '')))
+      });
+    }
     if(req.method === 'GET' && req.query.updates){
       const snap = await updShares().where('ws', '==', ws).limit(1).get();
       return res.status(200).json({ share: snap.empty ? null : updView(snap.docs[0].id, snap.docs[0].data()) });

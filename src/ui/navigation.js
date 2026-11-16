@@ -2,6 +2,8 @@
  * Sidebar navigation, views & URL routing
  * (split from the former monolithic src/app.js — v4.40.0)
  */
+import { openHistoryView, openShareLinksView } from '../features/share-links.js';
+import { loadOlderChangelog } from './v5.js';
 import { $ } from '../core/helpers.js';
 import { updateLastSync } from './sync-status.js';
 import { refreshCounts } from '../features/dashboard.js';
@@ -38,6 +40,8 @@ const VIEW_META = {
   whatnext: { title:'What Next', sub:'Ranked New issues · which to work on first', addBtn:false },
   createissue:{ title:'New Issue', sub:'Create issue and push to Redmine', addBtn:false },
   notes:      { title:'Notes', sub:'Quick notes and reminders', addBtn:false },
+  history:    { title:'Update History', sub:'Every update · versions, issues and which installer is ready', addBtn:false },
+  links:      { title:'Share Links', sub:'Public links of this workspace · open, copy or stop sharing', addBtn:false },
   meetings:   { title:'Meeting Notes', sub:'Minutes of meetings · decisions and action items', addBtn:false },
   share:     { title:'Shared Plan', sub:'Read-only plan link', addBtn:false },
   settings:  { title:'Settings', sub:'Backup, restore, and data management', addBtn:false },
@@ -83,7 +87,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
      /?view=summaries
      /?view=settings
    ============================================================ */
-const VALID_VIEWS = new Set(['dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','meetings','clients','sites','share','settings','docs','kb']);
+const VALID_VIEWS = new Set(['history','links','dashboard','plans','summaries','tester','newissues','activework','whatnext','createissue','notes','meetings','clients','sites','share','settings','docs','kb']);
 const VALID_TESTER_CATS = new Set(['all','frontend','backend','design','other']);
 let __applyingRoute = false; // prevent pushState loop
 
@@ -217,6 +221,9 @@ function switchView(view){
   if(view === 'createissue'){ try { onCreateIssueShown(); } catch(e){ console.error('create issue', e); } }
   if(view === 'clients'){ try { onClientsShown(); } catch(e){ console.error('clients', e); } }
   if(view === 'sites'){ try { onSitesShown(); } catch(e){ console.error('sites', e); } }
+  if(view === 'history'){ try { openHistoryView(); } catch(e){ console.error('history', e); } }
+  if(view === 'links'){ try { openShareLinksView(); } catch(e){ console.error('links', e); } }
+  if(view === 'settings'){ try { loadOlderChangelog(); } catch(_){} }
   if(view === 'meetings'){ try { renderMeetingsView(); } catch(e){ console.error('meetings', e); } }
   if(view === 'plans') loadRedmineProjects();
   if(view === 'notes'){ try{ renderNotes(); }catch(_){ } }

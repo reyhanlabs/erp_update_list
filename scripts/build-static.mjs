@@ -39,7 +39,7 @@ function copy(src, dest) {
 }
 
 for (const f of [
-  'index.html', 'share.html', 'report.html', 'updates.html', 'sw.js', 'manifest.json',
+  'index.html', 'share.html', 'report.html', 'updates.html', 'changelog-older.html', 'sw.js', 'manifest.json',
   'icon.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'
 ]) {
   copy(join(root, f), join(dist, f));

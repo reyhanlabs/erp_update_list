@@ -1,0 +1,837 @@
+<!-- Older "What's New" entries, loaded by Settings (v5.3.0). Newest entries live in index.html. -->
+              <div class="changelog-item">
+                <span class="cl-ver">v4.80.0</span>
+                <span class="cl-note">Issue lists on Update Plan and the Update history page now use tidy columns: No. · Description · Client · Category · Status, with the client from Redmine “Client Name”; the history page can also filter and search by client</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.79.1</span>
+                <span class="cl-note">Update history page: FE / V2 / V3 versions each in their own colour (purple / teal / orange), and Front End / Backend / Design labels as solid blue / green / pink chips</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.79.0</span>
+                <span class="cl-note">Update Summaries → “Share link”: a read-only page (/u/…, no sign-in) with every update, newest first — FE / V2 / V3 versions, the issues of its Update Plan grouped by kind with live Redmine status, latest version per product, product filter, and search an issue number to see which FE version it went out in; a link per update too</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.78.2</span>
+                <span class="cl-note">Fix Meeting Notes attendees: initials no longer break over two lines; each attendee is a tidy card (coloured initials + name) in a grid, and the avatars in the header overlap less</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.78.1</span>
+                <span class="cl-note">Fix Meeting Notes: long links or words in the Discussion (e.g. pasted from WhatsApp) ran past the card and over the next column; all meeting text now wraps inside its card</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.78.0</span>
+                <span class="cl-note">Knowledge Base refresh: “All guides” opens with summary tiles, a card per product (guides, popular modules to jump into) and Recently updated; guides are cards in their product's colour with a module badge; a guide opens with a coloured header, steps, headings and buttons in the product colour, and amber / red callouts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.77.0</span>
+                <span class="cl-note">Meeting Notes redesigned: summary tiles that filter (this month, open actions, overdue, clients met), meeting list with calendar badges and a colour per client, the chosen meeting on the right with a coloured header, attendee avatars, numbered decisions, action progress bar and colour-coded sections; on phones list → meeting → back</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.76.1</span>
+                <span class="cl-note">Fix Meeting Notes: opening Edit (or a double-click edit) on another meeting while one was open carried the first meeting's typed values — Redmine issues, notes, title — into the other</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.76.0</span>
+                <span class="cl-note">Meeting Notes without the full form: double-click Discussion, Decisions or an action item to edit it in place; add an action straight from the list (“@name” sets the owner); Updates log under each meeting for follow-ups (date + who), also in Copy text and search</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.75.0</span>
+                <span class="cl-note">Meeting Notes: link Redmine issues (#32312 or paste the Redmine link) — shown with subject and status, in Copy text and search; #numbers and Redmine links in the discussion, decisions and action items become links</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.74.0</span>
+                <span class="cl-note">Meeting Notes: attach images (choose, drag in, or paste a screenshot with Ctrl+V); big photos are scaled down before upload. Thumbnails in the notes, full-size viewer with ← → and Esc; removed images are deleted from storage too</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.73.0</span>
+                <span class="cl-note">New menu Meeting Notes (MoM): title, date, optional client, attendees, place, discussion, decisions and action items (owner, due date, done). Search, client filter, Copy text for WhatsApp, open action items on the sidebar; a client's meetings also show in By Client → Meetings. Needs the new firestore.rules</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.72.0</span>
+                <span class="cl-note">Client Versions: Report version (/reports/version) next to Front-end, API V2 and API V3 — table column, rollout card, Latest Report filter, details, Compare, CSV, history and Telegram alerts. Not counted in “Parts out of step”</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.71.1</span>
+                <span class="cl-note">Shared client report: the page scrolls (it stopped after the first screen), and the last section reads "Highlights"</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.71.0</span>
+                <span class="cl-note">Client Report: "Share link" — a live, read-only page for the client (/r/…), no sign-in. Status comes from Redmine each time it is opened, with the client's request lists; no Redmine links or internal tools. One link per client, "Stop sharing" switches it off</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.70.0</span>
+                <span class="cl-note">Client requests: full CRUD — edit a point (number, text, detail; ✎ or double-click), move points up / down, delete keeps 1, 2, 3 numbering, edit list title and date in place, remove attached files (also deleted from storage)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.10</span>
+                <span class="cl-note">Compare versions in the theme colours: white cells, reference column in indigo, older / newer / same as small pills</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.9</span>
+                <span class="cl-note">Compare versions: framed table with column dividers, header band, and a coloured edge on older / newer / same cells</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.8</span>
+                <span class="cl-note">Version history in client details: same bordered table as Recent changes (Date &amp; time · Part · Before · After)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.7</span>
+                <span class="cl-note">Recent changes: date and time instead of "x days ago", and columns Client · Part · Before · After</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.6</span>
+                <span class="cl-note">Client Versions: Recent changes shown as a bordered list, one change per row</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.5</span>
+                <span class="cl-note">Client requests: a point's status is the linked issue's own status (In Progress → In progress); sub-issues are only shown for information</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.4</span>
+                <span class="cl-note">Client report / requests: a reopened issue (closed before, now In Progress again) no longer counts as done — the current status decides</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.3</span>
+                <span class="cl-note">Client requests: the issue you pick is linked exactly (no more jumping to the top parent); suggestions stop at the request issue under a client group issue (e.g. RUMAH YATIM → request → FE / BE)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.2</span>
+                <span class="cl-note">Client requests: the issue picker lists every issue of the client again (sub-issues marked "sub-issue of #…"), parent issues without the Client Name field are fetched too, and up to 1,000 issues per product are loaded</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.1</span>
+                <span class="cl-note">Client requests: points link to the parent issue only; suggestions are parent issues, a sub-issue typed by hand links its parent, and the sub-issues count in the status ("2/3 sub-issues done")</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.69.0</span>
+                <span class="cl-note">By Client → Requests: keep the client's own request list (pasted text or Excel / CSV, plus the original files), link each point to Redmine issues with suggestions, see per point what is done, in progress, not started or not in Redmine yet; also in the Report</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.68.5</span>
+                <span class="cl-note">Client Versions: Recent changes also shows the latest 3, "+N more" opens the rest</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.68.4</span>
+                <span class="cl-note">Client Versions: version history shows the latest 3 changes, "+N more" opens the rest</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.68.3</span>
+                <span class="cl-note">Login check: the login step also sends the data's slug, like the Zahir web app; README notes that each server has its own client header</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.68.2</span>
+                <span class="cl-note">Login check: the key button and the first check now appear even when the app opens straight on Client Versions (the account list was read before sign-in finished); checks repeat every 30 min while the app is open; a test server without a working account says why in its details</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.68.1</span>
+                <span class="cl-note">Login-check alerts in the notification bell (and as a browser notification when browser alerts are on) on every screen: failing and OK again</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.68.0</span>
+                <span class="cl-note">Client Versions: login + open-data check for Dev / Prod test servers — shows which step failed (login, open data, read data) with the server's message, runs with the scheduled check and alerts Telegram</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.67.3</span>
+                <span class="cl-note">Client report: "+N more" opens the rest of a list, "Show all issues" opens every list, and the downloaded / copied image always holds every issue (with issue numbers)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.67.2</span>
+                <span class="cl-note">Sign-in on phones and other devices: Google opens in a popup instead of a full-page redirect, which some browsers lost on the way back (back to the login page)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.67.1</span>
+                <span class="cl-note">Client Versions: public IP addresses, plain http and ports such as 8989 are read too (e.g. http://202.152.63.154:8989/auth); servers without HTTPS switch to http by themselves</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.67.0</span>
+                <span class="cl-note">Client Versions: test servers split into Dev servers and Prod servers (choose Dev or Prod in Edit)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.66.1</span>
+                <span class="cl-note">After a deploy the app always loads matching code files (no more "does not provide an export" errors from cached files)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.66.0</span>
+                <span class="cl-note">By Client → Report is now a one-page summary (totals, status donut, progress per topic, backlog lists, highlights for the PM) with Download / Copy image</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.65.0</span>
+                <span class="cl-note">New colour theme: indigo → violet (light and dark), replacing teal → cyan</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.64.4</span>
+                <span class="cl-note">Client Versions: front-end version of Zahir MRP sites (e.g. mrp.zahir.dev) is read too</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.64.3</span>
+                <span class="cl-note">Client Versions: Latest FE / V2 / V3 now include test servers (ERP DEV), so Behind latest shows clients behind the tester version</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.64.2</span>
+                <span class="cl-note">Team &amp; access: role picker in the app's own font and style, with what each role can do</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.64.1</span>
+                <span class="cl-note">Team &amp; access: styled e-mail and role fields; tells you when the new Firestore rules still need publishing</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.64.0</span>
+                <span class="cl-note">Team &amp; access: invite people by e-mail with a role (Owner, Admin, Editor, Viewer), no more workspace code or guest mode; viewers only read; Delete All Data for the owner only</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.63.0</span>
+                <span class="cl-note">New Issue on one screen: fields in 4 columns, notes and description side by side, attachments and Push on one line, even spacing</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.62.2</span>
+                <span class="cl-note">Sidebar: the number on the open menu is readable for every value, not only 0</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.62.1</span>
+                <span class="cl-note">Sidebar: the count of the open menu is readable again when it is 0</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.62.0</span>
+                <span class="cl-note">New colours: teal → cyan sidebar and buttons, calmer background, neutral sidebar counts; red is kept for problems only</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.61.4</span>
+                <span class="cl-note">Client Versions: rows show only name, address and versions (open issues are in By Client; "out of step" stays in the filter and details)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.61.3</span>
+                <span class="cl-note">Client Versions: client names are no longer cut off; open-issue and out-of-step badges sit under the address</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.61.2</span>
+                <span class="cl-note">Client Versions: the "from … · ago" line under a version is gone (tidier rows); hover the version to see it</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.61.1</span>
+                <span class="cl-note">Client Versions ↔ By Client: sites also link when the Redmine name is longer (e.g. "Aptekindo" ↔ "PT Aptekindo Nusantara"); By Client says when a client isn't linked yet</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.61.0</span>
+                <span class="cl-note">Client Versions: nightly server check with Telegram alerts (version changes, sites down / back up), Down filter, and a link to By Client (open issues per site, versions shown on the client page)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.60.3</span>
+                <span class="cl-note">Client Versions details: version and release date separated by "|"</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.60.2</span>
+                <span class="cl-note">Client Versions details: API V2 / V3 show just the version and release date instead of the raw answer</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.60.1</span>
+                <span class="cl-note">Client Versions: sites marked Test are listed in their own block at the top, as the reference for the clients below</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.60.0</span>
+                <span class="cl-note">Client Versions: Compare 2–4 sites side by side (e.g. DEV, production and a client) with how far each part is behind or ahead, and copy it as text</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.59.3</span>
+                <span class="cl-note">Client Versions: click anywhere on a client's row to open or close its details (before, only the name text itself worked)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.59.2</span>
+                <span class="cl-note">Client Versions: clicking a client name opens its details again, also while screen sharing or with the window partly covered</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.59.1</span>
+                <span class="cl-note">Client Versions: clicking a client name (or ↻ / edit) no longer gets lost while versions are being checked</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.59.0</span>
+                <span class="cl-note">Client Versions: rollout % per part, recent changes + per-client version history, optional Telegram alert on version change, "parts out of step" warning, and a Test server option</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.58.2</span>
+                <span class="cl-note">Client Versions: Latest FE, Latest V2 and Latest V3 filters with the newest version of each; Behind latest now covers all three</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.58.1</span>
+                <span class="cl-note">Client Versions: version columns get equal room and full version numbers</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.58.0</span>
+                <span class="cl-note">Client Versions also shows each site's backend versions: API V2 (/api/v2/versions/dev) and API V3 (/api/v3/version), with CSV export</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.57.2</span>
+                <span class="cl-note">Client Versions: filters stay short however many versions exist: All, Latest, Behind latest, Couldn't read, plus a "Specific version" list</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.57.1</span>
+                <span class="cl-note">Client Versions: clear reason when a site can't be opened, and sites with an incomplete SSL certificate are read anyway (marked in the details)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.57.0</span>
+                <span class="cl-note">Client Versions works with any client domain (e.g. erp.ecohansung.com), no setup needed; ready for long lists (faster checks, paste hundreds at once)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.56.3</span>
+                <span class="cl-note">Client Versions: fixed reading Zahir ERP's list of app files, so the version on the login page is found</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.56.2</span>
+                <span class="cl-note">Client Versions finds the Zahir ERP version faster on large sites (shared files are checked first)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.56.1</span>
+                <span class="cl-note">Client Versions now reads Zahir ERP's real version (e.g. V2.26.10.081600) from the login page, and recovers by itself after a permission error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.56.0</span>
+                <span class="cl-note">New menu Client Versions: your list of clients' Zahir ERP addresses, with the version each one runs read automatically from its login page</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.55.0</span>
+                <span class="cl-note">By Client: Report tab per client with each request, what was asked, latest progress note, grouped by Not started / In progress / Done; copy and CSV export</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.54.0</span>
+                <span class="cl-note">Knowledge Base screenshots are stored on Cloudinary (only the link is saved); one click moves existing screenshots out of the database</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.53.0</span>
+                <span class="cl-note">Full backup (plans, summaries, Knowledge Base with screenshots and menus, private issue notes); every copy button now uses the same reliable copy with a manual-copy fallback</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.52.2</span>
+                <span class="cl-note">Sidebar: By Client moved right under Dashboard</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.52.1</span>
+                <span class="cl-note">By Client: only Zahir ERP, ERP One and Zahir ERP Manufacturing are shown and counted; product buttons no longer overlap</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.52.0</span>
+                <span class="cl-note">By Client: filter by product and status, fixed columns for New / In Progress / Ready for Testing / Resolved, totals, sortable headers</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.51.1</span>
+                <span class="cl-note">Update Plans: Copy for Telegram works on every browser (falls back to a copy box when blocked), keeps bold title and clickable links when pasted into Telegram</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.51.0</span>
+                <span class="cl-note">By Client shows all clients with open/total issues, statuses and last update; filter, sort, and click a client to see its issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.50.0</span>
+                <span class="cl-note">New Issue: "Paste from ChatGPT" fills Subject, Tracker, Priority, Client/Project and Description from a ChatGPT bug report</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.49.1</span>
+                <span class="cl-note">Generate description: QA bug-report format (Environment, Precondition, Steps to Reproduce, Actual/Expected, Severity/Priority, Notes, Attachment) and "[Bug] …" subject</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.49.0</span>
+                <span class="cl-note">Generate description follows your team's Redmine layout per tracker, uses the form fields (Client, Project Name, category), understands labelled notes, keeps screenshots in place</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.48.1</span>
+                <span class="cl-note">New Issue: screenshots inside the description (paste at the cursor, preview), editor toolbar like the Knowledge Base, Markdown/Textile for Redmine</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.48.0</span>
+                <span class="cl-note">New Issue: Assignee (developers first), Status, simplified Issue details (Status, Priority, Assignee, Category, Project Name, Client Name), and attachments with screenshot paste</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.47.2</span>
+                <span class="cl-note">New Issue fixed: form loads after reload, only trackers enabled for the project are offered, Redmine custom fields (e.g. Client Name) can be filled in, and Redmine's exact error is shown in the form</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.47.1</span>
+                <span class="cl-note">Fix: the red dot on the bell no longer shows when there is nothing new; the panel now lists Ready for Testing issues you haven't opened, with "Mark all as seen"</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.47.0</span>
+                <span class="cl-note">Private notes on issues: mark issues with missing information, filter with "My notes"; visible only to you</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.46.2</span>
+                <span class="cl-note">Fix: switching between Issue Status menus quickly (e.g. Rework → Feedback) could show the previous menu's issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.46.1</span>
+                <span class="cl-note">New Issue Status menu: Resolved (below On Deploy), listing issues with status Resolved</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.46.0</span>
+                <span class="cl-note">Dashboard redesign: "Needs attention" first with a compact triage list, new issues per project as bars, release paperwork, tidier recent plans and latest summary; New-issue counts now match the sidebar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.45.2</span>
+                <span class="cl-note">Knowledge Base list: module path and client move under the title; the right side shows only the date, aligned on every row</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.45.1</span>
+                <span class="cl-note">Knowledge Base: Zahir Manufacturing merged into Zahir MRP (same product); existing guides and menus move automatically</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.45.0</span>
+                <span class="cl-note">Knowledge Base: define your own modules and submenus per product with Edit menus; the guide editor picks Module and Submenu from those lists</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.44.0</span>
+                <span class="cl-note">Knowledge Base: optional Submenu under each module (e.g. Master Data › Contacts), shown in the library tree, list groups, and breadcrumbs</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.43.4</span>
+                <span class="cl-note">Knowledge Base editor: shorter field labels that stay on one line on small screens</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.43.3</span>
+                <span class="cl-note">Issue lists and sidebar counts refresh from Redmine within 2 minutes (was up to 20); lists say when filters hide issues, with a Clear filters link; "updated" time shown</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.43.2</span>
+                <span class="cl-note">Knowledge Base: the Client field now suggests every client found in Redmine issues, not just recently loaded ones</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.43.1</span>
+                <span class="cl-note">Knowledge Base: optional Client field for client-specific guides, with Redmine client suggestions and a link to that client's issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.43.0</span>
+                <span class="cl-note">Knowledge Base redesign: library tree, wide reading view with section outline, side-by-side editor with live preview</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.42.3</span>
+                <span class="cl-note">Knowledge Base: "Important" callouts are highlighted as warnings again</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.42.1</span>
+                <span class="cl-note">UI language: English across Documentation, Knowledge Base, and navigation</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.42.0</span>
+                <span class="cl-note">New Knowledge Base: write and share how-to guides for Zahir ERP, ERP One, Manufacturing & MRP, with screenshots</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.41.0</span>
+                <span class="cl-note">New Documentation page (full feature guide with search); collapsed sidebar shows dots instead of overlapping numbers</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.40.4</span>
+                <span class="cl-note">Sidebar can be collapsed to icons (☰ button, remembered); mobile drawer no longer hidden under topbar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.40.3</span>
+                <span class="cl-note">Sidebar count badges: white text</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.40.2</span>
+                <span class="cl-note">Sidebar text: plain white for better contrast</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.40.1</span>
+                <span class="cl-note">Fix: "Could not load projects: Sign-in required" after reload on Plans</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.40.0</span>
+                <span class="cl-note">Internal: code split into feature modules (no visible changes)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.39.1</span>
+                <span class="cl-note">Cleanup leftover files; guest mode no longer calls Redmine/Telegram API</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.39.0</span>
+                <span class="cl-note">Security: Google sign-in required for Redmine/Telegram, locked Firestore rules, fixed stale CSS cache</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.9</span>
+                <span class="cl-note">Sidebar theme: burgundy</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.8</span>
+                <span class="cl-note">Sidebar theme: elegant blue</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.7</span>
+                <span class="cl-note">Notification panel no longer clipped under topbar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.6</span>
+                <span class="cl-note">Notification panel: reliable close (×, outside click, Esc)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.5</span>
+                <span class="cl-note">Sidebar theme: tosca / teal (not too bright)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.4</span>
+                <span class="cl-note">Brighter sidebar + pill count badges</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.3</span>
+                <span class="cl-note">Global search: Client Name + open By Client</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.2</span>
+                <span class="cl-note">Fix broken layout: topbar title, batch bar, By Client page</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.1</span>
+                <span class="cl-note">By Client: fix header text + clearer search hint</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.38.0</span>
+                <span class="cl-note">By Client — issues via Redmine Client Name field</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.10</span>
+                <span class="cl-note">Issue Status badges prefetch on app boot (was missing)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.9</span>
+                <span class="cl-note">Fix Issue Status always 0 (cache reused wrong status)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.8</span>
+                <span class="cl-note">Issue Status: cache lists + sidebar badges so counts are not always 0</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.7</span>
+                <span class="cl-note">Fix Update Plan card minimize/collapse</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.6</span>
+                <span class="cl-note">Update Plan cards — clean neutral style + project accent</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.5</span>
+                <span class="cl-note">Quick filters (Immediate/Unassigned/7d) + Compact density</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.4</span>
+                <span class="cl-note">Batch select issues + improved empty states</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.3</span>
+                <span class="cl-note">Chips on Tester/Active Work/What Next · sticky filters</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.2</span>
+                <span class="cl-note">Dashboard: Needs attention today (Immediate, Stuck, Deploy, Rework, Feedback)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.1</span>
+                <span class="cl-note">Issue Status: group by project/assignee + FE/BE/assignee chips</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.37.0</span>
+                <span class="cl-note">Issue Status: New, On Progress, On Deploy, Rework, Feedback · hide Showing N of N</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.36.1</span>
+                <span class="cl-note">Global search: New Issues + Active Work</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.36.0</span>
+                <span class="cl-note">Persist filters, skeletons, lazy RFT, notes, global search</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.4</span>
+                <span class="cl-note">Mobile Google login same account as laptop</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.3</span>
+                <span class="cl-note">Mobile Google login: force redirect + clearer errors</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.2</span>
+                <span class="cl-note">Fix installPwaApp not defined on boot</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.1</span>
+                <span class="cl-note">HOTFIX: restore index.html (site was showing raw JS)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.35.0</span>
+                <span class="cl-note">PWA: proper icons + Install on phone</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.34.2</span>
+                <span class="cl-note">Short share links: /share?id=xxxxxxxx</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.34.1</span>
+                <span class="cl-note">Dedicated share page: /share.html (no login)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.34.0</span>
+                <span class="cl-note">Share plan link — SDET open without login/workspace</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.5</span>
+                <span class="cl-note">Notifications: badge, recent list, faster poll, better alerts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.4</span>
+                <span class="cl-note">Create issue: clearer Redmine permission errors</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.3</span>
+                <span class="cl-note">Fix create issue — require Project + Tracker before push</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.2</span>
+                <span class="cl-note">Fix Vercel Hobby cron limit (deploys work again)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.1</span>
+                <span class="cl-note">New Issue menu right under Dashboard</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.33.0</span>
+                <span class="cl-note">Create Redmine issue + generate description</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.32.0</span>
+                <span class="cl-note">Vercel Cron RFT → Telegram (no tab needed)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.31.0</span>
+                <span class="cl-note">Redmine pagination (up to 500 issues)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.30.1</span>
+                <span class="cl-note">Fix Vercel 404 (static dist build)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.30.0</span>
+                <span class="cl-note">SW cache fix + Active Work badge prefetch</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.29.1</span>
+                <span class="cl-note">Summary grouping fix + light New Issues badge prefetch</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.29.0</span>
+                <span class="cl-note">Auto-summary groups by tracker (Feature/Enhance/Optim/Bug)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.7</span>
+                <span class="cl-note">Telegram copy: links-only or link+description</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.6</span>
+                <span class="cl-note">Telegram copy: link only, no #issue number</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.5</span>
+                <span class="cl-note">Use Redmine category field for plan issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.4</span>
+                <span class="cl-note">Fix wrong Design label on FE issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.3</span>
+                <span class="cl-note">Plan issue list shows FE/BE category</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.2</span>
+                <span class="cl-note">Sync preview: category column (FE/BE/Design)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.1</span>
+                <span class="cl-note">Fix Telegram RFT auto-alerts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.28.0</span>
+                <span class="cl-note">Plans &amp; Summaries per project</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.27.1</span>
+                <span class="cl-note">Project filter on all issue lists</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.27.0</span>
+                <span class="cl-note">Shareable URLs per menu and tester category</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.2</span>
+                <span class="cl-note">Tester: hide uncategorized; split FE/BE/Design/Other</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.1</span>
+                <span class="cl-note">Tester All category — ERP One Design issues visible</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.26.0</span>
+                <span class="cl-note">Telegram RFT auto-notify + fix tester badge counts</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.8</span>
+                <span class="cl-note">ERP One issues without category → Other / inferred</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.7</span>
+                <span class="cl-note">Per-project RFT logs + clearer Telegram errors</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.6</span>
+                <span class="cl-note">Hardcode Redmine project IDs for ERP / One / MFG</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.5</span>
+                <span class="cl-note">Tester: reliably load ERP One + Manufacturing</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.4</span>
+                <span class="cl-note">Tester Queue group by project</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.3</span>
+                <span class="cl-note">Fix Tester Queue fromCache error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.2</span>
+                <span class="cl-note">Fix missing refreshDashAttention boot error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.1</span>
+                <span class="cl-note">Tester Queue always includes Zahir ERP + One + MRP</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.25.0</span>
+                <span class="cl-note">Tester multi-project · auto-refresh · plan from What Next · Telegram</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.24.0</span>
+                <span class="cl-note">What Next — ranked New issues to work first</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.4</span>
+                <span class="cl-note">Faster New Issues + Active Work (cache 8min)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.3</span>
+                <span class="cl-note">Clean assignee display — name only</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.2</span>
+                <span class="cl-note">Fix config.js syntax error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.1</span>
+                <span class="cl-note">Active Work: status, priority, date filters</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.23.0</span>
+                <span class="cl-note">Active Work (In Progress + On Deploy) · scrollable What's New</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.4</span>
+                <span class="cl-note">Dashboard: New issues count per project</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.3</span>
+                <span class="cl-note">New Issues: priority filter</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.2</span>
+                <span class="cl-note">New Issues: status filter</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.1</span>
+                <span class="cl-note">New Issues: date filter + sort Immediate first</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.22.0</span>
+                <span class="cl-note">New Issues — status New from 3 projects + copy links</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.6</span>
+                <span class="cl-note">Wider content body — less empty side space</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.5</span>
+                <span class="cl-note">Fix save Summary &amp; Plan form handlers</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.4</span>
+                <span class="cl-note">Fix plan card clicks + softer Immediate priority highlight</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.3</span>
+                <span class="cl-note">Fix async line-break syntax error on notif panel</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.2</span>
+                <span class="cl-note">Fix notification toggle syntax error</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.1</span>
+                <span class="cl-note">Notification bell in topbar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.21.0</span>
+                <span class="cl-note">Browser notifications for new Ready for Testing issues</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.20.0</span>
+                <span class="cl-note">Priority filter · new-issue sidebar dots · loading skeleton</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.2</span>
+                <span class="cl-note">Fix duplicate Tester list (table + cards both showing)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.1</span>
+                <span class="cl-note">Priority colors — Immediate red, High orange, Low green</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.19.0</span>
+                <span class="cl-note">Team workspace · Redmine error vs empty · mobile Tester cards</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.18.1</span>
+                <span class="cl-note">Fix Tester Queue sidebar clicks (Backend / Design / Other)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.18.0</span>
+                <span class="cl-note">P1: Modular JS — config, icons, firebase, app (ES modules)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.17.0</span>
+                <span class="cl-note">P0 security: Firestore rules + guest→Google data migration</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.16.2</span>
+                <span class="cl-note">Mobile Google login via redirect (fixes popup blocked)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.16.1</span>
+                <span class="cl-note">Tester Queue: resilient Redmine status lookup (retry on 503)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.16.0</span>
+                <span class="cl-note">Login page on open — Google Sign-In before app</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.15.4</span>
+                <span class="cl-note">Fix Settings HTML structure (layout no longer broken)</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.15.3</span>
+                <span class="cl-note">Cleaner What's New list</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.15.0</span>
+                <span class="cl-note">Google Sign-In for sync across PC &amp; phone</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.14.2</span>
+                <span class="cl-note">Tester table · category menus in sidebar</span>
+              </div>
+              <div class="changelog-item">
+                <span class="cl-ver">v4.13.0</span>
+                <span class="cl-note">PWA, Redmine cache, English UI</span>
+              </div>

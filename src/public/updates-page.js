@@ -22,6 +22,10 @@ const catClass = (c) => /front|^fe\b/i.test(c) ? 'is-fe' : /back|^be\b|api/i.tes
 
 const host = document.getElementById('updBody');
 const token = (location.pathname.match(/^\/u\/([A-Za-z0-9_-]+)/) || [])[1] || new URLSearchParams(location.search).get('u') || '';
+/* v5.3.0: inside the app (Update History menu) the page runs in a frame and loads with the
+   member's own sign-in instead of a public token */
+const APP = new URLSearchParams(location.search).get('app') === '1' && window.parent !== window;
+if(APP) document.body.classList.add('is-app');
 const U = { data: null, q: '', product: 'all', stage: 'all', client: '', open: new Set(), statuses: {}, asked: new Set(), showAll: false };
 const PAGE = 15;
 /* v4.82.0: "Ready for update" — a summary means the installer for that update is built, so the
@@ -159,6 +163,7 @@ function render(){
 let stTimer = null;
 function loadStatuses(){
   clearTimeout(stTimer);
+  if(APP) return;   // the in-app payload already carries every status
   stTimer = setTimeout(async () => {
     const ids = [...new Set([...host.querySelectorAll('[data-st]')].map(x => x.dataset.st))].filter(id => !U.asked.has(id));
     for(let n = 0; n < ids.length; n += 100){
@@ -196,15 +201,22 @@ Object.assign(window, {
 function toastMsg(t){ const el = document.getElementById('toast'); if(!el) return; el.textContent = t; el.className = 'toast show'; clearTimeout(toastMsg.t); toastMsg.t = setTimeout(() => { el.className = 'toast'; }, 2200); }
 
 async function load(){
-  if(!token){ fail('This link is incomplete.'); return; }
+  if(!token && !APP){ fail('This link is incomplete.'); return; }
   try {
-    const r = await fetch(`/api/report-share?u=${encodeURIComponent(token)}`, { cache: 'no-store' });
+    let r;
+    if(APP){
+      const user = window.parent.__erpAuth && window.parent.__erpAuth.currentUser;
+      if(!user){ fail('Sign in to the app to see the update history.'); return; }
+      r = await fetch('/api/report-share?history=1', { cache: 'no-store', headers: { Authorization: 'Bearer ' + await user.getIdToken() } });
+    } else {
+      r = await fetch(`/api/report-share?u=${encodeURIComponent(token)}`, { cache: 'no-store' });
+    }
     const d = await r.json().catch(() => ({}));
     if(!r.ok){ fail(d.error || 'The page could not be loaded.'); return; }
     U.data = d;
   } catch(_){ fail('The page could not be loaded. Check your connection and refresh.'); return; }
   document.getElementById('prMeta').innerHTML = `<span class="pr-live"><i></i>Live</span><span>Updated ${escapeHtml(new Date(U.data.generatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span><button type="button" class="btn btn-secondary btn-sm" onclick="location.reload()">Refresh</button>`;
-  U.data.updates.forEach(u => u.issues.forEach(i => { if(i.status !== undefined){ U.statuses[i.id] = { status: i.status, closed: i.closed }; U.asked.add(i.id); } }));
+  U.data.updates.forEach(u => u.issues.forEach(i => { if(i.status !== undefined){ U.statuses[i.id] = { status: i.status, closed: i.closed }; U.asked.add(i.id); } else if(APP) U.asked.add(i.id); }));
   U.ready = new Set();
   { const seen = new Set(); U.data.updates.forEach(u => { if(!seen.has(u.project)){ seen.add(u.project); U.ready.add(u.id); } }); }
   if(!U.data.updates.length){ host.innerHTML = '<div class="pr-state"><p><b>No updates yet.</b></p></div>'; return; }
