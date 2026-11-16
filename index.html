@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#061E57">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,8 +24,9 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/theme-v5.css">
 
 <script>
   (function(){
@@ -46,6 +47,7 @@
 </div>
 
 <div class="auth-gate hidden" id="authGate">
+  <div class="v5-aurora v5-aurora-band" aria-hidden="true"><i></i><i></i><i></i></div>
   <div class="auth-card">
     <div class="auth-brand">
       <img src="/icon-192.png" alt="Zahir ERP" width="56" height="56" onerror="this.src='/icon.png'">
@@ -94,6 +96,55 @@
       </svg>
       <span class="label">Dashboard</span>
     </button>
+    <div class="nav-section">Releases</div>
+    <button class="nav-item" data-view="plans">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+        <path d="M9 12h6M9 16h4"/>
+      </svg>
+      <span class="label">Update Plans</span>
+      <span class="count" id="countPlans" data-zero="1">0</span>
+    </button>
+    <button class="nav-item" data-view="summaries">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="8" y1="13" x2="16" y2="13"/>
+        <line x1="8" y1="17" x2="13" y2="17"/>
+      </svg>
+      <span class="label">Update Summaries</span>
+      <span class="count" id="countSummaries" data-zero="1">0</span>
+    </button>
+    <div class="nav-section">Issues</div>
+    <button class="nav-item" data-view="newissues" data-hub="issues" onclick="openIssueStatusView(window.__issueStatusKey || 'new')" title="New · On Progress · On Deploy · Resolved · Rework · Feedback">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/>
+      </svg>
+      <span class="label">Issue Board</span>
+      <span class="count" id="hubIssueCount" data-zero="1" title="New issues">0</span>
+    </button>
+    <button class="nav-item" data-view="tester" data-hub="tester" onclick="openTesterCategory(window.__testerCategory || 'all')" title="Ready for Testing · All · Front End · Backend · Design · Other">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+      </svg>
+      <span class="label">Tester Queue</span>
+      <span class="count" id="hubTesterCount" data-zero="1" title="Ready for Testing">0</span>
+    </button>
+    <button class="nav-item" data-view="whatnext" onclick="openWhatNextView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span class="label">What Next</span>
+      <span class="count" id="countWhatNext" data-zero="1">0</span>
+    </button>
+    <button class="nav-item" data-view="createissue" onclick="openCreateIssueView()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 5v14M5 12h14"/>
+      </svg>
+      <span class="label">New Issue</span>
+    </button>
+    <div class="nav-section">Clients</div>
     <button class="nav-item" data-view="clients" onclick="openClientsView()">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -111,42 +162,6 @@
       <span class="label">Client Versions</span>
       <span class="count" id="countSites" data-zero="1" title="Sites behind the latest version">0</span>
     </button>
-
-    <button class="nav-item" data-view="createissue" onclick="openCreateIssueView()">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 5v14M5 12h14"/>
-      </svg>
-      <span class="label">New Issue</span>
-    </button>
-
-
-    <div class="nav-section">Workspace</div>
-    <button class="nav-item" data-view="plans">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
-        <rect x="9" y="3" width="6" height="4" rx="1"/>
-        <path d="M9 12h6M9 16h4"/>
-      </svg>
-      <span class="label">Update Plans</span>
-      <span class="count" id="countPlans" data-zero="1">0</span>
-    </button>
-
-    <button class="nav-item" data-view="summaries">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="8" y1="13" x2="16" y2="13"/>
-        <line x1="8" y1="17" x2="13" y2="17"/>
-      </svg>
-      <span class="label">Update Summaries</span>
-      <span class="count" id="countSummaries" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="kb">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>
-      </svg>
-      <span class="label">Knowledge Base</span>
-    </button>
     <button class="nav-item" data-view="meetings" title="Minutes of meetings, with or without a client">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/>
@@ -154,111 +169,25 @@
       <span class="label">Meeting Notes</span>
       <span class="count" id="countMeetings" data-zero="1" title="Open action items">0</span>
     </button>
-    <div class="nav-section">Tester Queue</div>
-    <button class="nav-item" data-view="tester" data-tester-cat="all" onclick="openTesterCategory('all')">
+    <div class="nav-section">Library</div>
+    <button class="nav-item" data-view="kb">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        <path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>
       </svg>
-      <span class="label">All</span>
-      <span class="count" id="countTesterAll" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="tester" data-tester-cat="frontend" onclick="openTesterCategory('frontend')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
-      </svg>
-      <span class="label">Front End</span>
-      <span class="count" id="countTesterFrontend" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="tester" data-tester-cat="backend" onclick="openTesterCategory('backend')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
-        <circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
-      </svg>
-      <span class="label">Backend</span>
-      <span class="count" id="countTesterBackend" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="tester" data-tester-cat="design" onclick="openTesterCategory('design')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>
-      </svg>
-      <span class="label">Design</span>
-      <span class="count" id="countTesterDesign" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="tester" data-tester-cat="other" onclick="openTesterCategory('other')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9 3h6v4H9z"/>
-        <path d="M10 7v4.5L7 18h10l-3-6.5V7"/>
-        <path d="M8 21h8"/>
-      </svg>
-      <span class="label">Other</span>
-      <span class="count" id="countTesterOther" data-zero="1">0</span>
-    </button>
-
-    <div class="nav-section">Issue Status</div>
-    <button class="nav-item" data-view="newissues" data-issue-status="new" onclick="openIssueStatusView('new')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>
-      <span class="label">New</span>
-      <span class="count" id="countStatusNew" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="newissues" data-issue-status="progress" onclick="openIssueStatusView('progress')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-      </svg>
-      <span class="label">On Progress</span>
-      <span class="count" id="countStatusProgress" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="newissues" data-issue-status="deploy" onclick="openIssueStatusView('deploy')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2v13"/><path d="m5 9 7 7 7-7"/><path d="M5 19h14"/>
-      </svg>
-      <span class="label">On Deploy</span>
-      <span class="count" id="countStatusDeploy" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="newissues" data-issue-status="resolved" onclick="openIssueStatusView('resolved')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>
-      </svg>
-      <span class="label">Resolved</span>
-      <span class="count" id="countStatusResolved" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="newissues" data-issue-status="rework" onclick="openIssueStatusView('rework')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-      </svg>
-      <span class="label">Rework</span>
-      <span class="count" id="countStatusRework" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="newissues" data-issue-status="feedback" onclick="openIssueStatusView('feedback')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-      <span class="label">Feedback</span>
-      <span class="count" id="countStatusFeedback" data-zero="1">0</span>
-    </button>
-    <button class="nav-item" data-view="whatnext" onclick="openWhatNextView()">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-      </svg>
-      <span class="label">What Next</span>
-      <span class="count" id="countWhatNext" data-zero="1">0</span>
-    </button>
-
-    <div class="nav-section">System</div>
-    <button class="nav-item" data-view="settings">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-      <span class="label">Settings</span>
+      <span class="label">Knowledge Base</span>
     </button>
     <button class="nav-item" data-view="docs">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 19.5V5a2 2 0 0 1 2-2h13v16H6.5A2.5 2.5 0 0 0 4 21.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H19"/><path d="M9 7h6"/><path d="M9 11h4"/>
       </svg>
       <span class="label">Documentation</span>
+    </button>
+    <button class="nav-item" data-view="settings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      <span class="label">Settings</span>
     </button>
   </nav>
 
@@ -371,20 +300,54 @@
     <!-- DASHBOARD -->
     <section class="view active" id="view-dashboard">
       <div class="dash">
-        <header class="dash-head">
-          <div class="dash-head-text">
-            <p class="dash-date" id="dashToday"></p>
-            <h2 class="dash-title">What needs you today</h2>
-          </div>
-          <div class="dash-head-actions">
-            <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="openPlansWithSync()">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
-              Sync Redmine
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="switchView('summaries'); openAddModal()">New summary</button>
-            <button type="button" class="btn btn-primary btn-sm" data-perm="edit" onclick="switchView('plans'); openAddModal()">New plan</button>
-          </div>
-        </header>
+        <!-- v5.0.0: hero — today's counts on the moving sapphire background -->
+        <section class="dash-hero" aria-label="Today">
+          <div class="v5-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+          <header class="dash-head">
+            <div class="dash-head-text">
+              <p class="dash-date" id="dashToday"></p>
+              <h2 class="dash-title">What needs you today</h2>
+            </div>
+            <div class="dash-head-actions">
+              <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="openPlansWithSync()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M3 21v-5h5"/></svg>
+                Sync Redmine
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" data-perm="edit" onclick="switchView('summaries'); openAddModal()">New summary</button>
+              <button type="button" class="btn btn-primary btn-sm" data-perm="edit" onclick="switchView('plans'); openAddModal()">New plan</button>
+            </div>
+          </header>
+          <div class="dash-attention" id="dashAttention">
+              <button type="button" class="dash-att-card is-clickable tone-red" id="attCardImmediate" onclick="openIssueStatusView('new')">
+                <span class="dash-att-value" id="attImmediateNew">—</span>
+                <span class="dash-att-label">Immediate, still New</span>
+                <span class="dash-att-hint" id="attImmediateHint">High priority backlog</span>
+              </button>
+              <button type="button" class="dash-att-card is-clickable tone-amber" id="attCardStuck" onclick="openIssueStatusView('progress')">
+                <span class="dash-att-value" id="attStuckProgress">—</span>
+                <span class="dash-att-label">Stuck in progress</span>
+                <span class="dash-att-hint" id="attStuckHint">No update for 7+ days</span>
+              </button>
+              <button type="button" class="dash-att-card is-clickable tone-blue" id="attCardDeploy" onclick="openIssueStatusView('deploy')">
+                <span class="dash-att-value" id="attOnDeploy">—</span>
+                <span class="dash-att-label">On deploy</span>
+                <span class="dash-att-hint" id="attDeployHint">Waiting for release</span>
+              </button>
+              <button type="button" class="dash-att-card is-clickable tone-red" id="attCardRework" onclick="openIssueStatusView('rework')">
+                <span class="dash-att-value" id="attRework">—</span>
+                <span class="dash-att-label">Rework</span>
+                <span class="dash-att-hint" id="attReworkHint">Needs fixing again</span>
+              </button>
+              <button type="button" class="dash-att-card is-clickable tone-amber" id="attCardFeedback" onclick="openIssueStatusView('feedback')">
+                <span class="dash-att-value" id="attFeedback">—</span>
+                <span class="dash-att-label">Feedback</span>
+                <span class="dash-att-hint" id="attFeedbackHint">Waiting for a reply</span>
+              </button>
+            </div>
+        </section>
+
+        <!-- v5.0.0: installers that are ready for users (newest summary of each product) -->
+        <section class="dash-card dash-ready" id="dashReady" aria-label="Ready for update" hidden></section>
 
         <!-- 1. Triage: the one bold block on the page -->
         <section class="dash-card dash-triage" aria-labelledby="dashTriageTitle">
@@ -399,33 +362,6 @@
               </button>
             </div>
           </header>
-          <div class="dash-attention" id="dashAttention">
-            <button type="button" class="dash-att-card is-clickable tone-red" id="attCardImmediate" onclick="openIssueStatusView('new')">
-              <span class="dash-att-value" id="attImmediateNew">—</span>
-              <span class="dash-att-label">Immediate, still New</span>
-              <span class="dash-att-hint" id="attImmediateHint">High priority backlog</span>
-            </button>
-            <button type="button" class="dash-att-card is-clickable tone-amber" id="attCardStuck" onclick="openIssueStatusView('progress')">
-              <span class="dash-att-value" id="attStuckProgress">—</span>
-              <span class="dash-att-label">Stuck in progress</span>
-              <span class="dash-att-hint" id="attStuckHint">No update for 7+ days</span>
-            </button>
-            <button type="button" class="dash-att-card is-clickable tone-blue" id="attCardDeploy" onclick="openIssueStatusView('deploy')">
-              <span class="dash-att-value" id="attOnDeploy">—</span>
-              <span class="dash-att-label">On deploy</span>
-              <span class="dash-att-hint" id="attDeployHint">Waiting for release</span>
-            </button>
-            <button type="button" class="dash-att-card is-clickable tone-red" id="attCardRework" onclick="openIssueStatusView('rework')">
-              <span class="dash-att-value" id="attRework">—</span>
-              <span class="dash-att-label">Rework</span>
-              <span class="dash-att-hint" id="attReworkHint">Needs fixing again</span>
-            </button>
-            <button type="button" class="dash-att-card is-clickable tone-amber" id="attCardFeedback" onclick="openIssueStatusView('feedback')">
-              <span class="dash-att-value" id="attFeedback">—</span>
-              <span class="dash-att-label">Feedback</span>
-              <span class="dash-att-hint" id="attFeedbackHint">Waiting for a reply</span>
-            </button>
-          </div>
           <div class="dash-att-preview" id="dashAttPreview" hidden>
             <div class="dash-att-preview-list" id="dashAttPreviewList" role="list"></div>
           </div>
@@ -685,6 +621,47 @@
 
     <!-- TESTER QUEUE -->
     <section class="view" id="view-tester">
+      <div class="view-tabs" id="testerTabs" role="group" aria-label="Tester category">
+        <button class="nav-item" data-view="tester" data-tester-cat="all" onclick="openTesterCategory('all')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+      <span class="label">All</span>
+      <span class="count" id="countTesterAll" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="tester" data-tester-cat="frontend" onclick="openTesterCategory('frontend')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
+      </svg>
+      <span class="label">Front End</span>
+      <span class="count" id="countTesterFrontend" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="tester" data-tester-cat="backend" onclick="openTesterCategory('backend')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/>
+        <circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
+      </svg>
+      <span class="label">Backend</span>
+      <span class="count" id="countTesterBackend" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="tester" data-tester-cat="design" onclick="openTesterCategory('design')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/>
+      </svg>
+      <span class="label">Design</span>
+      <span class="count" id="countTesterDesign" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="tester" data-tester-cat="other" onclick="openTesterCategory('other')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 3h6v4H9z"/>
+        <path d="M10 7v4.5L7 18h10l-3-6.5V7"/>
+        <path d="M8 21h8"/>
+      </svg>
+      <span class="label">Other</span>
+      <span class="count" id="countTesterOther" data-zero="1">0</span>
+    </button>
+      </div>
       <div class="card tester-card">
         <div class="card-head">
           <h3>
@@ -756,6 +733,50 @@
 
     <!-- NEW ISSUES (status New across 3 projects) -->
     <section class="view" id="view-newissues">
+      <div class="view-tabs" id="issueTabs" role="group" aria-label="Issue status">
+        <button class="nav-item" data-view="newissues" data-issue-status="new" onclick="openIssueStatusView('new')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>
+      <span class="label">New</span>
+      <span class="count" id="countStatusNew" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="newissues" data-issue-status="progress" onclick="openIssueStatusView('progress')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+      <span class="label">On Progress</span>
+      <span class="count" id="countStatusProgress" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="newissues" data-issue-status="deploy" onclick="openIssueStatusView('deploy')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v13"/><path d="m5 9 7 7 7-7"/><path d="M5 19h14"/>
+      </svg>
+      <span class="label">On Deploy</span>
+      <span class="count" id="countStatusDeploy" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="newissues" data-issue-status="resolved" onclick="openIssueStatusView('resolved')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>
+      </svg>
+      <span class="label">Resolved</span>
+      <span class="count" id="countStatusResolved" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="newissues" data-issue-status="rework" onclick="openIssueStatusView('rework')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+      </svg>
+      <span class="label">Rework</span>
+      <span class="count" id="countStatusRework" data-zero="1">0</span>
+    </button>
+        <button class="nav-item" data-view="newissues" data-issue-status="feedback" onclick="openIssueStatusView('feedback')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span class="label">Feedback</span>
+      <span class="count" id="countStatusFeedback" data-zero="1">0</span>
+    </button>
+      </div>
       <div class="card tester-card">
         <div class="card-head">
           <h3>
@@ -1513,6 +1534,10 @@
           </div>
           <div class="card-body">
             <div class="changelog changelog-scroll" id="changelogList">
+              <div class="changelog-item">
+                <span class="cl-ver">v5.0.0</span>
+                <span class="cl-note">New design “Sapphire”: deep-blue look with a softly moving background on the dashboard and the sign-in page, new typeface, pill buttons and gentle motion (off when the device asks for reduced motion). Shorter menu: the six issue statuses are now tabs of one Issue Board page and the five tester categories are tabs of one Tester Queue page. The dashboard shows which installers are Ready for update</span>
+              </div>
               <div class="changelog-item">
                 <span class="cl-ver">v4.82.1</span>
                 <span class="cl-note">Cards no longer have the coloured circle in the top-right corner (Update history, Meeting Notes and Knowledge Base)</span>

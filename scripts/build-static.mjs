@@ -61,7 +61,7 @@ for (const page of ['index.html', 'share.html', 'report.html', 'updates.html']) 
   const p = join(dist, page);
   if (!existsSync(p)) continue;
   const html = readFileSync(p, 'utf8')
-    .replace(/href="\/css\/style\.css(\?v=[^"]*)?"/g, `href="/css/style.css?v=${VERSION}"`);
+    .replace(/href="\/css\/(style|theme-v5)\.css(\?v=[^"]*)?"/g, (_, name) => `href="/css/${name}.css?v=${VERSION}"`);
   writeFileSync(p, html, 'utf8');
 }
 

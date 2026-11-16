@@ -184,6 +184,7 @@ import { openReportShare, closeReportShare, createReportShare, copyReportShare, 
 import { openUpdatesShare, closeUpdatesShare, createUpdatesShare, copyUpdatesShare, revokeUpdatesShare } from './features/updates-share.js';
 import { openMeetingForm, editMeeting, closeMeetingForm, saveMeetingForm, setMeetingAction, addMeetingActionRow, removeMeetingActionRow, toggleMeetingAction, deleteMeeting, copyMeeting, toggleMeeting, setMeetingSearch, setMeetingClient, openMeetingClient, selectMeeting, meetingBackToList, setMeetingQuick, clearMeetingFilters, editMeetingInline, cancelMeetingInline, saveMeetingInline, deleteMeetingAction, addMeetingQuickAction, addMeetingUpdate, deleteMeetingUpdate, addMeetingImages, pasteMeetingImages, removeMeetingImage, openMeetingImage, stepMeetingImage, closeMeetingImage } from './features/meetings.js';
 import { openDocsView } from './features/docs.js';
+import { initV5 } from './ui/v5.js';
 import { openKbArticle, openKbView } from './features/kb.js';
 
 function exposeAppGlobals(){
@@ -262,6 +263,7 @@ export async function startApp(){
 
   // Formerly DOMContentLoaded handler
   // Show version immediately
+  try { initV5(); } catch(err){ console.warn('initV5', err); }
   applyAppVersion();
 
   const okBtn = $('confirmOkBtn');

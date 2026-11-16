@@ -91,7 +91,7 @@ function openTesterCategory(cat){
   document.querySelectorAll('.nav-item:not([data-tester-cat])').forEach(b => b.classList.remove('active'));
 
   const metaTitle = TESTER_CAT_LABELS[key] || 'Tester Queue';
-  if($('pageTitle')) $('pageTitle').textContent = metaTitle;
+  if($('pageTitle')) $('pageTitle').textContent = 'Tester Queue';   // v5.0.0: the categories are tabs of one page
   if($('pageSubtitle')) $('pageSubtitle').textContent = 'Ready for Testing · ' + metaTitle;
   if($('testerCategoryTitle')) $('testerCategoryTitle').textContent = metaTitle + ' · Ready for Testing';
 

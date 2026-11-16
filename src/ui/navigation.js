@@ -194,8 +194,8 @@ function switchView(view){
   const meta = VIEW_META[view] || VIEW_META.dashboard;
   if(view === 'newissues' && typeof getIssueStatusDef === 'function'){
     const def = getIssueStatusDef(window.__issueStatusKey || 'new');
-    $('pageTitle').textContent = def.label;
-    $('pageSubtitle').textContent = `Status "${def.label}" · Zahir ERP / One / Manufacturing`;
+    $('pageTitle').textContent = 'Issue Board';
+    $('pageSubtitle').textContent = `${def.label} · Zahir ERP / One / Manufacturing`;
   } else {
     $('pageTitle').textContent = meta.title;
     $('pageSubtitle').textContent = meta.sub;
@@ -223,7 +223,7 @@ function switchView(view){
   if(view === 'tester'){
     const cat = window.__testerCategory || 'all';
     const label = TESTER_CAT_LABELS[cat] || 'Tester Queue';
-    if($('pageTitle')) $('pageTitle').textContent = label;
+    if($('pageTitle')) $('pageTitle').textContent = 'Tester Queue';
     if($('pageSubtitle')) $('pageSubtitle').textContent = 'Ready for Testing · ' + label;
     if($('testerCategoryTitle')) $('testerCategoryTitle').textContent = label + ' · Ready for Testing';
     loadTesterReminder();

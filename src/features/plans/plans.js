@@ -2,6 +2,7 @@
  * Plans CRUD + rendering
  * (split from the former monolithic src/app.js — v4.40.0)
  */
+import { renderDashReady } from '../../ui/v5.js';
 import { ICON } from '../../icons.js';
 import { State } from '../../core/state.js';
 import {
@@ -152,6 +153,7 @@ function getPlanProjectKey(plan){
 }
 
 function renderPlans(){
+  try { renderDashReady(); } catch(_){}   // v5.0.0: product names on the dashboard card come from the plans
   const q = ($('planSearch')?.value || '').toLowerCase().trim();
   const sort = $('planSort')?.value || 'desc';
   const filter = window.__planFilter || 'all';

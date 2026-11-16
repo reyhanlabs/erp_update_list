@@ -19,6 +19,7 @@ import { CloudSync } from '../core/cloud-sync.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { switchView } from '../ui/navigation.js';
 import { closeModal, openModal } from '../ui/modal.js';
+import { renderDashReady } from '../ui/v5.js';
 import { enrichPlanIssueCategories, getPlanProjectKey, projectKeyLabel } from './plans/plans.js';
 import { emptyState } from '../ui/list-controls.js';
 import { writeClipboard } from '../core/clipboard.js';
@@ -232,6 +233,7 @@ function copySummary(id){
 }
 
 function renderSummaries(){
+  try { renderDashReady(); } catch(_){}   // v5.0.0: dashboard "Ready for update" card
   const q = ($('summarySearch')?.value || '').toLowerCase().trim();
   const sort = ($('summarySort')?.value) || 'desc';
   const projFilter = ($('summaryProjectFilter')?.value || 'all');

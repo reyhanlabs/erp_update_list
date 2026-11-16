@@ -193,9 +193,9 @@ function openIssueStatusView(statusKey){
   });
   const def = getIssueStatusDef(key);
   const titleEl = $('pageTitle');
-  if(titleEl) titleEl.textContent = def.label;
+  if(titleEl) titleEl.textContent = 'Issue Board';   // v5.0.0: the six statuses are tabs of one page
   const subEl = $('pageSubtitle');
-  if(subEl) subEl.textContent = `Status "${def.label}" · Zahir ERP / One / Manufacturing`;
+  if(subEl) subEl.textContent = `${def.label} · Zahir ERP / One / Manufacturing`;
   const cardTitle = $('newIssuesCardTitle');
   if(cardTitle) cardTitle.textContent = key === 'new' ? 'New Issues' : `${def.label} issues`;
   // Keep status filter select in sync if present
