@@ -213,20 +213,21 @@ function pushNotifAlert({ key, title, body, meta = '', tone = 'info', view = 'si
   }
 }
 
+/* The panel hangs under the bell by CSS; this only nudges it back in when the
+   window is too narrow for it to fit beside the bell. */
 function positionNotifPanel(){
   const panel = $('notifPanel');
-  const btn = $('btnNotifBell');
-  if(!panel || !btn || panel.classList.contains('hidden')) return;
-  const r = btn.getBoundingClientRect();
-  const pw = Math.min(340, window.innerWidth - 24);
-  let left = r.right - pw;
-  if(left < 12) left = 12;
-  if(left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
-  let top = r.bottom + 8;
-  panel.style.left = left + 'px';
-  panel.style.top = top + 'px';
-  panel.style.right = 'auto';
+  if(!panel || panel.classList.contains('hidden')) return;
+  panel.style.right = '';
+  panel.style.left = '';
+  panel.style.top = '';
+  const r = panel.getBoundingClientRect();
+  const gut = 12;
+  const over = r.left < gut ? r.left - gut
+    : (r.right > window.innerWidth - gut ? r.right - (window.innerWidth - gut) : 0);
+  if(over) panel.style.right = over + 'px';
 }
+
 function toggleNotifPanel(ev){
   if(ev){
     ev.preventDefault();

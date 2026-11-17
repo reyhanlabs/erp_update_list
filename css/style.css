@@ -1969,7 +1969,10 @@ body.auth-locked .main{
 /* v4.47.1: was missing, so the dot showed even with nothing to report */
 .notif-bell-dot.hidden{display:none !important}
 .notif-panel{
-  position:fixed;z-index:500;
+  /* v5.5.1: absolute, not fixed — .topbar has a backdrop-filter, which makes it the
+     containing block for fixed children, so fixed coordinates landed off-screen */
+  position:absolute;z-index:500;
+  top:calc(100% + 8px);right:0;left:auto;
   width:min(340px, calc(100vw - 24px));padding:14px;
   background:var(--surface);border:1px solid var(--line);border-radius:14px;
   box-shadow:var(--shadow-xl);
