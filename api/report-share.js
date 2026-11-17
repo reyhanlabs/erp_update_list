@@ -21,6 +21,11 @@
  *   GET  /api/report-share?updates=1              member — the workspace's link (or null)
  *   POST {action:'create-updates'} / {action:'revoke-updates', token}   editor / admin / owner
  *   Stored in updateShares/{token}: { ws, createdAt, createdBy, views, lastViewedAt }
+ *
+ * Client Updates link (v5.5.0) — which client servers already run each update:
+ *   GET  /api/report-share?c=<token>              PUBLIC — updates with their clients and each client's state
+ *   POST {action:'create-clients'} / {action:'revoke-clients', token}   editor / admin / owner
+ *   Stored in clientUpdateShares/{token}: { ws, createdAt, createdBy, views, lastViewedAt }
  */
 import { randomBytes } from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -255,6 +260,81 @@ async function publicUpdates(req, res, token){
   updShares().doc(token).update({ views: FieldValue.increment(1), lastViewedAt: Date.now() }).catch(() => {});
   return res.status(200).json(hit.body);
 }
+/* v5.5.0 — public Client Updates link (/c/<token>): has each client's own server been updated?
+   Same rule as the in-app Client Updates page (src/features/client-updates.js): the
+   summary's FE / V2 / V3 are matched with the versions Client Versions read from the
+   client's site; the date comes from that site's version history. */
+const CU_PARTS = [['fe', 'FE'], ['v2', 'V2'], ['v3', 'V3']];
+const cuNorm = (n) => String(n || '').toLowerCase().replace(/\b(pt|cv|ud|tbk|persero)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
+const cuVer = (v) => String(v || '').trim().replace(/^[^\d]+/, '');
+function cuCmp(a, b){
+  const pa = cuVer(a).split(/[.\-+]/).map(x => (/^\d+$/.test(x) ? +x : x));
+  const pb = cuVer(b).split(/[.\-+]/).map(x => (/^\d+$/.test(x) ? +x : x));
+  for(let i = 0; i < Math.max(pa.length, pb.length); i++){
+    const x = pa[i] ?? 0, y = pb[i] ?? 0;
+    if(x === y) continue;
+    if(typeof x === 'number' && typeof y === 'number') return x - y;
+    return String(x).localeCompare(String(y));
+  }
+  return 0;
+}
+const cuReached = (have, want) => cuCmp(have, want) >= 0;
+function cuJudge(site, u){
+  if(!site) return { state: 'nosite', parts: [] };
+  const parts = CU_PARTS.filter(([k]) => u[k]).map(([k, label]) => {
+    const have = k === 'fe' ? (site.pinnedVersion || site.version || '') : (site[k] || '');
+    return { key: k, label, have: String(have).slice(0, 40), want: u[k], ok: have ? cuReached(have, u[k]) : null };
+  });
+  const known = parts.filter(p => p.ok !== null);
+  if(!known.length) return { state: 'unknown', parts };
+  if(known.some(p => !p.ok)) return { state: 'pending', parts };
+  let at = 0, recorded = true;
+  known.forEach(p => {
+    const hit = (Array.isArray(site.history) ? site.history : [])
+      .filter(c => c && c.part === p.key && cuReached(c.to, p.want) && !cuReached(c.from, p.want)).sort((x, y) => x.at - y.at)[0];
+    if(hit) at = Math.max(at, hit.at); else recorded = false;
+  });
+  return { state: 'updated', parts, at: recorded && at ? at : 0 };
+}
+const CU_ORDER = { pending: 0, unknown: 1, nosite: 2, updated: 3 };
+async function clientUpdatesBody(ws, updates){
+  const snap = await adminDb().collection(`workspaces/${ws}/sites`).get();
+  const sites = snap.docs.map(d => d.data() || {});
+  const find = (name) => { const n = cuNorm(name); if(!n) return null;
+    return sites.find(s => !s.isTest && cuNorm(s.redmineClient || s.name) === n) || sites.find(s => cuNorm(s.redmineClient || s.name) === n) || null; };
+  return updates.map(u => {
+    const by = new Map(); let noClient = 0;
+    u.issues.forEach(i => { const name = String(i.client || '').trim(); if(!name){ noClient++; return; }
+      const k = name.toLowerCase(); if(!by.has(k)) by.set(k, { name, issues: [] });
+      by.get(k).issues.push({ id: i.id, subject: i.subject, status: i.status || '' }); });
+    const clients = [...by.values()].map(c => { const site = find(c.name); return { ...c, site: site ? { isTest: !!site.isTest } : null, ...cuJudge(site, u) }; })
+      .sort((x, y) => CU_ORDER[x.state] - CU_ORDER[y.state] || x.name.localeCompare(y.name));
+    return { id: u.id, date: u.date, fe: u.fe, v2: u.v2, v3: u.v3, project: u.project, clients, noClient };
+  }).filter(u => u.clients.length);
+}
+const cuShares = () => adminDb().collection('clientUpdateShares');
+const cuCache = new Map();
+async function publicClientUpdates(req, res, token){
+  if(!TOKEN_RE.test(token)) return res.status(404).json({ error: 'This link is not valid.' });
+  let doc;
+  try { doc = await cuShares().doc(token).get(); }
+  catch(err){ return res.status(500).json({ error: 'The page is not available right now.', detail: err.message }); }
+  if(!doc.exists) return res.status(404).json({ error: 'This link has been switched off or does not exist.' });
+  let hit = cuCache.get(token);
+  if(!hit || Date.now() - hit.at > CACHE_MS){
+    try {
+      const h = await historyFor('ws:' + doc.data().ws, doc.data().ws);
+      hit = { at: Date.now(), body: { generatedAt: Date.now(), updates: await clientUpdatesBody(doc.data().ws, h.body.updates) } };
+      cuCache.set(token, hit);
+    } catch(err){
+      if(!hit) return res.status(500).json({ error: 'The page is not available right now.', detail: err.message });
+    }
+  }
+  cuShares().doc(token).update({ views: FieldValue.increment(1), lastViewedAt: Date.now() }).catch(() => {});
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(200).json(hit.body);
+}
+
 const updView = (id, d) => ({ token: id, createdAt: d.createdAt || 0, createdBy: d.createdBy || '', views: d.views || 0, lastViewedAt: d.lastViewedAt || 0 });
 
 export default async function handler(req, res){
@@ -262,6 +342,8 @@ export default async function handler(req, res){
   if(req.method === 'GET' && token) return publicReport(req, res, token);
   const utoken = String((req.query && req.query.u) || '');
   if(req.method === 'GET' && utoken) return publicUpdates(req, res, utoken);
+  const ctoken = String(req.query.c || '');
+  if(req.method === 'GET' && ctoken) return publicClientUpdates(req, res, ctoken);
 
   const user = await requireUser(req, res);
   if(!user) return;
@@ -276,9 +358,10 @@ export default async function handler(req, res){
     }
     // v5.3.0: every public link of the workspace (Share Links menu)
     if(req.method === 'GET' && req.query.links){
-      const [u, r] = await Promise.all([updShares().where('ws', '==', ws).limit(1).get(), shares().where('ws', '==', ws).get()]);
+      const [u, r, c] = await Promise.all([updShares().where('ws', '==', ws).limit(1).get(), shares().where('ws', '==', ws).get(), cuShares().where('ws', '==', ws).limit(1).get()]);
       return res.status(200).json({
         updates: u.empty ? null : updView(u.docs[0].id, u.docs[0].data()),
+        clients: c.empty ? null : updView(c.docs[0].id, c.docs[0].data()),
         reports: r.docs.map(d => shareView(d.id, d.data())).sort((x, y) => String(x.client || '').localeCompare(String(y.client || '')))
       });
     }
@@ -296,6 +379,23 @@ export default async function handler(req, res){
     if(!EDIT_ROLES.includes(user.member.role)) return res.status(403).json({ error: 'Viewers cannot share reports', hint: 'Ask an admin for editor access.' });
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
 
+    // v5.5.0: the public Client Updates link — one per workspace, same roles as the update-history link
+    if(body.action === 'create-clients'){
+      const existing = await cuShares().where('ws', '==', ws).limit(1).get();
+      if(!existing.empty) return res.status(200).json({ share: updView(existing.docs[0].id, existing.docs[0].data()) });
+      const t = newToken();
+      const doc = { ws, createdAt: Date.now(), createdBy: user.email, views: 0, lastViewedAt: 0 };
+      await cuShares().doc(t).set(doc);
+      return res.status(200).json({ share: updView(t, doc) });
+    }
+    if(body.action === 'revoke-clients'){
+      const t = String(body.token || '');
+      if(!TOKEN_RE.test(t)) return res.status(400).json({ error: 'Invalid link' });
+      const ref = cuShares().doc(t), d = await ref.get();
+      if(!d.exists || d.data().ws !== ws) return res.status(404).json({ error: 'Link not found' });
+      await ref.delete(); cuCache.delete(t);
+      return res.status(200).json({ ok: true });
+    }
     if(body.action === 'create-updates'){
       const existing = await updShares().where('ws', '==', ws).limit(1).get();
       if(!existing.empty) return res.status(200).json({ share: updView(existing.docs[0].id, existing.docs[0].data()) });

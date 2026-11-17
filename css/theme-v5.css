@@ -431,3 +431,9 @@ body.sidebar-collapsed .view-tabs .nav-item .label,body.sidebar-collapsed .view-
   .cu-n{grid-row:1;grid-column:2}
 }
 @media (prefers-reduced-motion:reduce){.cu-stat,.cu-progress em{transition:none}.cu-stat:hover{transform:none}}
+
+/* ============================================================
+   v5.5.0 — public Client Updates link (/c/<token>)
+   ============================================================ */
+#cuBody{max-width:1180px;margin:0 auto}
+#cuBody .cu-stat{box-shadow:var(--shadow-xs)}

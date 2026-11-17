@@ -62,7 +62,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.endsWith('.json') ||
     url.pathname.startsWith('/share') ||
     url.pathname.startsWith('/r/') ||
-    url.pathname.startsWith('/u/')
+    url.pathname.startsWith('/u/') ||
+    url.pathname.startsWith('/c/')
   );
 
   if (isAppCode) {

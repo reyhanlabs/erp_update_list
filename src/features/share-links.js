@@ -1,6 +1,6 @@
 /**
  * Share Links (v5.3.0) — every public link of the workspace in one place:
- * the Update history link (/u/…) and the Client Report links (/r/…).
+ * the Update history link (/u/…), the Client Updates link (/c/…) and the Client Report links (/r/…).
  * Open, copy or stop sharing. Data: /api/report-share?links=1.
  */
 import { apiFetch } from '../api.js';
@@ -10,7 +10,8 @@ import { writeClipboard } from '../core/clipboard.js';
 import { canEdit } from '../core/team.js';
 
 const L = { data: null, loading: false, error: '' };
-const urlOf = (kind, t) => `${location.origin}/${kind === 'updates' ? 'u' : 'r'}/${t}`;
+const PATH = { updates: 'u', clients: 'c', report: 'r' };
+const urlOf = (kind, t) => `${location.origin}/${PATH[kind] || 'r'}/${t}`;
 const when = (ms) => ms ? new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 async function call(method, body, query){
@@ -38,14 +39,19 @@ function paint(){
   if(!box) return;
   if(L.loading && !L.data){ box.innerHTML = '<div class="kb-state"><p>Loading the links…</p></div>'; return; }
   if(L.error){ box.innerHTML = `<div class="kb-state"><p><b>${escapeHtml(L.error)}</b></p><button type="button" class="btn btn-secondary btn-sm" onclick="openShareLinksView(true)">Try again</button></div>`; return; }
-  const d = L.data || { updates: null, reports: [] };
-  const n = (d.updates ? 1 : 0) + d.reports.length;
+  const d = L.data || { updates: null, clients: null, reports: [] };
+  const n = (d.updates ? 1 : 0) + (d.clients ? 1 : 0) + d.reports.length;
   const badge = $('shareLinksCount'); if(badge) badge.textContent = String(n);
   box.innerHTML = `
     <section class="sl-group">
       <h4>Update history <span>${d.updates ? 1 : 0}</span></h4>
       ${d.updates ? row('updates', 'Update history', 'Every update with its versions and issues — for the internal team', d.updates)
         : `<div class="sl-empty"><p>No link yet. The page lists every update, which installer is ready, and the issues inside.</p>${canEdit() ? '<button type="button" class="btn btn-primary btn-sm" onclick="createUpdatesLink()">Create the link</button>' : ''}</div>`}
+    </section>
+    <section class="sl-group">
+      <h4>Client updates <span>${d.clients ? 1 : 0}</span></h4>
+      ${d.clients ? row('clients', 'Client updates', 'Which client servers already run each update — for the internal team', d.clients)
+        : `<div class="sl-empty"><p>No link yet. The page shows, for every update, which clients are updated and which are still waiting — the same as the Client Updates menu.</p>${canEdit() ? '<button type="button" class="btn btn-primary btn-sm" onclick="createClientsLink()">Create the link</button>' : ''}</div>`}
     </section>
     <section class="sl-group">
       <h4>Client reports <span>${d.reports.length}</span></h4>
@@ -70,12 +76,18 @@ async function copyShareLink(kind, token){
 async function stopShareLink(kind, token){
   const ok = await confirmDialog({ title: 'Stop sharing this link?', message: 'The link stops working right away. A new link will have a different address.', okText: 'Stop sharing', type: 'danger' });
   if(!ok) return;
-  try { await call('POST', { action: kind === 'updates' ? 'revoke-updates' : 'revoke', token }); toast('Link switched off'); }
+  try { await call('POST', { action: kind === 'updates' ? 'revoke-updates' : kind === 'clients' ? 'revoke-clients' : 'revoke', token }); toast('Link switched off'); }
   catch(err){ toast(err.message || 'Could not switch the link off', 'error'); }
   openShareLinksView(true);
 }
 async function createUpdatesLink(){
   try { await call('POST', { action: 'create-updates' }); toast('Link created'); }
+  catch(err){ toast(err.message || 'Could not create the link', 'error'); }
+  openShareLinksView(true);
+}
+
+async function createClientsLink(){
+  try { await call('POST', { action: 'create-clients' }); toast('Link created'); }
   catch(err){ toast(err.message || 'Could not create the link', 'error'); }
   openShareLinksView(true);
 }
@@ -90,4 +102,4 @@ function reloadHistoryView(){
   if(f) f.setAttribute('src', '/updates.html?app=1&r=' + Date.now());
 }
 
-export { openShareLinksView, copyShareLink, stopShareLink, createUpdatesLink, openHistoryView, reloadHistoryView };
+export { openShareLinksView, copyShareLink, stopShareLink, createUpdatesLink, createClientsLink, openHistoryView, reloadHistoryView };
