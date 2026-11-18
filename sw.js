@@ -63,7 +63,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname.startsWith('/share') ||
     url.pathname.startsWith('/r/') ||
     url.pathname.startsWith('/u/') ||
-    url.pathname.startsWith('/c/')
+    url.pathname.startsWith('/c/') ||
+    url.pathname.startsWith('/k/')
   );
 
   if (isAppCode) {

@@ -1,6 +1,7 @@
 /**
  * Share Links (v5.3.0) — every public link of the workspace in one place:
- * the Update history link (/u/…), the Client Updates link (/c/…) and the Client Report links (/r/…).
+ * the Update history link (/u/…), the Client Updates link (/c/…), the Knowledge Base links
+ * (/k/…, the whole library or one guide) and the Client Report links (/r/…).
  * Open, copy or stop sharing. Data: /api/report-share?links=1.
  */
 import { apiFetch } from '../api.js';
@@ -8,9 +9,10 @@ import { $, escapeHtml, toast } from '../core/helpers.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { writeClipboard } from '../core/clipboard.js';
 import { canEdit } from '../core/team.js';
+import { getKbArticles } from './kb.js';
 
 const L = { data: null, loading: false, error: '' };
-const PATH = { updates: 'u', clients: 'c', report: 'r' };
+const PATH = { updates: 'u', clients: 'c', kb: 'k', report: 'r' };
 const urlOf = (kind, t) => `${location.origin}/${PATH[kind] || 'r'}/${t}`;
 const when = (ms) => ms ? new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
@@ -39,8 +41,10 @@ function paint(){
   if(!box) return;
   if(L.loading && !L.data){ box.innerHTML = '<div class="kb-state"><p>Loading the links…</p></div>'; return; }
   if(L.error){ box.innerHTML = `<div class="kb-state"><p><b>${escapeHtml(L.error)}</b></p><button type="button" class="btn btn-secondary btn-sm" onclick="openShareLinksView(true)">Try again</button></div>`; return; }
-  const d = L.data || { updates: null, clients: null, reports: [] };
-  const n = (d.updates ? 1 : 0) + (d.clients ? 1 : 0) + d.reports.length;
+  const d = L.data || { updates: null, clients: null, kb: [], reports: [] };
+  const kb = d.kb || [];
+  const lib = kb.find(x => !x.kbId) || null, guides = kb.filter(x => x.kbId);
+  const n = (d.updates ? 1 : 0) + (d.clients ? 1 : 0) + kb.length + d.reports.length;
   const badge = $('shareLinksCount'); if(badge) badge.textContent = String(n);
   box.innerHTML = `
     <section class="sl-group">
@@ -52,6 +56,12 @@ function paint(){
       <h4>Client updates <span>${d.clients ? 1 : 0}</span></h4>
       ${d.clients ? row('clients', 'Client updates', 'Which client servers already run each update — for the internal team', d.clients)
         : `<div class="sl-empty"><p>No link yet. The page shows, for every update, which clients are updated and which are still waiting — the same as the Client Updates menu.</p>${canEdit() ? '<button type="button" class="btn btn-primary btn-sm" onclick="createClientsLink()">Create the link</button>' : ''}</div>`}
+    </section>
+    <section class="sl-group">
+      <h4>Knowledge Base <span>${kb.length}</span></h4>
+      ${lib ? row('kb', 'Whole Knowledge Base', 'Every guide, with search and a product filter', lib)
+        : `<div class="sl-empty"><p>No link for the whole library yet. Open Knowledge Base and press Share link, or create it here.</p>${canEdit() ? '<button type="button" class="btn btn-primary btn-sm" onclick="createKbLink()">Create the link</button>' : ''}</div>`}
+      ${guides.map(g => row('kb', kbTitle(g.kbId), 'One guide — open Knowledge Base, pick the guide and press Share link', g)).join('')}
     </section>
     <section class="sl-group">
       <h4>Client reports <span>${d.reports.length}</span></h4>
@@ -76,7 +86,7 @@ async function copyShareLink(kind, token){
 async function stopShareLink(kind, token){
   const ok = await confirmDialog({ title: 'Stop sharing this link?', message: 'The link stops working right away. A new link will have a different address.', okText: 'Stop sharing', type: 'danger' });
   if(!ok) return;
-  try { await call('POST', { action: kind === 'updates' ? 'revoke-updates' : kind === 'clients' ? 'revoke-clients' : 'revoke', token }); toast('Link switched off'); }
+  try { await call('POST', { action: kind === 'updates' ? 'revoke-updates' : kind === 'clients' ? 'revoke-clients' : kind === 'kb' ? 'revoke-kb' : 'revoke', token }); toast('Link switched off'); }
   catch(err){ toast(err.message || 'Could not switch the link off', 'error'); }
   openShareLinksView(true);
 }
@@ -92,6 +102,21 @@ async function createClientsLink(){
   openShareLinksView(true);
 }
 
+async function createKbLink(){
+  try { await call('POST', { action: 'create-kb', kbId: '' }); toast('Link created'); }
+  catch(err){ toast(err.message || 'Could not create the link', 'error'); }
+  openShareLinksView(true);
+}
+
+/* the shared guide's own title, when the library is loaded in this session */
+function kbTitle(id){
+  try {
+    const a = (getKbArticles() || []).find(x => x.id === id);
+    if(a && a.title) return a.title;
+  } catch(_){}
+  return 'A single guide';
+}
+
 /* Update History (in-app): the public page, loaded with the member's own sign-in */
 function openHistoryView(){
   const f = $('historyFrame');
@@ -102,4 +127,4 @@ function reloadHistoryView(){
   if(f) f.setAttribute('src', '/updates.html?app=1&r=' + Date.now());
 }
 
-export { openShareLinksView, copyShareLink, stopShareLink, createUpdatesLink, createClientsLink, openHistoryView, reloadHistoryView };
+export { openShareLinksView, copyShareLink, stopShareLink, createUpdatesLink, createClientsLink, createKbLink, openHistoryView, reloadHistoryView };

@@ -26,6 +26,11 @@
  *   GET  /api/report-share?c=<token>              PUBLIC — updates with their clients and each client's state
  *   POST {action:'create-clients'} / {action:'revoke-clients', token}   editor / admin / owner
  *   Stored in clientUpdateShares/{token}: { ws, createdAt, createdBy, views, lastViewedAt }
+ *
+ * Knowledge Base link (v5.7.0) — the whole library, or one guide:
+ *   GET  /api/report-share?k=<token>[&a=<guideId>]   PUBLIC — the guide list, or one guide with its images
+ *   POST {action:'create-kb', kbId}  / {action:'revoke-kb', token}   editor / admin / owner
+ *   Stored in kbShares/{token}: { ws, kbId, createdAt, createdBy, views, lastViewedAt }
  */
 import { randomBytes } from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -314,6 +319,64 @@ async function clientUpdatesBody(ws, updates){
 }
 const cuShares = () => adminDb().collection('clientUpdateShares');
 const cuCache = new Map();
+/* ---------- Knowledge Base links (v5.7.0) ----------
+   kbShares/{token} = { ws, kbId, ... } — kbId '' shares the whole library, otherwise one guide.
+   The whole-library link lists the guides; a guide's text and its inline screenshots are
+   fetched one at a time with &a=<id>, so a big library is not sent in one go. */
+const kbShares = () => adminDb().collection('kbShares');
+const KB_LIST = ['title', 'product', 'module', 'submenu', 'summary', 'tags', 'version', 'client', 'updatedAt', 'updatedBy'];
+const pick = (d, keys) => keys.reduce((o, k) => { if(d[k] !== undefined) o[k] = d[k]; return o; }, {});
+const SAFE_IMG = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+
+async function kbArticle(ws, id){
+  const doc = await adminDb().doc(`workspaces/${ws}/kb/${id}`).get();
+  if(!doc.exists) return null;
+  const d = doc.data() || {};
+  const out = { id: doc.id, ...pick(d, KB_LIST), content: String(d.content || '') };
+  const used = new Set([...out.content.matchAll(/kbimg:([A-Za-z0-9_-]+)/g)].map(m => m[1]));
+  out.images = {};
+  if(used.size){
+    const imgs = await adminDb().collection(`workspaces/${ws}/kb/${id}/images`).get();
+    imgs.docs.forEach(g => { const v = (g.data() || {}).data; if(used.has(g.id) && typeof v === 'string' && SAFE_IMG.test(v)) out.images[g.id] = v; });
+  }
+  return out;
+}
+
+async function publicKb(req, res, token){
+  if(!TOKEN_RE.test(token)) return res.status(404).json({ error: 'This link is not valid.' });
+  let doc;
+  try { doc = await kbShares().doc(token).get(); }
+  catch(err){ return res.status(500).json({ error: 'The page is not available right now.', detail: err.message }); }
+  if(!doc.exists) return res.status(404).json({ error: 'This link has been switched off or does not exist.' });
+  const { ws, kbId } = doc.data();
+  const want = String(req.query.a || '');
+
+  try {
+    if(want){
+      if(kbId && want !== kbId) return res.status(404).json({ error: 'This guide is not on this link.' });
+      if(!/^[A-Za-z0-9_-]{1,64}$/.test(want)) return res.status(400).json({ error: 'Invalid guide' });
+      const art = await kbArticle(ws, want);
+      if(!art) return res.status(404).json({ error: 'This guide no longer exists.' });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({ scope: 'one', article: art });
+    }
+    kbShares().doc(token).update({ views: FieldValue.increment(1), lastViewedAt: Date.now() }).catch(() => {});
+    if(kbId){
+      const art = await kbArticle(ws, kbId);
+      if(!art) return res.status(404).json({ error: 'This guide no longer exists.' });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(200).json({ scope: 'one', article: art });
+    }
+    const snap = await adminDb().collection(`workspaces/${ws}/kb`).get();
+    const articles = snap.docs.map(g => ({ id: g.id, ...pick(g.data() || {}, KB_LIST) }))
+      .sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ scope: 'all', generatedAt: Date.now(), articles });
+  } catch(err){
+    return res.status(500).json({ error: 'The page is not available right now.', detail: err.message });
+  }
+}
+
 async function publicClientUpdates(req, res, token){
   if(!TOKEN_RE.test(token)) return res.status(404).json({ error: 'This link is not valid.' });
   let doc;
@@ -344,6 +407,8 @@ export default async function handler(req, res){
   if(req.method === 'GET' && utoken) return publicUpdates(req, res, utoken);
   const ctoken = String(req.query.c || '');
   if(req.method === 'GET' && ctoken) return publicClientUpdates(req, res, ctoken);
+  const ktoken = String(req.query.k || '');
+  if(req.method === 'GET' && ktoken) return publicKb(req, res, ktoken);
 
   const user = await requireUser(req, res);
   if(!user) return;
@@ -358,10 +423,11 @@ export default async function handler(req, res){
     }
     // v5.3.0: every public link of the workspace (Share Links menu)
     if(req.method === 'GET' && req.query.links){
-      const [u, r, c] = await Promise.all([updShares().where('ws', '==', ws).limit(1).get(), shares().where('ws', '==', ws).get(), cuShares().where('ws', '==', ws).limit(1).get()]);
+      const [u, r, c, k] = await Promise.all([updShares().where('ws', '==', ws).limit(1).get(), shares().where('ws', '==', ws).get(), cuShares().where('ws', '==', ws).limit(1).get(), kbShares().where('ws', '==', ws).get()]);
       return res.status(200).json({
         updates: u.empty ? null : updView(u.docs[0].id, u.docs[0].data()),
         clients: c.empty ? null : updView(c.docs[0].id, c.docs[0].data()),
+        kb: k.docs.map(d => ({ ...updView(d.id, d.data()), kbId: d.data().kbId || '' })).sort((x, y) => (x.kbId ? 1 : 0) - (y.kbId ? 1 : 0) || y.createdAt - x.createdAt),
         reports: r.docs.map(d => shareView(d.id, d.data())).sort((x, y) => String(x.client || '').localeCompare(String(y.client || '')))
       });
     }
@@ -380,6 +446,25 @@ export default async function handler(req, res){
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
 
     // v5.5.0: the public Client Updates link — one per workspace, same roles as the update-history link
+    // v5.7.0: a Knowledge Base link — the whole library, or one guide
+    if(body.action === 'create-kb'){
+      const kbId = String(body.kbId || '');
+      if(kbId && !/^[A-Za-z0-9_-]{1,64}$/.test(kbId)) return res.status(400).json({ error: 'Invalid guide' });
+      const existing = await kbShares().where('ws', '==', ws).where('kbId', '==', kbId).limit(1).get();
+      if(!existing.empty) return res.status(200).json({ share: { ...updView(existing.docs[0].id, existing.docs[0].data()), kbId } });
+      const t = newToken();
+      const doc = { ws, kbId, createdAt: Date.now(), createdBy: user.email, views: 0, lastViewedAt: 0 };
+      await kbShares().doc(t).set(doc);
+      return res.status(200).json({ share: { ...updView(t, doc), kbId } });
+    }
+    if(body.action === 'revoke-kb'){
+      const t = String(body.token || '');
+      if(!TOKEN_RE.test(t)) return res.status(400).json({ error: 'Invalid link' });
+      const ref = kbShares().doc(t), d = await ref.get();
+      if(!d.exists || d.data().ws !== ws) return res.status(404).json({ error: 'Link not found' });
+      await ref.delete();
+      return res.status(200).json({ ok: true });
+    }
     if(body.action === 'create-clients'){
       const existing = await cuShares().where('ws', '==', ws).limit(1).get();
       if(!existing.empty) return res.status(200).json({ share: updView(existing.docs[0].id, existing.docs[0].data()) });

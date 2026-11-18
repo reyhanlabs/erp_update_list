@@ -22,6 +22,7 @@ import {
   buildTree, moduleOptions, submenuOptions, structureFromArticles, validateStructure, planRenames, usage
 } from './kb-structure.js';
 import { writeClipboard } from '../core/clipboard.js';
+import { apiFetch } from '../api.js';
 import { cloudinaryConfigured, uploadToCloudinary, publicIdFromUrl, cloudUrlsIn, destroyCloudImages, migrateKbImages } from './kb-cloudinary.js';
 
 const PRODUCTS = {
@@ -187,6 +188,7 @@ function productChip(p){
 }
 
 const ICONS = {
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
   back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
   chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
   edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
@@ -494,6 +496,7 @@ function renderArticle(el, a){
           <button type="button" class="kb-act kb-act-primary" data-perm="edit" data-kb-act="edit">${ICONS.edit}<span>Edit</span></button>
           <button type="button" class="kb-act" data-kb-act="copy-text" aria-label="Copy text" title="Copy text">${ICONS.copy}<span>Copy text</span></button>
           <button type="button" class="kb-act" data-kb-act="copy-link" aria-label="Copy link" title="Copy link">${ICONS.link}<span>Copy link</span></button>
+          <button type="button" class="kb-act" data-perm="edit" data-kb-act="share" aria-label="Public link for this guide" title="Public link — anyone with it can read this guide, no sign-in">${ICONS.share}<span>Share link</span></button>
           <button type="button" class="kb-act kb-act-danger" data-perm="edit" data-kb-act="delete" aria-label="Delete guide" title="Delete guide">${ICONS.trash}<span>Delete</span></button>
         </div>
         <nav class="kb-jump" id="kbJump" aria-label="Jump to section"></nav>
@@ -615,6 +618,24 @@ async function copyArticleText(){
   try { await writeClipboard(text); toast('Guide text copied'); }
   catch(_){ toast('Could not copy to clipboard', 'error'); }
 }
+
+/* v5.7.0: public links — one guide, or the whole library (/k/<token>) */
+async function shareLink(kbId, label){
+  try {
+    const r = await apiFetch('/api/report-share', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'create-kb', kbId: kbId || '' }) });
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.error || 'Could not create the link');
+    const url = `${location.origin}/k/${d.share.token}`;
+    try { await writeClipboard(url); toast(`${label} link copied — anyone with it can read without signing in`); }
+    catch(_){ prompt('Copy this link', url); }
+  } catch(err){ toast(err.message || 'Could not create the link', 'error'); }
+}
+function shareArticleLink(){
+  const a = S.articles.find(x => x.id === S.selectedId);
+  if(!a) return;
+  shareLink(a.id, 'Guide');
+}
+function shareLibraryLink(){ shareLink('', 'Knowledge Base'); }
 
 async function copyArticleLink(){
   if(!S.selectedId) return;
@@ -1297,6 +1318,8 @@ function wire(){
       if(a === 'delete') return deleteArticle();
       if(a === 'copy-text') return copyArticleText();
       if(a === 'copy-link') return copyArticleLink();
+      if(a === 'share') return shareArticleLink();
+      if(a === 'share-all') return shareLibraryLink();
       if(a === 'back') return backToList();
       if(a === 'migrate-images') return runImageMigration();
       if(a === 'manage') return openManager(act.dataset.kbManageProduct);
