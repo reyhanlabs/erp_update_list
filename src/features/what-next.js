@@ -11,7 +11,7 @@ import { projectKeyLabel } from './plans/plans.js';
 import { issueSelectCell, issueSelectHeader, updateBatchBar } from '../ui/batch-selection.js';
 import { emptyState, matchesQuickFilter } from '../ui/list-controls.js';
 import { fetchRedmine } from '../redmine/client.js';
-import { getIssueProjectKey, matchesProjectFilter } from './tester/categories.js';
+import { getIssueProjectKey, matchesProjectFilter, normalizeTesterCategory } from './tester/categories.js';
 import { formatAssignee, priorityBadge, priorityClass, testerLoadingSkeleton } from './tester/queue.js';
 import { loadRedmineProjects } from '../redmine/projects.js';
 import { assigneeChip, categoryChip, projectChip, resolveNewIssueProjectIds } from './new-issues.js';
@@ -319,7 +319,13 @@ async function refreshDashAttention(force){
     }
     const targets = (typeof resolveNewIssueProjectIds === 'function') ? resolveNewIssueProjectIds() : [];
     let immediate = 0, stuck = 0, deploy = 0, rework = 0, feedback = 0;
-    const topItems = []; // {id, subject, tag, project, url, rank}
+    const topItems = []; // {id, subject, tag, project, url, rank, cat, catName, who}
+    // v5.6.0: each row also carries its category (FE / BE / Design) and who it is assigned to
+    const attMeta = (i) => ({
+      cat: i.category?.name ? normalizeTesterCategory(i.category.name) : '',
+      catName: i.category?.name || '',
+      who: (typeof formatAssignee === 'function') ? formatAssignee(i.assigned_to) : (i.assigned_to?.name || 'Unassigned')
+    });
 
     await Promise.all(targets.map(async (t) => {
       if(!t.projectId) return;
@@ -339,6 +345,7 @@ async function refreshDashAttention(force){
             immediate++;
             topItems.push({
               id: i.id, subject: i.subject || '', tag: 'Immediate', project: label,
+              ...attMeta(i),
               url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 0
             });
           }
@@ -354,6 +361,7 @@ async function refreshDashAttention(force){
             stuck++;
             topItems.push({
               id: i.id, subject: i.subject || '', tag: `Stuck ${days}d`, project: label,
+              ...attMeta(i),
               url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 1
             });
           }
@@ -367,6 +375,7 @@ async function refreshDashAttention(force){
         (r.issues || []).slice(0, 3).forEach(i => {
           topItems.push({
             id: i.id, subject: i.subject || '', tag: 'On Deploy', project: label,
+            ...attMeta(i),
             url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 2
           });
         });
@@ -379,6 +388,7 @@ async function refreshDashAttention(force){
         (r.issues || []).slice(0, 3).forEach(i => {
           topItems.push({
             id: i.id, subject: i.subject || '', tag: 'Rework', project: label,
+            ...attMeta(i),
             url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 0
           });
         });
@@ -391,6 +401,7 @@ async function refreshDashAttention(force){
         (r.issues || []).slice(0, 2).forEach(i => {
           topItems.push({
             id: i.id, subject: i.subject || '', tag: 'Feedback', project: label,
+            ...attMeta(i),
             url: `https://pjm.zahironline.com/issues/${i.id}`, rank: 3
           });
         });
@@ -428,6 +439,7 @@ async function refreshDashAttention(force){
         listEl.innerHTML = '';
       } else {
         preview.hidden = false;
+        const CAT_SHORT = { frontend: 'FE', backend: 'BE', design: 'Design', other: 'Other' };
         const tone = (tag) => /^immediate|^rework/i.test(tag) ? 'red' : /^stuck|^feedback/i.test(tag) ? 'amber' : 'blue';
         const shortProject = (p) => String(p || '').replace(/^Zahir\s+ERP\s+/i, '').replace(/^Zahir\s+/i, '') || p;
         listEl.innerHTML = show.map(it => `
@@ -435,6 +447,8 @@ async function refreshDashAttention(force){
             <span class="dash-att-item-tag tone-${tone(it.tag)}">${escapeHtml(it.tag)}</span>
             <span class="dash-att-item-id">#${escapeHtml(String(it.id))}</span>
             <span class="dash-att-item-sub">${escapeHtml(it.subject || '—')}</span>
+            <span class="dash-att-item-cat">${it.cat ? `<span class="att-cat att-cat-${it.cat}" title="${escapeHtml(it.catName)}">${escapeHtml(CAT_SHORT[it.cat] || it.catName)}</span>` : '<span class="att-none">—</span>'}</span>
+            <span class="dash-att-item-who${/^unassigned$/i.test(it.who || '') ? ' is-none' : ''}" title="${escapeHtml(it.who || 'Unassigned')}">${escapeHtml(it.who || 'Unassigned')}</span>
             <span class="dash-att-item-proj">${escapeHtml(shortProject(it.project))}</span>
           </a>
         `).join('');

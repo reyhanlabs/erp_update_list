@@ -437,3 +437,30 @@ body.sidebar-collapsed .view-tabs .nav-item .label,body.sidebar-collapsed .view-
    ============================================================ */
 #cuBody{max-width:1180px;margin:0 auto}
 #cuBody .cu-stat{box-shadow:var(--shadow-xs)}
+
+/* ============================================================
+   v5.6.0 — Dashboard "Needs attention": category and assignee per row
+   ============================================================ */
+.dash .dash-att-item{grid-template-columns:88px 60px minmax(0,1fr) 76px 128px auto}
+.dash .dash-att-item-cat{min-width:0;justify-self:start}
+.dash .att-cat{display:inline-block;max-width:100%;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:650;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:var(--bg-subtle);color:var(--text-secondary)}
+.dash .att-cat-frontend{background:color-mix(in srgb,#2563EB 12%,transparent);color:#1D4ED8}
+.dash .att-cat-backend{background:color-mix(in srgb,#047857 13%,transparent);color:#046C4E}
+.dash .att-cat-design{background:color-mix(in srgb,#BE185D 12%,transparent);color:#BE185D}
+[data-theme="dark"] .dash .att-cat-frontend{color:#93C5FD}
+[data-theme="dark"] .dash .att-cat-backend{color:#6EE7B7}
+[data-theme="dark"] .dash .att-cat-design{color:#F9A8D4}
+.dash .dash-att-item-who{font-size:12.5px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash .dash-att-item-who.is-none{color:var(--text-tertiary);font-style:italic}
+.dash .att-none{color:var(--text-tertiary)}
+@media (max-width:1180px){
+  .dash .dash-att-item{grid-template-columns:88px 60px minmax(0,1fr) 76px 120px}
+  .dash .dash-att-item-proj{display:none}
+}
+@media (max-width:760px){
+  .dash .dash-att-item{grid-template-columns:auto minmax(0,1fr);row-gap:4px}
+  .dash .dash-att-item-cat{grid-row:3;grid-column:1}
+  .dash .dash-att-item-who{grid-row:3;grid-column:2;justify-self:end}
+}
