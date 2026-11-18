@@ -5,7 +5,7 @@
  *   # / ## / ### headings      - bullet lists       1. numbered steps
  *   > callout (Note / Important)  ```code blocks```     --- divider
  *   | pipe | tables |           ![caption](kbimg:ID or https://…)
- *   **bold**  _italic_  `code`  [text](https://…)
+ *   **bold**  _italic_  `code`  [text](https://…)  and a bare https://… address
  * Links and images only accept http(s) and the internal kbimg: scheme.
  */
 
@@ -24,14 +24,23 @@ function inline(raw){
   });
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[\s(])_([^_]+)_(?=[\s).,!?:;]|$)/g, '$1<em>$2</em>');
+  const links = [];
+  const link = (href, label) => {
+    links.push(`<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+    return `\u0001${links.length - 1}\u0001`;
+  };
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
     const u = url.replace(/&amp;/g, '&');
-    return SAFE_URL.test(u)
-      ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${text}</a>`
-      : m;
+    return SAFE_URL.test(u) ? link(u, text) : m;
+  });
+  // v5.7.1: a bare http(s) address becomes a link too, so a pasted URL is clickable
+  s = s.replace(/(^|[\s(])(https?:\/\/[^\s()"']+[^\s()"'.,;:!?])/g, (m, pre, url) => {
+    const u = url.replace(/&amp;/g, '&');
+    return SAFE_URL.test(u) ? pre + link(u, esc(u)) : m;
   });
   // menu paths: "Sales > Sales Invoice" → arrow
   s = s.replace(/ &gt; /g, ' <span class="md-path">›</span> ');
+  s = s.replace(/\u0001(\d+)\u0001/g, (_, i) => links[+i]);
   s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[+i]}</code>`);
   return s;
 }
