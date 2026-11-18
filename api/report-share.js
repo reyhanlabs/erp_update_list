@@ -324,7 +324,7 @@ const cuCache = new Map();
    The whole-library link lists the guides; a guide's text and its inline screenshots are
    fetched one at a time with &a=<id>, so a big library is not sent in one go. */
 const kbShares = () => adminDb().collection('kbShares');
-const KB_LIST = ['title', 'product', 'module', 'submenu', 'summary', 'tags', 'version', 'client', 'updatedAt', 'updatedBy', 'order'];
+const KB_LIST = ['title', 'product', 'module', 'submenu', 'summary', 'tags', 'version', 'client', 'updatedAt', 'updatedBy', 'createdAt', 'order'];
 const pick = (d, keys) => keys.reduce((o, k) => { if(d[k] !== undefined) o[k] = d[k]; return o; }, {});
 const SAFE_IMG = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 
@@ -369,8 +369,9 @@ async function publicKb(req, res, token){
     }
     const snap = await adminDb().collection(`workspaces/${ws}/kb`).get();
     const ord = (a) => Number.isFinite(a.order) ? a.order : Infinity;   // the order the team dragged them into
+    const born = (a) => a.createdAt || a.updatedAt || 0;                // editing a guide must not move it
     const articles = snap.docs.map(g => ({ id: g.id, ...pick(g.data() || {}, KB_LIST) }))
-      .sort((x, y) => (ord(x) - ord(y)) || (y.updatedAt || 0) - (x.updatedAt || 0));
+      .sort((x, y) => (ord(x) - ord(y)) || (born(y) - born(x)));
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ scope: 'all', generatedAt: Date.now(), articles });
   } catch(err){

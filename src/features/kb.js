@@ -150,7 +150,10 @@ function byUpdated(a, b){ return (b.updatedAt || 0) - (a.updatedAt || 0); }
 /* v5.8.0: guides keep the order the team dragged them into; the ones never dragged
    stay newest-first underneath */
 function orderOf(a){ return Number.isFinite(a.order) ? a.order : Infinity; }
-function byOrder(a, b){ return (orderOf(a) - orderOf(b)) || byUpdated(a, b); }
+/* v5.8.1: the fallback is when the guide was written, not when it was last edited, so
+   editing a guide leaves it exactly where it was in the list */
+function bornAt(a){ return a.createdAt || a.updatedAt || 0; }
+function byOrder(a, b){ return (orderOf(a) - orderOf(b)) || (bornAt(b) - bornAt(a)); }
 const canReorder = () => canEdit() && !S.query.trim();
 function moduleOf(a){ return a.module || 'Other'; }
 function submenuOf(a){ return String(a.submenu || '').trim(); }
@@ -947,6 +950,11 @@ async function saveEditor(){
     updatedBy: userLabel()
   };
   if(ed.isNew){ data.createdAt = now; data.createdBy = userLabel(); }
+  else {
+    // an old guide saved before createdAt existed: pin it where it sits today
+    const was = S.articles.find(x => x.id === ed.id);
+    if(was && !was.createdAt) data.createdAt = was.updatedAt || now;
+  }
 
   try {
     const before = (S.articles.find(x => x.id === ed.id) || {}).content || '';
