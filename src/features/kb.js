@@ -23,6 +23,7 @@ import {
 } from './kb-structure.js';
 import { writeClipboard } from '../core/clipboard.js';
 import { apiFetch } from '../api.js';
+import { canEdit } from '../core/team.js';
 import { cloudinaryConfigured, uploadToCloudinary, publicIdFromUrl, cloudUrlsIn, destroyCloudImages, migrateKbImages } from './kb-cloudinary.js';
 
 const PRODUCTS = {
@@ -146,6 +147,11 @@ function matchesQuery(a, q){
 }
 
 function byUpdated(a, b){ return (b.updatedAt || 0) - (a.updatedAt || 0); }
+/* v5.8.0: guides keep the order the team dragged them into; the ones never dragged
+   stay newest-first underneath */
+function orderOf(a){ return Number.isFinite(a.order) ? a.order : Infinity; }
+function byOrder(a, b){ return (orderOf(a) - orderOf(b)) || byUpdated(a, b); }
+const canReorder = () => canEdit() && !S.query.trim();
 function moduleOf(a){ return a.module || 'Other'; }
 function submenuOf(a){ return String(a.submenu || '').trim(); }
 function submenuKey(a){ return submenuOf(a) || GENERAL; }
@@ -159,7 +165,7 @@ function visibleArticles(){
     .filter(a => S.module === 'all' || moduleOf(a).toLowerCase() === S.module.toLowerCase())
     .filter(a => S.module === 'all' || S.submenu === 'all' || submenuKey(a).toLowerCase() === S.submenu.toLowerCase())
     .filter(a => matchesQuery(a, q))
-    .sort(byUpdated);
+    .sort(byOrder);
 }
 
 /* Library tree: the team's defined menus (in their order) + names used by
@@ -188,6 +194,7 @@ function productChip(p){
 }
 
 const ICONS = {
+  grip: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>',
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
   back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
   chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>',
@@ -199,9 +206,15 @@ const ICONS = {
 
 function render(){
   if(!$('view-kb')) return;
+  if(S.dragging) return;        // a redraw mid-drag would drop the row being moved
+
   renderNav();
   renderFilterSelect();
   renderPane();
+  if(S.focusGrip){
+    const g = document.querySelector(`[data-kb-item="${CSS.escape(S.focusGrip)}"] .kb-row-grip`);
+    if(g) g.focus(); else S.focusGrip = '';
+  }
 }
 
 /* Left library tree: All guides → products → modules → submenus */
@@ -317,7 +330,10 @@ function guideRow(a, { showProduct, showModule, showSubmenu }){
     where ? `<span class="kb-row-path" title="${escapeHtml([showModule ? moduleOf(a) : '', showSubmenu ? submenuOf(a) : ''].filter(Boolean).join(' › '))}">${ICON_FOLDER}<span>${where}</span></span>` : '',
     a.client ? `<span class="kb-row-client" title="Client: ${escapeHtml(a.client)}">${ICON_CLIENT}<span>${escapeHtml(a.client)}</span></span>` : ''
   ].filter(Boolean).join('');
-  return `<button type="button" class="kb-row" data-kb-open="${escapeHtml(a.id)}" style="--pc:${pcOf(a.product)}">
+  const grip = canReorder()
+    ? `<span class="kb-row-wrap" data-kb-item="${escapeHtml(a.id)}"><span class="kb-row-grip" role="button" tabindex="0" data-kb-grip="${escapeHtml(a.id)}" aria-label="Move “${escapeHtml(a.title || 'Untitled')}” — drag, or hold Alt and press the up or down arrow" title="Drag to reorder (Alt + ↑ / ↓)">${ICONS.grip}</span>`
+    : '';
+  return `${grip}<button type="button" class="kb-row${grip ? ' has-grip' : ''}" data-kb-open="${escapeHtml(a.id)}" data-kb-id="${escapeHtml(a.id)}" style="--pc:${pcOf(a.product)}">
     <span class="kb-row-ic" aria-hidden="true" title="${escapeHtml(moduleOf(a))}">${escapeHtml(initialsOf(moduleOf(a)))}</span>
     <span class="kb-row-main">
       <span class="kb-row-title">${escapeHtml(a.title || 'Untitled')}</span>
@@ -326,7 +342,7 @@ function guideRow(a, { showProduct, showModule, showSubmenu }){
     </span>
     <span class="kb-row-date">${escapeHtml(fmtDate(a.updatedAt))}</span>
     <span class="kb-row-go" aria-hidden="true">${ICONS.chevron}</span>
-  </button>`;
+  </button>${grip ? '</span>' : ''}`;
 }
 
 function renderList(el){
@@ -376,7 +392,7 @@ function renderList(el){
   const pc = S.product !== 'all' ? pcOf(S.product) : '';
   el.innerHTML = `<header class="kb-list-head${pc ? ' has-pc' : ''}"${pc ? ` style="--pc:${pc}"` : ''}>
       <div>${pc ? `<span class="kb-head-chip">${escapeHtml(PRODUCTS[S.product]?.label || '')}</span>` : ''}<h2>${head.title}</h2>${head.sub ? `<p>${head.sub}</p>` : ''}</div>
-      <span class="kb-list-count">${list.length} ${list.length === 1 ? 'guide' : 'guides'}</span>
+      <span class="kb-list-count">${canReorder() && list.length > 1 ? `<span class="kb-reorder-hint">${ICONS.grip}Drag to reorder</span>` : ''}${list.length} ${list.length === 1 ? 'guide' : 'guides'}</span>
     </header>${migrateBannerHtml()}${home}${home && list.length ? '<h3 class="kb-home-title">All guides by product</h3>' : ''}${body}`;
   maybeCheckCloudinary();
 }
@@ -1302,11 +1318,110 @@ async function saveManager(){
 }
 
 /* ---------------- wiring ---------------- */
+/* ---------------- reordering the guide list (v5.8.0) ----------------
+   Rows move inside their own group only; dropping into another group would mean
+   changing the guide's module, which is done in the editor instead. */
+let dragId = null;
+
+function groupIdsOf(el){
+  const sec = el.closest('.kb-group');
+  return sec ? [...sec.querySelectorAll('[data-kb-item]')].map(x => x.dataset.kbItem) : [];
+}
+
+async function saveOrder(ids){
+  const byId = new Map(S.articles.map(a => [a.id, a]));
+  const changed = ids.filter((id, i) => byId.has(id) && byId.get(id).order !== i * 10);
+  if(!changed.length) return;
+  ids.forEach((id, i) => { const a = byId.get(id); if(a) a.order = i * 10; });   // show it at once
+  render();
+  try {
+    const db = kbRef();
+    await Promise.all(changed.map(id => db.doc(id).set({ order: ids.indexOf(id) * 10 }, { merge: true })));
+  } catch(err){
+    console.error('kb order', err);
+    toast('Could not save the new order', 'error');
+  }
+}
+
+/* move one guide up or down inside its group */
+function nudge(id, dir){
+  const el = document.querySelector(`[data-kb-item="${CSS.escape(id)}"]`);
+  if(!el) return;
+  const ids = groupIdsOf(el);
+  const i = ids.indexOf(id), j = i + dir;
+  if(i < 0 || j < 0 || j >= ids.length) return;
+  ids.splice(j, 0, ids.splice(i, 1)[0]);
+  S.focusGrip = id;                     // the redraw below replaces the button under the keyboard
+  saveOrder(ids);
+}
+
+/* pointer-based so it works with a mouse, a trackpad and a touch screen */
+function wireDrag(root){
+  let drag = null;
+
+  root.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest('[data-kb-grip]');
+    if(!grip || e.button > 0) return;
+    const el = grip.closest('[data-kb-item]'), group = el && el.closest('.kb-group');
+    if(!el || !group) return;
+    drag = { id: grip.dataset.kbGrip, el, group, y: e.clientY, moved: false };
+    S.dragging = true;
+  });
+
+  // on the window, so letting go outside the list still finishes the move
+  window.addEventListener('pointermove', (e) => {
+    if(!drag) return;
+    if(!drag.moved){
+      if(Math.abs(e.clientY - drag.y) < 4) return;
+      drag.moved = true;
+      drag.el.classList.add('is-dragging');
+      document.body.classList.add('kb-dragging');
+    }
+    // the row the pointer is over, inside the same group — moving a guide to another
+    // module is done in the editor, not by dragging
+    for(const r of drag.group.querySelectorAll('[data-kb-item]')){
+      if(r === drag.el) continue;
+      const b = r.getBoundingClientRect();
+      if(e.clientY >= b.top && e.clientY <= b.bottom){
+        r.parentNode.insertBefore(drag.el, e.clientY > b.top + b.height / 2 ? r.nextSibling : r);
+        break;
+      }
+    }
+  });
+
+  const end = (save) => {
+    if(!drag) return;
+    const d = drag; drag = null;
+    S.dragging = false;
+    document.body.classList.remove('kb-dragging');
+    d.el.classList.remove('is-dragging');
+    if(save && d.moved) saveOrder(groupIdsOf(d.el));
+    else render();                      // cancelled, or a redraw was held back: draw the real order
+  };
+  window.addEventListener('pointerup', () => end(true));
+  window.addEventListener('pointercancel', () => end(false));
+  window.addEventListener('blur', () => end(false));
+
+  root.addEventListener('keydown', (e) => {
+    const grip = e.target.closest('[data-kb-grip]');
+    if(!grip) return;
+    if(e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+      e.preventDefault();
+      nudge(grip.dataset.kbGrip, e.key === 'ArrowUp' ? -1 : 1);
+    } else if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      selectArticle(grip.dataset.kbGrip);
+    }
+  });
+}
+
 function wire(){
   if(S.wired) return;
   const root = $('view-kb');
   if(!root) return;
   S.wired = true;
+
+  wireDrag(root);
 
   root.addEventListener('click', (e) => {
     const t = e.target;

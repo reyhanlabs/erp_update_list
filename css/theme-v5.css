@@ -507,3 +507,32 @@ body.sidebar-collapsed .view-tabs .nav-item .label,body.sidebar-collapsed .view-
   .kbp-count{margin-left:0}
 }
 @media (prefers-reduced-motion:reduce){.kbp-row{transition:none}.kbp-row:hover{transform:none}}
+
+/* ============================================================
+   v5.8.0 — Knowledge Base: drag a guide to reorder the list
+   ============================================================ */
+.kb-row-wrap{position:relative;display:block}
+/* the hairline between rows used to come from .kb-row + .kb-row; the rows are wrapped now */
+.kb-row-wrap + .kb-row-wrap .kb-row::before{content:'';position:absolute;left:12px;right:12px;top:0;height:1px;background:var(--line)}
+.kb-row-wrap:hover .kb-row::before,.kb-row-wrap:hover + .kb-row-wrap .kb-row::before{opacity:0}
+.kb-row-grip{position:absolute;left:-6px;top:50%;transform:translateY(-50%);z-index:2;touch-action:none;user-select:none;-webkit-user-select:none;
+  display:flex;align-items:center;justify-content:center;width:26px;height:34px;
+  border-radius:8px;color:var(--text-tertiary);opacity:0;cursor:grab;
+  transition:opacity .18s,color .18s,background .18s}
+.kb-row-grip svg{width:16px;height:16px}
+.kb-row-wrap:hover .kb-row-grip,.kb-row-grip:focus-visible{opacity:1}
+.kb-row-grip:hover{color:var(--text);background:var(--bg-subtle)}
+.kb-row-grip:focus-visible{outline:2px solid var(--brand);outline-offset:1px;opacity:1}
+.kb-row-grip:active{cursor:grabbing}
+.kb-row-wrap .kb-row{width:100%}
+.kb-row-wrap.is-dragging{opacity:.45}
+.kb-row-wrap.is-dragging .kb-row{border-style:dashed}
+@media (hover:none){.kb-row-grip{opacity:1}}
+@media (max-width:760px){.kb-row-grip{position:static;transform:none;width:100%;height:20px;border-radius:0 0 8px 8px}}
+@media (prefers-reduced-motion:reduce){.kb-row-grip{transition:none}}
+body.kb-dragging{cursor:grabbing;user-select:none}
+body.kb-dragging .kb-row{pointer-events:none}
+.kb-list-count{display:inline-flex;align-items:center;gap:10px}
+.kb-reorder-hint{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--text-tertiary)}
+.kb-reorder-hint svg{width:13px;height:13px}
+@media (max-width:760px){.kb-reorder-hint{display:none}}
